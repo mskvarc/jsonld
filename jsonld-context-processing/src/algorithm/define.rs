@@ -2,7 +2,7 @@ use super::{Environment, Merged, expand_iri_simple, expand_iri_with};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use iri_rs::{Iri, IriRef};
 use jsonld_core::{
-	Container, Context, Id, Loader, ProcessingMode, Term, Type, ValidId,
+	Container, Context, HashMap, Id, Loader, ProcessingMode, Term, Type, ValidId,
 	context::{NormalTermDefinition, TypeTermDefinition},
 };
 use jsonld_syntax::{
@@ -14,7 +14,7 @@ use jsonld_syntax::{
 };
 use rdf_rs::BlankId;
 use rdf_rs::vocabulary::VocabularyMut;
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 fn is_gen_delim(c: char) -> bool {
 	matches!(c, ':' | '/' | '?' | '#' | '[' | ']' | '@')

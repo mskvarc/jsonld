@@ -1,5 +1,5 @@
 use super::{IntoSyntax, Nest};
-use crate::{Container, Direction, LenientLangTagBuf, Nullable, Term, Type};
+use crate::{Container, Direction, HashMap, LenientLangTagBuf, Nullable, Term, Type};
 use contextual::WithContext;
 use iri_rs::IriBuf;
 use jsonld_syntax::{
@@ -12,7 +12,6 @@ use jsonld_syntax::{
 use crate::ValidId as Id;
 use rdf_rs::vocabulary::{IriVocabulary, Vocabulary};
 use rdf_rs::BlankIdBuf;
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::{borrow::Borrow, fmt};
 
@@ -82,7 +81,7 @@ pub struct Definitions<T, B> {
 impl<T, B> Default for Definitions<T, B> {
 	fn default() -> Self {
 		Self {
-			normal: HashMap::new(),
+			normal: HashMap::default(),
 			type_: None,
 		}
 	}
@@ -224,7 +223,7 @@ impl<T, B> Definitions<T, B> {
 
 pub struct Iter<'a, T, B> {
 	type_: Option<&'a TypeTermDefinition>,
-	normal: std::collections::hash_map::Iter<'a, Key, NormalTermDefinition<T, B>>,
+	normal: hashbrown::hash_map::Iter<'a, Key, NormalTermDefinition<T, B>>,
 }
 
 impl<'a, T, B> Iterator for Iter<'a, T, B> {
@@ -249,7 +248,7 @@ impl<'a, T, B> IntoIterator for &'a Definitions<T, B> {
 
 pub struct IntoIter<T, B> {
 	type_: Option<TypeTermDefinition>,
-	normal: std::collections::hash_map::IntoIter<Key, NormalTermDefinition<T, B>>,
+	normal: hashbrown::hash_map::IntoIter<Key, NormalTermDefinition<T, B>>,
 }
 
 impl<T, B> Iterator for IntoIter<T, B> {

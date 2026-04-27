@@ -14,6 +14,8 @@ readme = "README.md"
 [features]
 reqwest = ["jsonld-core/reqwest"]
 serde = ["jsonld-syntax/serde", "jsonld-core/serde"]
+ahash = ["jsonld-core/ahash"]
+gxhash = ["jsonld-core/gxhash"]
 
 [dependencies]
 contextual = "0.1.6"

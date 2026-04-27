@@ -3,9 +3,8 @@ use iri_rs::IriBuf;
 use super::BindingRef;
 use super::Context;
 use super::Key;
-use crate::{Container, Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
+use crate::{Container, Direction, HashMap, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 
@@ -126,12 +125,12 @@ impl<T> InverseContainer<T> {
 		InverseContainer {
 			language: InverseLang {
 				any: None,
-				map: HashMap::new(),
+				map: HashMap::default(),
 			},
 			typ: InverseType {
 				reverse: None,
 				any: None,
-				map: HashMap::new(),
+				map: HashMap::default(),
 			},
 			any: Any { none: term.clone() },
 		}
@@ -145,7 +144,7 @@ pub struct InverseDefinition<T> {
 impl<T> InverseDefinition<T> {
 	fn new() -> InverseDefinition<T> {
 		InverseDefinition {
-			map: HashMap::new(),
+			map: HashMap::default(),
 		}
 	}
 
@@ -222,7 +221,7 @@ impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
 impl<T, B> InverseContext<T, B> {
 	pub fn new() -> Self {
 		InverseContext {
-			map: HashMap::new(),
+			map: HashMap::default(),
 		}
 	}
 }

@@ -10,6 +10,11 @@ license.workspace = true
 description = "Command line interface for JSON-LD"
 readme = "README.md"
 
+[features]
+default = []
+ahash = ["jsonld/ahash"]
+gxhash = ["jsonld/gxhash"]
+
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
 contextual = "0.1.6"
