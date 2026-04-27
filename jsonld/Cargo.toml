@@ -1,0 +1,43 @@
+[package]
+name = "jsonld"
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+description = "JSON-LD implementation"
+readme = "README.md"
+
+[features]
+reqwest = ["jsonld-core/reqwest"]
+serde = ["jsonld-syntax/serde", "jsonld-core/serde"]
+
+[dependencies]
+jsonld-syntax.workspace = true
+jsonld-core.workspace = true
+jsonld-context-processing.workspace = true
+jsonld-expansion.workspace = true
+jsonld-compaction.workspace = true
+jsonld-serialization.workspace = true
+json-syntax.workspace = true
+futures.workspace = true
+locspan.workspace = true
+iref.workspace = true
+rdf-types.workspace = true
+contextual.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+jsonld-testing.workspace = true
+log.workspace = true
+async-std = { workspace = true, features = ["attributes"] }
+iref.workspace = true
+static-iref.workspace = true
+nquads-syntax = "0.19"
+stacker = "0.1.15"
+
+[package.metadata.docs.rs]
+all-features = true

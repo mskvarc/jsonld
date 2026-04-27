@@ -1,0 +1,22 @@
+[package]
+name = "jsonld-context-processing"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "JSON-LD context processing implementation"
+documentation = "https://docs.rs/jsonld-context-processing"
+readme = "README.md"
+
+[dependencies]
+jsonld-core.workspace = true
+jsonld-syntax.workspace = true
+iref.workspace = true
+rdf-types.workspace = true
+futures.workspace = true
+mown.workspace = true
+contextual.workspace = true
+thiserror.workspace = true

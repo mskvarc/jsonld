@@ -1,0 +1,22 @@
+[package]
+name = "jsonld-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Command line interface for JSON-LD"
+readme = "README.md"
+
+[dependencies]
+jsonld = { workspace = true, features = ["reqwest"] }
+iref.workspace = true
+static-iref.workspace = true
+rdf-types.workspace = true
+contextual.workspace = true
+log.workspace = true
+tokio = { version = "1.23", features = ["rt-multi-thread", "net", "macros"] }
+stderrlog = "0.5"
+clap = { version = "3.0", features = ["derive"] }

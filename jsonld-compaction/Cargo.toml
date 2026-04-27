@@ -1,0 +1,28 @@
+[package]
+name = "jsonld-compaction"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "JSON-LD document compaction implementation"
+documentation = "https://docs.rs/jsonld-compaction"
+readme = "README.md"
+
+[dependencies]
+jsonld-core.workspace = true
+jsonld-syntax.workspace = true
+jsonld-context-processing.workspace = true
+jsonld-expansion.workspace = true
+json-syntax.workspace = true
+langtag.workspace = true
+iref.workspace = true
+contextual.workspace = true
+rdf-types.workspace = true
+futures.workspace = true
+mown.workspace = true
+educe.workspace = true
+thiserror.workspace = true
+indexmap.workspace = true

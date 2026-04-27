@@ -217,7 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- [75c73b1] Add `expansion_policy` in `json_ld::Options`.
+- [75c73b1] Add `expansion_policy` in `jsonld::Options`.
 - [1076ada] Add `Options::with_expand_context` function.
 
 ## [0.11.0] - 2023-01-10
@@ -436,4 +436,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [47389b7] Remove `as_json_ld` from LocalContext.
 - [50ff476] Remove keyword iri.
 - [87da59c] Remove useless comment.
-

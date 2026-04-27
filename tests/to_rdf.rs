@@ -1,5 +1,5 @@
 use contextual::WithContext;
-use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
+use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
 use nquads_syntax::{strip_quad, Parse};
 use rdf_types::{
 	dataset::{isomorphism::are_isomorphic_with, IndexedBTreeDataset},
@@ -23,7 +23,7 @@ type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralI
 #[ignore_test("#tli12", see = "https://github.com/w3c/json-ld-api/issues/533")]
 mod to_rdf {
 	use iref::Iri;
-	use json_ld::rdf::RdfDirection;
+	use jsonld::rdf::RdfDirection;
 
 	#[iri("jld:ToRDFTest")]
 	pub struct Test {
@@ -66,7 +66,7 @@ mod to_rdf {
 		pub base: Option<&'static Iri>,
 
 		#[iri("jld:processingMode")]
-		pub processing_mode: Option<json_ld::ProcessingMode>,
+		pub processing_mode: Option<jsonld::ProcessingMode>,
 
 		#[iri("jld:specVersion")]
 		pub spec_version: Option<&'static str>,
@@ -110,13 +110,13 @@ impl to_rdf::Test {
 		}
 
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-		let mut loader = json_ld::FsLoader::default();
+		let mut loader = jsonld::FsLoader::default();
 		loader.mount(
 			iri!("https://w3c.github.io/json-ld-api").to_owned(),
 			"tests/json-ld-api",
 		);
 
-		let mut options: json_ld::Options<IriIndex> = json_ld::Options::default();
+		let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
 		if let Some(p) = self.options.processing_mode {
 			options.processing_mode = p
 		}

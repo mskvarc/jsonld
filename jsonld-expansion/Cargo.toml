@@ -1,0 +1,31 @@
+[package]
+name = "jsonld-expansion"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "JSON-LD document expansion implementation"
+documentation = "https://docs.rs/jsonld-expansion"
+readme = "README.md"
+
+[dependencies]
+jsonld-core.workspace = true
+jsonld-syntax.workspace = true
+jsonld-context-processing.workspace = true
+json-syntax.workspace = true
+langtag.workspace = true
+iref.workspace = true
+rdf-types.workspace = true
+futures.workspace = true
+mown.workspace = true
+educe.workspace = true
+contextual.workspace = true
+thiserror.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+async-std = { workspace = true, features = ["attributes"] }
+static-iref.workspace = true

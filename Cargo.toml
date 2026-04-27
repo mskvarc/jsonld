@@ -1,91 +1,56 @@
-[package]
-name = "json-ld"
-edition.workspace = true
-authors.workspace = true
-categories.workspace = true
-keywords.workspace = true
-repository.workspace = true
-license.workspace = true
-rust-version.workspace = true
-version.workspace = true
-documentation.workspace = true
-description = "JSON-LD implementation"
-readme = "README.md"
-
-[features]
-reqwest = ["json-ld-core/reqwest"]
-serde = ["json-ld-syntax/serde", "json-ld-core/serde"]
-
-[dependencies]
-json-ld-syntax.workspace = true
-json-ld-core.workspace = true
-json-ld-context-processing.workspace = true
-json-ld-expansion.workspace = true
-json-ld-compaction.workspace = true
-json-ld-serialization.workspace = true
-json-syntax.workspace = true
-futures.workspace = true
-locspan.workspace = true
-iref.workspace = true
-rdf-types.workspace = true
-contextual.workspace = true
-thiserror.workspace = true
-
-[dev-dependencies]
-json-ld-testing.workspace = true
-log.workspace = true
-async-std = { workspace = true, features = ["attributes"] }
-iref.workspace = true
-static-iref.workspace = true
-nquads-syntax = "0.19"
-stacker = "0.1.15"
-
-[package.metadata.docs.rs]
-all-features = true
-
 [workspace]
-members = ["crates/*"]
-
-resolver = "2"
+members = [
+    "jsonld",
+    "jsonld-cli",
+    "jsonld-compaction",
+    "jsonld-context-processing",
+    "jsonld-core",
+    "jsonld-expansion",
+    "jsonld-serialization",
+    "jsonld-syntax",
+    "jsonld-testing",
+]
+resolver = "3"
 
 [workspace.package]
-authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
-categories = ["web-programming", "database", "data-structures"]
-keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
-repository = "https://github.com/timothee-haudebourg/json-ld"
-documentation = "https://docs.rs/json-ld"
-license = "MIT/Apache-2.0"
+version = "0.22.0"
 edition = "2021"
-rust-version = "1.83.0"
-version = "0.21.4"
+rust-version = "1.85.0"
+authors = [
+    "Timothée Haudebourg <author@haudebourg.net>",
+    "Matej Škvarč <matej.skvarc@senlab.io>",
+]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/mskvarc/jsonld/"
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+categories = ["web-programming", "database", "data-structures"]
 
 [workspace.dependencies]
-json-ld = { path = ".", version = "0.21.4" }
-json-ld-syntax = { path = "crates/syntax", version = "0.21.4" }
-json-ld-core = { path = "crates/core", version = "0.21.4" }
-json-ld-context-processing = { path = "crates/context-processing", version = "0.21.4" }
-json-ld-expansion = { path = "crates/expansion", version = "0.21.4" }
-json-ld-compaction = { path = "crates/compaction", version = "0.21.4" }
-json-ld-serialization = { path = "crates/serialization", version = "0.21.4" }
-json-ld-testing = { path = "crates/testing" }
-json-syntax = "0.12"
-iref = "3.1.2"
-static-iref = "3.0"
-langtag = "0.4"
-rdf-types = "0.22"
-contextual = "0.1.4"
-locspan = "0.8"
+async-std = "1.12"
+contextual = "0.1.6"
 educe = "0.4.23"
 futures = "0.3"
-mown = "0.2.2"
 hashbrown = "0.13.1"
-smallvec = "1.10"
-log = "0.4.17"
-thiserror = "1.0.38"
-serde = "1.0"
 indexmap = "2.0"
-
+iref = "3.2.2"
 iref-enum = "3.0"
-async-std = "1.12"
-
+jsonld = { path = "jsonld", version = "0.22.0" }
+jsonld-compaction = { path = "jsonld-compaction", version = "0.22.0" }
+jsonld-context-processing = { path = "jsonld-context-processing", version = "0.22.0" }
+jsonld-core = { path = "jsonld-core", version = "0.22.0" }
+jsonld-expansion = { path = "jsonld-expansion", version = "0.22.0" }
+jsonld-serialization = { path = "jsonld-serialization", version = "0.22.0" }
+jsonld-syntax = { path = "jsonld-syntax", version = "0.22.0" }
+jsonld-testing = { path = "jsonld-testing", version = "0.22.0" }
+json-syntax = "0.12.5"
+langtag = "0.4.0"
 linked-data = "0.1"
+locspan = "0.8"
+log = "0.4.17"
+mown = "0.2.2"
+rdf-types = "0.22.5"
+serde = "1.0"
+smallvec = "1.10"
+static-iref = "3.0.0"
+thiserror = "1.0.38"

@@ -1,5 +1,5 @@
 use contextual::WithContext;
-use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
 use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use static_iref::iri;
 
@@ -56,7 +56,7 @@ mod compact {
 		pub expand_context: Option<&'static Iri>,
 
 		#[iri("test:processingMode")]
-		pub processing_mode: Option<json_ld::ProcessingMode>,
+		pub processing_mode: Option<jsonld::ProcessingMode>,
 
 		#[iri("test:specVersion")]
 		pub spec_version: Option<&'static str>,
@@ -97,13 +97,13 @@ impl compact::Test {
 		}
 
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-		let mut loader = json_ld::FsLoader::default();
+		let mut loader = jsonld::FsLoader::default();
 		loader.mount(
 			iri!("https://w3c.github.io/json-ld-api").to_owned(),
 			"tests/json-ld-api",
 		);
 
-		let mut options: json_ld::Options<IriIndex> = json_ld::Options::default();
+		let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
 		if let Some(p) = self.options.processing_mode {
 			options.processing_mode = p
 		}
@@ -133,7 +133,7 @@ impl compact::Test {
 				let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
 				expect.set_url(Some(input));
 
-				let expand_options: json_ld::Options<IriIndex> = json_ld::Options::default();
+				let expand_options: jsonld::Options<IriIndex> = jsonld::Options::default();
 				let success = compacted
 					.compare_full(&expect, &mut vocabulary, &loader, expand_options, ())
 					.await

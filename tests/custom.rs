@@ -1,8 +1,8 @@
-use json_ld::{syntax::Parse, JsonLdProcessor, RemoteDocument};
+use jsonld::{syntax::Parse, JsonLdProcessor, RemoteDocument};
 use static_iref::iri;
 
 async fn custom_01() {
-	let mut loader = json_ld::FsLoader::new();
+	let mut loader = jsonld::FsLoader::new();
 
 	loader.mount(
 		iri!("https://www.w3.org/").to_owned(),
@@ -14,7 +14,7 @@ async fn custom_01() {
 	);
 
 	let input = std::fs::read_to_string("tests/custom/t01-in.jsonld").unwrap();
-	let (json, _) = json_ld::syntax::Value::parse_str(&input).unwrap();
+	let (json, _) = jsonld::syntax::Value::parse_str(&input).unwrap();
 	let doc = RemoteDocument::new(None, None, json);
 
 	let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());

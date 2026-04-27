@@ -52,7 +52,7 @@ the remote document.
 ```rust
 use iref::IriBuf;
 use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
+use jsonld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
 
 // Create a "remote" document by parsing a file manually.
 let input = RemoteDocument::new(
@@ -74,7 +74,7 @@ let input = RemoteDocument::new(
 );
 
 // Use `NoLoader` as we won't need to load any remote document.
-let mut loader = json_ld::NoLoader;
+let mut loader = jsonld::NoLoader;
 
 // Expand the "remote" document.
 let expanded = input
@@ -98,13 +98,13 @@ Here is another example using `RemoteDocumentReference`.
 
 ```rust
 use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
+use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
 
 let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 
 // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 // the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = jsonld::FsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
 let expanded = input.expand(&mut loader)
@@ -129,7 +129,7 @@ let input = RemoteDocumentReference::iri(iri_index);
 
 // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 // the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = jsonld::FsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
 let expanded = input
@@ -173,7 +173,7 @@ using `JsonLdProcessor::compact`.
 
 ```rust
 use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
+use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
 
 let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 
@@ -181,7 +181,7 @@ let context = RemoteContextReference::iri(iri!("https://example.com/context.json
 
 // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 // the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = jsonld::FsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
 let compact = input
@@ -222,13 +222,13 @@ using `JsonLdProcessor::flatten`.
 
 ```rust
 use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
+use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
 
 let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 
 // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 // the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = jsonld::FsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
 let mut generator = rdf_types::generator::Blank::new();
