@@ -12,6 +12,7 @@ use rdf_rs::vocabulary::Vocabulary;
 use rdf_rs::BlankIdBuf;
 use std::borrow::Borrow;
 use std::hash::Hash;
+use std::sync::Arc;
 
 pub use jsonld_syntax::context::{
 	definition::{Key, KeyOrType, Type},
@@ -34,8 +35,8 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
 	vocabulary: Option<Term<T, B>>,
 	default_language: Option<LenientLangTagBuf>,
 	default_base_direction: Option<Direction>,
-	previous_context: Option<Box<Self>>,
-	definitions: Definitions<T, B>,
+	previous_context: Option<Arc<Self>>,
+	definitions: Arc<Definitions<T, B>>,
 	inverse: OnceCell<InverseContext<T, B>>,
 }
 
@@ -48,7 +49,7 @@ impl<T, B> Default for Context<T, B> {
 			default_language: None,
 			default_base_direction: None,
 			previous_context: None,
-			definitions: Definitions::default(),
+			definitions: Arc::new(Definitions::default()),
 			inverse: OnceCell::default(),
 		}
 	}
@@ -69,7 +70,7 @@ impl<T, B> Context<T, B> {
 			default_language: None,
 			default_base_direction: None,
 			previous_context: None,
-			definitions: Definitions::default(),
+			definitions: Arc::new(Definitions::default()),
 			inverse: OnceCell::default(),
 		}
 	}
@@ -186,14 +187,22 @@ impl<T, B> Context<T, B> {
 		&mut self,
 		key: Key,
 		definition: Option<NormalTermDefinition<T, B>>,
-	) -> Option<NormalTermDefinition<T, B>> {
+	) -> Option<NormalTermDefinition<T, B>>
+	where
+		T: Clone,
+		B: Clone,
+	{
 		self.inverse.take();
-		self.definitions.set_normal(key, definition)
+		Arc::make_mut(&mut self.definitions).set_normal(key, definition)
 	}
 
 	/// Sets the `@type` definition.
-	pub fn set_type(&mut self, type_: Option<TypeTermDefinition>) -> Option<TypeTermDefinition> {
-		self.definitions.set_type(type_)
+	pub fn set_type(&mut self, type_: Option<TypeTermDefinition>) -> Option<TypeTermDefinition>
+	where
+		T: Clone,
+		B: Clone,
+	{
+		Arc::make_mut(&mut self.definitions).set_type(type_)
 	}
 
 	/// Sets the base IRI.
@@ -223,15 +232,19 @@ impl<T, B> Context<T, B> {
 	/// Sets the previous context.
 	pub fn set_previous_context(&mut self, previous: Self) {
 		self.inverse.take();
-		self.previous_context = Some(Box::new(previous))
+		self.previous_context = Some(Arc::new(previous))
 	}
 
 	/// Converts this context into its syntactic definition.
 	pub fn into_syntax_definition(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
-	) -> jsonld_syntax::context::Definition {
-		let (bindings, type_) = self.definitions.into_parts();
+	) -> jsonld_syntax::context::Definition
+	where
+		T: Clone,
+		B: Clone,
+	{
+		let (bindings, type_) = Arc::unwrap_or_clone(self.definitions).into_parts();
 
 		jsonld_syntax::context::Definition {
 			base: self
@@ -263,7 +276,11 @@ impl<T, B> Context<T, B> {
 		self,
 		mut map_iri: impl FnMut(T) -> U,
 		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
-	) -> Context<U, C> {
+	) -> Context<U, C>
+	where
+		T: Clone,
+		B: Clone,
+	{
 		self.map_ids_with(&mut map_iri, &mut map_id)
 	}
 
@@ -271,7 +288,11 @@ impl<T, B> Context<T, B> {
 		self,
 		map_iri: &mut impl FnMut(T) -> U,
 		map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>,
-	) -> Context<U, C> {
+	) -> Context<U, C>
+	where
+		T: Clone,
+		B: Clone,
+	{
 		Context {
 			original_base_url: self.original_base_url.map(&mut *map_iri),
 			base_iri: self.base_iri.map(&mut *map_iri),
@@ -280,8 +301,8 @@ impl<T, B> Context<T, B> {
 			default_base_direction: self.default_base_direction,
 			previous_context: self
 				.previous_context
-				.map(|c| Box::new((*c).map_ids_with(map_iri, map_id))),
-			definitions: self.definitions.map_ids(map_iri, map_id),
+				.map(|c| Arc::new(Arc::unwrap_or_clone(c).map_ids_with(map_iri, map_id))),
+			definitions: Arc::new(Arc::unwrap_or_clone(self.definitions).map_ids(map_iri, map_id)),
 			inverse: OnceCell::new(),
 		}
 	}
@@ -304,7 +325,7 @@ impl<T, B> IntoSyntax<T, B> for jsonld_syntax::context::Context {
 	}
 }
 
-impl<T, B: Clone> IntoSyntax<T, B> for Context<T, B> {
+impl<T: Clone, B: Clone> IntoSyntax<T, B> for Context<T, B> {
 	fn into_syntax(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
@@ -324,7 +345,7 @@ impl<T: Clone, B: Clone> Clone for Context<T, B> {
 			default_language: self.default_language.clone(),
 			default_base_direction: self.default_base_direction,
 			previous_context: self.previous_context.clone(),
-			definitions: self.definitions.clone(),
+			definitions: Arc::clone(&self.definitions),
 			inverse: OnceCell::default(),
 		}
 	}
