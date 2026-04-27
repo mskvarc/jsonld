@@ -8,14 +8,13 @@ use std::hash::Hash;
 
 #[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Educe, Debug, Clone, Hash)]
-#[educe(
-	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash"),
-	Eq(bound = "T: Eq + Hash, B: Eq + Hash")
-)]
+#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
 /// List object.
 pub struct List<T, B> {
 	entry: Vec<IndexedObject<T, B>>,
 }
+
+impl<T: Eq + Hash, B: Eq + Hash> Eq for List<T, B> {}
 
 impl<T, B> List<T, B> {
 	/// Creates a new list object.

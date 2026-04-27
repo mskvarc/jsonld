@@ -231,14 +231,14 @@ fn parse_input(
 
 	let attrs = std::mem::take(&mut input.attrs);
 	for attr in attrs {
-		if attr.path.is_ident("mount") {
-			let mount: MountAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+		if attr.path().is_ident("mount") {
+			let mount: MountAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
 			loader.mount(mount.prefix.as_iri().to_owned(), mount.target)
-		} else if attr.path.is_ident("iri_prefix") {
-			let attr: PrefixBinding = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+		} else if attr.path().is_ident("iri_prefix") {
+			let attr: PrefixBinding = attr.parse_args().map_err(|e| Box::new(e.into()))?;
 			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
-		} else if attr.path.is_ident("ignore_test") {
-			let attr: IgnoreAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+		} else if attr.path().is_ident("ignore_test") {
+			let attr: IgnoreAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
 			let resolved = attr.iri_ref.resolved(base.as_iri());
 			ignore.insert(vocabulary.insert(resolved.as_iri()), attr.link);
 		} else {
@@ -299,8 +299,8 @@ fn parse_struct_type(
 
 	let attrs = std::mem::take(&mut s.attrs);
 	for attr in attrs {
-		if attr.path.is_ident("iri") {
-			let attr: IriAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+		if attr.path().is_ident("iri") {
+			let attr: IriAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
 			let iri = expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?;
 			type_map.insert(iri, s.ident.clone());
 		} else {
@@ -321,9 +321,9 @@ fn parse_struct_type(
 		let mut iri: Option<IriIndex> = None;
 		let attrs = std::mem::take(&mut field.attrs);
 		for attr in attrs {
-			if attr.path.is_ident("iri") {
+			if attr.path().is_ident("iri") {
 				let attr: IriAttribute =
-					syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+					attr.parse_args().map_err(|e| Box::new(e.into()))?;
 				iri = Some(
 					expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?,
 				)
@@ -375,8 +375,8 @@ fn parse_enum_type(
 
 	let attrs = std::mem::take(&mut e.attrs);
 	for attr in attrs {
-		if attr.path.is_ident("iri") {
-			let attr: IriAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+		if attr.path().is_ident("iri") {
+			let attr: IriAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
 			let iri = expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?;
 			type_map.insert(iri, e.ident.clone());
 		} else {
@@ -389,9 +389,9 @@ fn parse_enum_type(
 		let mut iri: Option<IriIndex> = None;
 		let attrs = std::mem::take(&mut variant.attrs);
 		for attr in attrs {
-			if attr.path.is_ident("iri") {
+			if attr.path().is_ident("iri") {
 				let attr: IriAttribute =
-					syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+					attr.parse_args().map_err(|e| Box::new(e.into()))?;
 				iri = Some(
 					expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?,
 				)
@@ -416,9 +416,9 @@ fn parse_enum_type(
 					let mut field_iri: Option<IriIndex> = None;
 					let attrs = std::mem::take(&mut field.attrs);
 					for attr in attrs {
-						if attr.path.is_ident("iri") {
+						if attr.path().is_ident("iri") {
 							let attr: IriAttribute =
-								syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+								attr.parse_args().map_err(|e| Box::new(e.into()))?;
 							field_iri = Some(
 								expand_iri(vocabulary, bindings, attr.iri)
 									.map_err(|e| Box::new(e.into()))?,

@@ -71,7 +71,7 @@ pub enum Error {
 	TooManyRedirections,
 
 	#[error("JSON parse error: {0}")]
-	Parse(json_syntax::parse::Error<std::io::Error>),
+	Parse(json_syntax::parse::Error<utf8_decode::Utf8Error>),
 }
 
 /// `reqwest`-based loader.

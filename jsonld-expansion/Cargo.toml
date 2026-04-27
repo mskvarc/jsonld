@@ -12,20 +12,20 @@ documentation = "https://docs.rs/jsonld-expansion"
 readme = "README.md"
 
 [dependencies]
+contextual = "0.1.6"
+educe = "0.6.0"
+futures = "0.3.32"
+indexmap = "2.14.0"
+iref = "3.2.2"
+jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
-jsonld-context-processing.workspace = true
-json-syntax.workspace = true
-langtag.workspace = true
-iref.workspace = true
-rdf-types.workspace = true
-futures.workspace = true
-mown.workspace = true
-educe.workspace = true
-contextual.workspace = true
-thiserror.workspace = true
-indexmap.workspace = true
+json-syntax = "0.12.5"
+langtag = "0.4.0"
+mown = "1.0.0"
+rdf-types = "0.22.5"
+thiserror = "2.0.18"
 
 [dev-dependencies]
-async-std = { workspace = true, features = ["attributes"] }
-static-iref.workspace = true
+async-std = { version = "1.13.2", features = ["attributes"] }
+static-iref = "3.0.0"

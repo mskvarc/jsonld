@@ -62,7 +62,7 @@ impl<M> Value<M> {
 
 /// Reference to a context entry.
 #[derive(Educe)]
-#[educe(Clone(bound = "M: Clone"))]
+#[educe(Clone(bound(M: Clone)))]
 pub enum ValueRef<'a, M> {
 	One(Meta<ContextRef<'a, M>, M>),
 	Many(ArrayIter<'a, M>),

@@ -12,11 +12,11 @@ documentation = "https://docs.rs/jsonld-context-processing"
 readme = "README.md"
 
 [dependencies]
+contextual = "0.1.6"
+futures = "0.3.32"
+iref = "3.2.2"
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
-iref.workspace = true
-rdf-types.workspace = true
-futures.workspace = true
-mown.workspace = true
-contextual.workspace = true
-thiserror.workspace = true
+mown = "1.0.0"
+rdf-types = "0.22.5"
+thiserror = "2.0.18"

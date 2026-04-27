@@ -12,16 +12,16 @@ documentation = "https://docs.rs/jsonld-serialization"
 readme = "README.md"
 
 [dependencies]
+indexmap = "2.14.0"
+iref = "3.2.2"
 jsonld-core.workspace = true
-linked-data.workspace = true
-iref.workspace = true
-rdf-types.workspace = true
-json-syntax.workspace = true
-indexmap.workspace = true
-thiserror.workspace = true
-xsd-types = "0.9.1"
+json-syntax = "0.12.5"
+linked-data = "0.1.2"
+rdf-types = "0.22.5"
+thiserror = "2.0.18"
+xsd-types = "0.9.6"
 
 [dev-dependencies]
-linked-data = { workspace = true, features = ["derive"] }
-contextual.workspace = true
-json-syntax.workspace = true
+contextual = "0.1.6"
+json-syntax = "0.12.5"
+linked-data = { version = "0.1.2", features = ["derive"] }

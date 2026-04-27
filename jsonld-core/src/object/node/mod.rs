@@ -31,8 +31,7 @@ pub type IndexedNode<T = IriBuf, B = BlankIdBuf> = Indexed<Node<T, B>>;
 /// (`@included` field).
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
-#[derive(Educe, Debug, Clone)]
-#[educe(Eq(bound = "T: Eq + Hash, B: Eq + Hash"))]
+#[derive(Debug, Clone)]
 pub struct Node<T = IriBuf, B = BlankIdBuf> {
 	/// Identifier.
 	///
@@ -714,6 +713,8 @@ impl<T: Eq + Hash, B: Eq + Hash> PartialEq for Node<T, B> {
 			&& self.reverse_properties.eq(&other.reverse_properties)
 	}
 }
+
+impl<T: Eq + Hash, B: Eq + Hash> Eq for Node<T, B> {}
 
 impl<T, B> Indexed<Node<T, B>> {
 	pub fn entries(&self) -> IndexedEntries<'_, T, B> {

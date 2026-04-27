@@ -12,11 +12,10 @@ pub type PropertyObjects<T, B> = Multiset<IndexedObject<T, B>>;
 
 /// Properties of a node object, and their associated objects.
 #[derive(Educe, Debug, Clone)]
-#[educe(
-	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash"),
-	Eq(bound = "T: Eq + Hash, B: Eq + Hash")
-)]
+#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
 pub struct Properties<T, B>(IndexMap<Id<T, B>, PropertyObjects<T, B>>);
+
+impl<T: Eq + Hash, B: Eq + Hash> Eq for Properties<T, B> {}
 
 impl<T, B> Default for Properties<T, B> {
 	fn default() -> Self {

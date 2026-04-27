@@ -27,14 +27,6 @@ keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 categories = ["web-programming", "database", "data-structures"]
 
 [workspace.dependencies]
-async-std = "1.12"
-contextual = "0.1.6"
-educe = "0.4.23"
-futures = "0.3"
-hashbrown = "0.13.1"
-indexmap = "2.0"
-iref = "3.2.2"
-iref-enum = "3.0"
 jsonld = { path = "jsonld", version = "0.22.0" }
 jsonld-compaction = { path = "jsonld-compaction", version = "0.22.0" }
 jsonld-context-processing = { path = "jsonld-context-processing", version = "0.22.0" }
@@ -43,14 +35,3 @@ jsonld-expansion = { path = "jsonld-expansion", version = "0.22.0" }
 jsonld-serialization = { path = "jsonld-serialization", version = "0.22.0" }
 jsonld-syntax = { path = "jsonld-syntax", version = "0.22.0" }
 jsonld-testing = { path = "jsonld-testing", version = "0.22.0" }
-json-syntax = "0.12.5"
-langtag = "0.4.0"
-linked-data = "0.1"
-locspan = "0.8"
-log = "0.4.17"
-mown = "0.2.2"
-rdf-types = "0.22.5"
-serde = "1.0"
-smallvec = "1.10"
-static-iref = "3.0.0"
-thiserror = "1.0.38"

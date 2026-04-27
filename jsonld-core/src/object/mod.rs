@@ -95,10 +95,7 @@ pub type IndexedObject<T, B = ()> = Indexed<Object<T, B>>;
 /// using [`TryFromJson`].
 #[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Educe, Debug, Clone, Hash)]
-#[educe(
-	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash"),
-	Eq(bound = "T: Eq + Hash, B: Eq + Hash")
-)]
+#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
 pub enum Object<T = IriBuf, B = BlankIdBuf> {
 	/// Value object.
 	Value(Value<T>),
@@ -109,6 +106,8 @@ pub enum Object<T = IriBuf, B = BlankIdBuf> {
 	/// List object.
 	List(List<T, B>),
 }
+
+impl<T: Eq + Hash, B: Eq + Hash> Eq for Object<T, B> {}
 
 impl<T, B> Object<T, B> {
 	/// Creates a `null` value object.

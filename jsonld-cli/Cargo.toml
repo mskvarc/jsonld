@@ -11,12 +11,12 @@ description = "Command line interface for JSON-LD"
 readme = "README.md"
 
 [dependencies]
+clap = { version = "3.2.25", features = ["derive"] }
+contextual = "0.1.6"
+iref = "3.2.2"
 jsonld = { workspace = true, features = ["reqwest"] }
-iref.workspace = true
-static-iref.workspace = true
-rdf-types.workspace = true
-contextual.workspace = true
-log.workspace = true
-tokio = { version = "1.23", features = ["rt-multi-thread", "net", "macros"] }
-stderrlog = "0.5"
-clap = { version = "3.0", features = ["derive"] }
+log = "0.4.29"
+rdf-types = "0.22.5"
+static-iref = "3.0.0"
+stderrlog = "0.6.0"
+tokio = { version = "1.52.1", features = ["rt-multi-thread", "net", "macros"] }

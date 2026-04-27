@@ -15,13 +15,12 @@ pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf> = Multiset<IndexedNode
 
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(Educe, Debug, Clone)]
-#[educe(
-	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash"),
-	Eq(bound = "T: Eq + Hash, B: Eq + Hash")
-)]
+#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
 pub struct ReverseProperties<T = IriBuf, B = BlankIdBuf>(
 	IndexMap<Id<T, B>, ReversePropertyNodes<T, B>>,
 );
+
+impl<T: Eq + Hash, B: Eq + Hash> Eq for ReverseProperties<T, B> {}
 
 impl<T, B> Default for ReverseProperties<T, B> {
 	fn default() -> Self {
