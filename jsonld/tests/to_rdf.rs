@@ -1,18 +1,31 @@
 use contextual::WithContext;
-use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
-use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
+use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
+use nquads_syntax::{Parse, strip_quad};
+use rdf_types::{
+	dataset::{IndexedBTreeDataset, isomorphism::are_isomorphic_with},
+	interpretation::VocabularyInterpretation,
+	vocabulary::{
+		BlankIdIndex, EmbedIntoVocabulary, IndexVocabulary, IriIndex, IriVocabularyMut,
+		LiteralIndex,
+	},
+};
 use static_iref::iri;
 
-#[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld")]
+type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralIndex>;
+
+#[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/toRdf-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
 #[iri_prefix("rdf" = "http://www.w3.org/1999/02/22-rdf-syntax-ns#")]
 #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
-#[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
-mod expand {
+#[iri_prefix("jld" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
+#[ignore_test("#te122", see = "https://github.com/w3c/json-ld-api/issues/480")]
+#[ignore_test("#tli12", see = "https://github.com/w3c/json-ld-api/issues/533")]
+mod to_rdf {
 	use iref::Iri;
+	use jsonld::rdf::RdfDirection;
 
-	#[iri("test:ExpandTest")]
+	#[iri("jld:ToRDFTest")]
 	pub struct Test {
 		#[iri("rdfs:comment")]
 		pub comments: &'static [&'static str],
@@ -23,7 +36,7 @@ mod expand {
 		#[iri("manifest:name")]
 		pub name: &'static str,
 
-		#[iri("test:option")]
+		#[iri("jld:option")]
 		pub options: Options,
 
 		#[iri("rdf:type")]
@@ -31,38 +44,48 @@ mod expand {
 	}
 
 	pub enum Description {
-		#[iri("test:PositiveEvaluationTest")]
+		#[iri("jld:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
 			expect: &'static Iri,
 		},
-		#[iri("test:NegativeEvaluationTest")]
+		#[iri("jld:NegativeEvaluationTest")]
 		Negative {
 			#[iri("manifest:result")]
 			expected_error_code: &'static str,
+		},
+		#[iri("jld:PositiveSyntaxTest")]
+		PositiveSyntax {
+			// ...
 		},
 	}
 
 	#[derive(Default)]
 	pub struct Options {
-		#[iri("test:base")]
+		#[iri("jld:base")]
 		pub base: Option<&'static Iri>,
 
-		#[iri("test:expandContext")]
-		pub expand_context: Option<&'static Iri>,
-
-		#[iri("test:processingMode")]
+		#[iri("jld:processingMode")]
 		pub processing_mode: Option<jsonld::ProcessingMode>,
 
-		#[iri("test:specVersion")]
+		#[iri("jld:specVersion")]
 		pub spec_version: Option<&'static str>,
 
-		#[iri("test:normative")]
+		#[iri("jld:normative")]
 		pub normative: Option<bool>,
+
+		#[iri("jld:expandContext")]
+		pub expand_context: Option<&'static Iri>,
+
+		#[iri("jld:produceGeneralizedRdf")]
+		pub produce_generalized_rdf: bool,
+
+		#[iri("jld:rdfDirection")]
+		pub rdf_direction: Option<RdfDirection>,
 	}
 }
 
-impl expand::Test {
+impl to_rdf::Test {
 	fn run(self) {
 		let child = std::thread::Builder::new()
 			.spawn(|| async_std::task::block_on(self.async_run()))
@@ -103,37 +126,66 @@ impl expand::Test {
 			.options
 			.expand_context
 			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
+		options.rdf_direction = self.options.rdf_direction;
+		options.produce_generalized_rdf = self.options.produce_generalized_rdf;
 
 		let input = vocabulary.insert(self.input);
 
 		match self.desc {
-			expand::Description::Positive { expect } => {
+			to_rdf::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
-				let expanded = json_ld
-					.expand_full(&mut vocabulary, &loader, options, ())
+
+				let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
+				let mut to_rdf = json_ld
+					.to_rdf_full(&mut vocabulary, &mut generator, &loader, options, ())
 					.await
 					.unwrap();
 
-				let expect_iri = vocabulary.insert(expect);
-				let expected = loader
-					.load_with(&mut vocabulary, expect_iri)
-					.await
-					.unwrap()
-					.into_document();
-				let expected =
-					jsonld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
+				let dataset: IndexedBTreeDataset<IndexTerm> = to_rdf
+					.quads()
+					.cloned()
+					.map(|rdf_types::Quad(s, p, o, g)| {
+						rdf_types::Quad(
+							s.into_term(),
+							p.into_term(),
+							o,
+							g.map(rdf_types::Subject::into_term),
+						)
+					})
+					.collect();
 
-				let success = expanded == expected;
+				let expected_content =
+					std::fs::read_to_string(loader.filepath(expect).unwrap()).unwrap();
+				let expected_dataset: IndexedBTreeDataset<IndexTerm> =
+					nquads_syntax::GrdfDocument::parse_str(&expected_content)
+						.unwrap()
+						.into_value()
+						.into_iter()
+						.map(|q| strip_quad(q.into_value()).embed_into_vocabulary(&mut vocabulary))
+						.collect();
+
+				let success = are_isomorphic_with(
+					&VocabularyInterpretation::<IndexVocabulary>::new(),
+					&dataset,
+					&expected_dataset,
+				);
 
 				if !success {
 					eprintln!("test failed");
-					eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-					eprintln!("expected=\n{}", expected.with(&vocabulary).pretty_print());
+					eprintln!("output=");
+					for q in dataset {
+						eprintln!("{}", q.with(&vocabulary));
+					}
+
+					eprintln!("expected=");
+					for q in expected_dataset {
+						eprintln!("{}", q.with(&vocabulary));
+					}
 				}
 
 				assert!(success)
 			}
-			expand::Description::Negative {
+			to_rdf::Description::Negative {
 				expected_error_code,
 			} => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
@@ -154,6 +206,9 @@ impl expand::Test {
 						// assert_eq!(e.code().as_str(), expected_error_code)
 					}
 				}
+			}
+			to_rdf::Description::PositiveSyntax {} => {
+				// ...
 			}
 		}
 	}

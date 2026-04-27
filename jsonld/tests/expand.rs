@@ -1,18 +1,18 @@
 use contextual::WithContext;
-use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
 use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use static_iref::iri;
 
-#[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/flatten-manifest.jsonld")]
+#[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
 #[iri_prefix("rdf" = "http://www.w3.org/1999/02/22-rdf-syntax-ns#")]
 #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
-mod flatten {
+mod expand {
 	use iref::Iri;
 
-	#[iri("test:FlattenTest")]
+	#[iri("test:ExpandTest")]
 	pub struct Test {
 		#[iri("rdfs:comment")]
 		pub comments: &'static [&'static str],
@@ -25,9 +25,6 @@ mod flatten {
 
 		#[iri("test:option")]
 		pub options: Options,
-
-		#[iri("test:context")]
-		pub context: Option<&'static Iri>,
 
 		#[iri("rdf:type")]
 		pub desc: Description,
@@ -62,16 +59,10 @@ mod flatten {
 
 		#[iri("test:normative")]
 		pub normative: Option<bool>,
-
-		#[iri("test:compactToRelative")]
-		pub compact_to_relative: Option<bool>,
-
-		#[iri("test:compactArrays")]
-		pub compact_arrays: Option<bool>,
 	}
 }
 
-impl flatten::Test {
+impl expand::Test {
 	fn run(self) {
 		let child = std::thread::Builder::new()
 			.spawn(|| async_std::task::block_on(self.async_run()))
@@ -113,96 +104,54 @@ impl flatten::Test {
 			.expand_context
 			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
 
-		options.compact_arrays = self.options.compact_arrays.unwrap_or(true);
-		options.compact_to_relative = self.options.compact_to_relative.unwrap_or(true);
-
 		let input = vocabulary.insert(self.input);
-		let context = self
-			.context
-			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
 
 		match self.desc {
-			flatten::Description::Positive { expect } => {
+			expand::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+				let expanded = json_ld
+					.expand_full(&mut vocabulary, &loader, options, ())
+					.await
+					.unwrap();
 
-				// Note: try it 10 times to reduce the chances of false negative
-				// with flatten_tin03. TODO proper fix.
-				for i in 0..10 {
-					let mut generator =
-						rdf_types::generator::Blank::new_with_prefix("b".to_string());
-					let flattened = json_ld
-						.flatten_full(
-							&mut vocabulary,
-							&mut generator,
-							context.clone(),
-							&loader,
-							options.clone(),
-							(),
-						)
-						.await
-						.unwrap();
-					let flattened = RemoteDocument::new(Some(input), None, flattened);
+				let expect_iri = vocabulary.insert(expect);
+				let expected = loader
+					.load_with(&mut vocabulary, expect_iri)
+					.await
+					.unwrap()
+					.into_document();
+				let expected =
+					jsonld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
 
-					let expect = vocabulary.insert(expect);
-					let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
-					expect.set_url(Some(input));
+				let success = expanded == expected;
 
-					let expand_options: jsonld::Options<IriIndex> = jsonld::Options::default();
-					let success = flattened
-						.compare_full(&expect, &mut vocabulary, &loader, expand_options, ())
-						.await
-						.unwrap();
-
-					if success {
-						break;
-					} else if i == 9 {
-						eprintln!("test failed");
-						eprintln!(
-							"output=\n{}",
-							flattened.with(&vocabulary).document().pretty_print()
-						);
-						eprintln!(
-							"expected=\n{}",
-							expect.document().with(&vocabulary).pretty_print()
-						);
-
-						assert!(success)
-					}
+				if !success {
+					eprintln!("test failed");
+					eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
+					eprintln!("expected=\n{}", expected.with(&vocabulary).pretty_print());
 				}
+
+				assert!(success)
 			}
-			flatten::Description::Negative {
+			expand::Description::Negative {
 				expected_error_code,
 			} => {
-				match loader.load_with(&mut vocabulary, input).await {
-					Ok(json_ld) => {
-						let mut generator =
-							rdf_types::generator::Blank::new_with_prefix("b".to_string());
-						let result = json_ld
-							.flatten_full(
-								&mut vocabulary,
-								&mut generator,
-								context,
-								&loader,
-								options,
-								(),
-							)
-							.await;
+				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+				let result: Result<_, _> = json_ld
+					.expand_full(&mut vocabulary, &loader, options, ())
+					.await;
 
-						match result {
-							Ok(expanded) => {
-								eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-								panic!(
-									"expansion succeeded when it should have failed with `{}`",
-									expected_error_code
-								)
-							}
-							Err(_) => {
-								// ...
-							}
-						}
+				match result {
+					Ok(expanded) => {
+						eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
+						panic!(
+							"expansion succeeded when it should have failed with `{}`",
+							expected_error_code
+						)
 					}
-					Err(_) => {
-						// ...
+					Err(_e) => {
+						// TODO improve error codes.
+						// assert_eq!(e.code().as_str(), expected_error_code)
 					}
 				}
 			}

@@ -175,7 +175,7 @@ fn is_iri_path(p: &syn::TypePath) -> bool {
 fn is_processing_mode_path(p: &syn::TypePath) -> bool {
 	p.qself.is_none()
 		&& ((p.path.segments.len() == 2
-			&& segment_is_empty_ident(&p.path, 0, "json_ld")
+			&& segment_is_empty_ident(&p.path, 0, "jsonld")
 			&& segment_is_empty_ident(&p.path, 1, "ProcessingMode"))
 			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
@@ -185,7 +185,7 @@ fn is_processing_mode_path(p: &syn::TypePath) -> bool {
 fn is_rdf_direction_path(p: &syn::TypePath) -> bool {
 	p.qself.is_none()
 		&& ((p.path.segments.len() == 2
-			&& segment_is_empty_ident(&p.path, 0, "json_ld")
+			&& segment_is_empty_ident(&p.path, 0, "jsonld")
 			&& segment_is_empty_ident(&p.path, 1, "RdfDirection"))
 			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1

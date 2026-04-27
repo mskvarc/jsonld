@@ -26,7 +26,6 @@ use ty::{Type, UnknownType};
 type IndexVocabulary = rdf_types::vocabulary::IndexVocabulary<IriIndex, BlankIdIndex>;
 
 struct MountAttribute {
-	_paren: syn::token::Paren,
 	prefix: IriBuf,
 	_comma: syn::token::Comma,
 	target: PathBuf,
@@ -34,19 +33,15 @@ struct MountAttribute {
 
 impl syn::parse::Parse for MountAttribute {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
-		let content;
-		let _paren = syn::parenthesized!(content in input);
-
-		let prefix: syn::LitStr = content.parse()?;
+		let prefix: syn::LitStr = input.parse()?;
 		let prefix = IriBuf::new(prefix.value())
-			.map_err(|e| content.error(format!("invalid IRI `{}`", e.0)))?;
+			.map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
-		let _comma = content.parse()?;
+		let _comma = input.parse()?;
 
-		let target: syn::LitStr = content.parse()?;
+		let target: syn::LitStr = input.parse()?;
 
 		Ok(Self {
-			_paren,
 			prefix,
 			_comma,
 			target: target.value().into(),
@@ -55,20 +50,16 @@ impl syn::parse::Parse for MountAttribute {
 }
 
 struct IriAttribute {
-	_paren: syn::token::Paren,
 	iri: IriBuf,
 }
 
 impl syn::parse::Parse for IriAttribute {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
-		let content;
-		let _paren = syn::parenthesized!(content in input);
-
-		let iri: syn::LitStr = content.parse()?;
+		let iri: syn::LitStr = input.parse()?;
 		let iri = IriBuf::new(iri.value())
-			.map_err(|e| content.error(format!("invalid IRI `{}`", e.0)))?;
+			.map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
-		Ok(Self { _paren, iri })
+		Ok(Self { iri })
 	}
 }
 
@@ -87,7 +78,6 @@ impl syn::parse::Parse for IriArg {
 }
 
 struct PrefixBinding {
-	_paren: syn::token::Paren,
 	prefix: String,
 	_eq: syn::token::Eq,
 	iri: IriBuf,
@@ -95,19 +85,15 @@ struct PrefixBinding {
 
 impl syn::parse::Parse for PrefixBinding {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
-		let content;
-		let _paren = syn::parenthesized!(content in input);
+		let prefix: syn::LitStr = input.parse()?;
 
-		let prefix: syn::LitStr = content.parse()?;
+		let _eq = input.parse()?;
 
-		let _eq = content.parse()?;
-
-		let iri: syn::LitStr = content.parse()?;
+		let iri: syn::LitStr = input.parse()?;
 		let iri = IriBuf::new(iri.value())
-			.map_err(|e| content.error(format!("invalid IRI `{}`", e.0)))?;
+			.map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
 		Ok(Self {
-			_paren,
 			prefix: prefix.value(),
 			_eq,
 			iri,
@@ -116,7 +102,6 @@ impl syn::parse::Parse for PrefixBinding {
 }
 
 struct IgnoreAttribute {
-	_paren: syn::token::Paren,
 	iri_ref: IriRefBuf,
 	_comma: syn::token::Comma,
 	_see: syn::Ident,
@@ -126,24 +111,20 @@ struct IgnoreAttribute {
 
 impl syn::parse::Parse for IgnoreAttribute {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
-		let content;
-		let _paren = syn::parenthesized!(content in input);
-
-		let iri_ref: syn::LitStr = content.parse()?;
+		let iri_ref: syn::LitStr = input.parse()?;
 		let iri_ref = IriRefBuf::new(iri_ref.value())
-			.map_err(|e| content.error(format!("invalid IRI reference `{}`", e.0)))?;
+			.map_err(|e| input.error(format!("invalid IRI reference `{}`", e.0)))?;
 
-		let _comma = content.parse()?;
+		let _comma = input.parse()?;
 
-		let _see = content.parse()?;
+		let _see = input.parse()?;
 
-		let _eq = content.parse()?;
+		let _eq = input.parse()?;
 
-		let link: syn::LitStr = content.parse()?;
+		let link: syn::LitStr = input.parse()?;
 		let link = link.value();
 
 		Ok(Self {
-			_paren,
 			iri_ref,
 			_comma,
 			_see,
@@ -233,7 +214,13 @@ fn parse_input(
 	for attr in attrs {
 		if attr.path().is_ident("mount") {
 			let mount: MountAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
-			loader.mount(mount.prefix.as_iri().to_owned(), mount.target)
+			let target = if mount.target.is_absolute() {
+				mount.target
+			} else {
+				PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default())
+					.join(mount.target)
+			};
+			loader.mount(mount.prefix.as_iri().to_owned(), target)
 		} else if attr.path().is_ident("iri_prefix") {
 			let attr: PrefixBinding = attr.parse_args().map_err(|e| Box::new(e.into()))?;
 			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
