@@ -28,4 +28,5 @@ thiserror = "2.0.18"
 
 [dev-dependencies]
 async-std = { version = "1.13.2", features = ["attributes"] }
+jsonld.workspace = true
 static-iref = "3.0.0"
