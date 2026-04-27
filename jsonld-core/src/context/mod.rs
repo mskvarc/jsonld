@@ -238,6 +238,21 @@ impl<T, B> Context<T, B> {
 			.get_or_init(|| Box::new(Mutex::new(crate::HashMap::default())))
 	}
 
+	/// Drops the inverse-context and compact-IRI caches if they are populated.
+	///
+	/// Skips the `take()` round-trip for caches that have never been
+	/// initialized, which is the common case during context processing —
+	/// many `set_normal` calls run before anything triggers cache build.
+	#[inline]
+	fn invalidate_iri_caches(&mut self) {
+		if self.inverse.get().is_some() {
+			self.inverse.take();
+		}
+		if self.compact_iri_cache.get().is_some() {
+			self.compact_iri_cache.take();
+		}
+	}
+
 	/// Sets the normal definition for the given term `key`.
 	pub fn set_normal(
 		&mut self,
@@ -248,9 +263,10 @@ impl<T, B> Context<T, B> {
 		T: Clone,
 		B: Clone,
 	{
-		self.inverse.take();
-		self.prefix_terms.take();
-		self.compact_iri_cache.take();
+		self.invalidate_iri_caches();
+		if self.prefix_terms.get().is_some() {
+			self.prefix_terms.take();
+		}
 		Arc::make_mut(&mut self.definitions).set_normal(key, definition)
 	}
 
@@ -260,42 +276,39 @@ impl<T, B> Context<T, B> {
 		T: Clone,
 		B: Clone,
 	{
-		self.compact_iri_cache.take();
+		if self.compact_iri_cache.get().is_some() {
+			self.compact_iri_cache.take();
+		}
 		Arc::make_mut(&mut self.definitions).set_type(type_)
 	}
 
 	/// Sets the base IRI.
 	pub fn set_base_iri(&mut self, iri: Option<T>) {
-		self.inverse.take();
-		self.compact_iri_cache.take();
+		self.invalidate_iri_caches();
 		self.base_iri = iri
 	}
 
 	/// Sets the `@vocab` value.
 	pub fn set_vocabulary(&mut self, vocab: Option<Term<T, B>>) {
-		self.inverse.take();
-		self.compact_iri_cache.take();
+		self.invalidate_iri_caches();
 		self.vocabulary = vocab;
 	}
 
 	/// Sets the default `@language` value.
 	pub fn set_default_language(&mut self, lang: Option<LenientLangTagBuf>) {
-		self.inverse.take();
-		self.compact_iri_cache.take();
+		self.invalidate_iri_caches();
 		self.default_language = lang;
 	}
 
 	/// Sets the default `@direction` value.
 	pub fn set_default_base_direction(&mut self, dir: Option<Direction>) {
-		self.inverse.take();
-		self.compact_iri_cache.take();
+		self.invalidate_iri_caches();
 		self.default_base_direction = dir;
 	}
 
 	/// Sets the previous context.
 	pub fn set_previous_context(&mut self, previous: Self) {
-		self.inverse.take();
-		self.compact_iri_cache.take();
+		self.invalidate_iri_caches();
 		self.previous_context = Some(Arc::new(previous))
 	}
 
