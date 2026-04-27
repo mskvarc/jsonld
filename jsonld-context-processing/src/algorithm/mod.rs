@@ -13,10 +13,12 @@ use rdf_rs::vocabulary::VocabularyMut;
 mod define;
 mod iri;
 mod merged;
+mod sync;
 
 pub use define::*;
 pub use iri::*;
 pub use merged::*;
+use sync::{process_context_sync, requires_loader};
 use syntax::context::definition::KeyOrKeywordRef;
 
 impl Process for syntax::context::Context {
@@ -36,6 +38,24 @@ impl Process for syntax::context::Context {
 		L: Loader,
 		W: WarningHandler<N>,
 	{
+		// Fast path: no remote `@context` IRIs and no `@import` anywhere in
+		// the tree means the entire algorithm runs synchronously — no
+		// `Box::pin` per recursion, no future state machine.
+		if !requires_loader(self) {
+			return process_context_sync(
+				Environment {
+					vocabulary,
+					loader,
+					warnings: &mut warnings,
+				},
+				active_context,
+				self,
+				ProcessingStack::default(),
+				base_url,
+				options,
+			);
+		}
+
 		process_context(
 			Environment {
 				vocabulary,
@@ -74,19 +94,34 @@ impl Process for syntax::context::Context {
 			return Ok(Processed::new(self, (*cached).clone()));
 		}
 
-		let processed = process_context(
-			Environment {
-				vocabulary,
-				loader,
-				warnings: &mut warnings,
-			},
-			active_context,
-			self,
-			ProcessingStack::default(),
-			base_url,
-			options,
-		)
-		.await?;
+		let processed = if !requires_loader(self) {
+			process_context_sync(
+				Environment {
+					vocabulary,
+					loader,
+					warnings: &mut warnings,
+				},
+				active_context,
+				self,
+				ProcessingStack::default(),
+				base_url,
+				options,
+			)?
+		} else {
+			process_context(
+				Environment {
+					vocabulary,
+					loader,
+					warnings: &mut warnings,
+				},
+				active_context,
+				self,
+				ProcessingStack::default(),
+				base_url,
+				options,
+			)
+			.await?
+		};
 
 		cache.insert(key, Arc::new(processed.processed.clone()));
 		Ok(processed)
