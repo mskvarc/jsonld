@@ -38,6 +38,7 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
 	previous_context: Option<Arc<Self>>,
 	definitions: Arc<Definitions<T, B>>,
 	inverse: OnceCell<InverseContext<T, B>>,
+	prefix_terms: OnceCell<Vec<Key>>,
 }
 
 impl<T, B> Default for Context<T, B> {
@@ -51,6 +52,7 @@ impl<T, B> Default for Context<T, B> {
 			previous_context: None,
 			definitions: Arc::new(Definitions::default()),
 			inverse: OnceCell::default(),
+			prefix_terms: OnceCell::default(),
 		}
 	}
 }
@@ -72,6 +74,7 @@ impl<T, B> Context<T, B> {
 			previous_context: None,
 			definitions: Arc::new(Definitions::default()),
 			inverse: OnceCell::default(),
+			prefix_terms: OnceCell::default(),
 		}
 	}
 
@@ -200,6 +203,22 @@ impl<T, B> Context<T, B> {
 		self.inverse.get_or_init(|| self.into())
 	}
 
+	/// Returns the keys of the term definitions whose `prefix` flag is `true`.
+	///
+	/// Lazily computed and cached; invalidated whenever a definition is added,
+	/// removed, or replaced.
+	pub fn prefix_term_keys(&self) -> &[Key] {
+		self.prefix_terms.get_or_init(|| {
+			self.definitions
+				.iter()
+				.filter_map(|binding| match binding {
+					BindingRef::Normal(key, def) if def.prefix => Some(key.clone()),
+					_ => None,
+				})
+				.collect()
+		})
+	}
+
 	/// Sets the normal definition for the given term `key`.
 	pub fn set_normal(
 		&mut self,
@@ -211,6 +230,7 @@ impl<T, B> Context<T, B> {
 		B: Clone,
 	{
 		self.inverse.take();
+		self.prefix_terms.take();
 		Arc::make_mut(&mut self.definitions).set_normal(key, definition)
 	}
 
@@ -322,6 +342,7 @@ impl<T, B> Context<T, B> {
 				.map(|c| Arc::new(Arc::unwrap_or_clone(c).map_ids_with(map_iri, map_id))),
 			definitions: Arc::new(Arc::unwrap_or_clone(self.definitions).map_ids(map_iri, map_id)),
 			inverse: OnceCell::new(),
+			prefix_terms: OnceCell::new(),
 		}
 	}
 }
@@ -365,6 +386,7 @@ impl<T: Clone, B: Clone> Clone for Context<T, B> {
 			previous_context: self.previous_context.clone(),
 			definitions: Arc::clone(&self.definitions),
 			inverse: OnceCell::default(),
+			prefix_terms: OnceCell::default(),
 		}
 	}
 }

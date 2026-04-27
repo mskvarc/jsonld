@@ -11,6 +11,26 @@ use std::hash::Hash;
 
 pub struct IriConfusedWithPrefix;
 
+/// Does `key:suffix` beat `current` under the (length, lex) ordering used by
+/// the JSON-LD compact-IRI selection rule?
+///
+/// Equivalent to allocating `format!("{key}:{suffix}")` and testing
+/// `(cand.len() <= current.len() && cand < current)`, but without the alloc.
+fn candidate_beats(key: &str, suffix: &str, candidate_len: usize, current: &str) -> bool {
+	use std::cmp::Ordering;
+	match candidate_len.cmp(&current.len()) {
+		Ordering::Less => true,
+		Ordering::Greater => false,
+		Ordering::Equal => {
+			let cand = key
+				.bytes()
+				.chain(std::iter::once(b':'))
+				.chain(suffix.bytes());
+			cand.cmp(current.bytes()) == Ordering::Less
+		}
+	}
+}
+
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
@@ -414,57 +434,60 @@ where
 	// The var could not be compacted using the active context's vocabulary mapping.
 	// Try to create a compact IRI, starting by initializing compact IRI to null.
 	// This variable will be used to store the created compact IRI, if any.
-	let mut compact_iri = String::new();
+	let mut compact_iri: Option<String> = None;
+	let var_str = var.with(vocabulary).as_str();
 
-	// For each term definition definition in active context:
-	for binding in active_context.definitions() {
-		let key = binding.term();
-		let definition = binding.definition();
-		// If the IRI mapping of definition is null, its IRI mapping equals var,
-		// its IRI mapping is not a substring at the beginning of var,
-		// or definition does not have a true prefix flag,
-		// definition's key cannot be used as a prefix.
-		// Continue with the next definition.
-		match definition.value() {
-			Some(iri_mapping) if definition.prefix() => {
-				if let Some(suffix) = var
-					.with(vocabulary)
-					.as_str()
-					.strip_prefix(iri_mapping.with(vocabulary).as_str())
-				{
-					if !suffix.is_empty() {
-						// Initialize candidate by concatenating definition key,
-						// a colon (:),
-						// and the substring of var that follows after the value of the definition's IRI mapping.
-						let mut candidate = key.to_string();
-						candidate.push(':');
-						candidate.push_str(suffix);
+	// Iterate only term definitions whose `prefix` flag is true (cached on the
+	// active context).
+	for key in active_context.prefix_term_keys() {
+		let definition = match active_context.get_normal(key) {
+			Some(d) => d,
+			None => continue,
+		};
+		let Some(iri_mapping) = definition.value.as_ref() else {
+			continue;
+		};
+		let Some(suffix) = var_str.strip_prefix(iri_mapping.with(vocabulary).as_str()) else {
+			continue;
+		};
+		if suffix.is_empty() {
+			continue;
+		}
 
-						// If either compact IRI is null,
-						// candidate is shorter or the same length but lexicographically less than
-						// compact IRI and candidate does not have a term definition in active
-						// context, or if that term definition has an IRI mapping that equals var
-						// and value is null, set compact IRI to candidate.
-						let candidate_def = active_context.get(candidate.as_str());
-						if (compact_iri.is_empty()
-							|| (candidate.len() <= compact_iri.len() && candidate < compact_iri))
-							&& (candidate_def.is_none()
-								|| (candidate_def.is_some()
-									&& (candidate_def.and_then(|def| def.value()) == Some(var))
-									&& value.is_none()))
-						{
-							compact_iri = candidate
-						}
-					}
-				}
-			}
-			_ => (),
+		let key_str = key.as_str();
+		let candidate_len = key_str.len() + 1 + suffix.len();
+
+		// Cheap precondition: candidate must beat current best by (length, lex)
+		// before we pay for materialization or the term-definition lookup.
+		if let Some(current) = compact_iri.as_deref()
+			&& !candidate_beats(key_str, suffix, candidate_len, current)
+		{
+			continue;
+		}
+
+		// Materialize once. Used both for the term-definition lookup and as
+		// the new winner if accepted.
+		let mut candidate = String::with_capacity(candidate_len);
+		candidate.push_str(key_str);
+		candidate.push(':');
+		candidate.push_str(suffix);
+
+		// If candidate has a term definition in active context, accept it
+		// only when that definition's IRI mapping equals `var` and the
+		// caller did not pass a `value`.
+		let candidate_def = active_context.get(candidate.as_str());
+		let definition_ok = match candidate_def {
+			None => true,
+			Some(def) => def.value() == Some(var) && value.is_none(),
+		};
+		if definition_ok {
+			compact_iri = Some(candidate);
 		}
 	}
 
 	// If compact IRI is not null, return compact IRI.
-	if !compact_iri.is_empty() {
-		return Ok(Some(compact_iri.as_str().into()));
+	if let Some(compact_iri) = compact_iri {
+		return Ok(Some(compact_iri.into()));
 	}
 
 	// To ensure that the IRI var is not confused with a compact IRI,
