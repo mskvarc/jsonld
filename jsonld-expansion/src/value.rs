@@ -5,7 +5,7 @@ use jsonld_core::{
 	object::value::Literal,
 };
 use jsonld_syntax::{Direction, ErrorCode, Keyword, LenientLangTagBuf, Nullable};
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidValue {

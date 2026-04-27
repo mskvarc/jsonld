@@ -50,8 +50,8 @@ the remote document.
 #### Example
 
 ```rust
-use iref::IriBuf;
-use static_iref::iri;
+use iri_rs::IriBuf;
+use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
 
 // Create a "remote" document by parsing a file manually.
@@ -97,7 +97,7 @@ for object in expanded {
 Here is another example using `RemoteDocumentReference`.
 
 ```rust
-use static_iref::iri;
+use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
 
 let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
@@ -113,14 +113,14 @@ let expanded = input.expand(&mut loader)
 ```
 
 Lastly, the same example replacing [`IriBuf`] with the lightweight
-[`rdf_types::vocabulary::Index`] type.
+[`rdf_rs::vocabulary::Index`] type.
 
 [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 
 ```rust
-use rdf_types::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+use rdf_rs::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 use contextual::WithContext;
-// Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+// Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 // to an actual `IriBuf`.
 let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 
@@ -172,7 +172,7 @@ Here is an example compaction an arbitrary `RemoteDocumentReference`
 using `JsonLdProcessor::compact`.
 
 ```rust
-use static_iref::iri;
+use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
 
 let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
@@ -207,13 +207,13 @@ depending on your starting point:
     This will return the list of nodes as a `FlattenedDocument`.
 
 Flattening requires assigning an identifier to nested anonymous nodes,
-which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
 as parameter. This generator is in charge of creating new fresh identifiers
 (with their metadata). The most common generator is
-[`rdf_types::generator::Blank`] that creates blank node identifiers.
+[`rdf_rs::generator::Blank`] that creates blank node identifiers.
 
-[`rdf_types::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
-[`rdf_types::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
+[`rdf_rs::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
+[`rdf_rs::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
 
 #### Example
 
@@ -221,7 +221,7 @@ Here is an example compaction an arbitrary `RemoteDocumentReference`
 using `JsonLdProcessor::flatten`.
 
 ```rust
-use static_iref::iri;
+use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
 
 let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
@@ -231,7 +231,7 @@ let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld
 let mut loader = jsonld::FsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
-let mut generator = rdf_types::generator::Blank::new();
+let mut generator = rdf_rs::generator::Blank::new();
 
 let nodes = input
   .flatten(&mut generator, &mut loader)
@@ -248,18 +248,18 @@ represent IRIs an Blank Node Identifiers. Most types have them
 parameterized.
 To avoid unnecessary allocations and expensive comparisons, it is highly
 recommended to use a cheap, lightweight datatype such as
-[`rdf_types::vocabulary::Index`]. This type will represent each distinct
+[`rdf_rs::vocabulary::Index`]. This type will represent each distinct
 IRI/blank node identifier with a unique index. In this case a
-[`rdf_types::IndexVocabulary`] that maps each index back/to its
+[`rdf_rs::IndexVocabulary`] that maps each index back/to its
 original IRI/Blank identifier representation can be passed to every
 function.
 
 You can also use your own index type, with your own
-[`rdf_types::Vocabulary`] implementation.
+[`rdf_rs::Vocabulary`] implementation.
 
-[`rdf_types::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
-[`rdf_types::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
-[`rdf_types::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
+[`rdf_rs::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
+[`rdf_rs::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
+[`rdf_rs::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
 
 ### Displaying vocabulary-dependent values
 
@@ -271,13 +271,13 @@ a "context", which here would be the vocabulary.
 By importing the [`contextual::WithContext`] which provides the `with`
 method you can display such value like this:
 ```rust
-use static_iref::iri;
-use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+use iri_rs::iri;
+use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 use contextual::WithContext;
 
 let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
-let value = rdf_types::Subject::Iri(i);
+let value = rdf_rs::Subject::Iri(i);
 
 println!("{}", value.with(&vocabulary))
 ```

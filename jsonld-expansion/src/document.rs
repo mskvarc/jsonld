@@ -2,7 +2,7 @@ use super::expand_element;
 use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
 use json_syntax::Value;
 use jsonld_core::{Context, Environment, ExpandedDocument, IndexedObject, Object};
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Expand the given JSON-LD document.

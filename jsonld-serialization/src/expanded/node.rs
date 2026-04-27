@@ -1,12 +1,10 @@
-use iref::Iri;
-use jsonld_core::{object::node::Multiset, Indexed, Node, Object};
-use linked_data::{CowRdfTerm, LinkedDataResource};
-use rdf_types::{
-	interpretation::{
-		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
-	},
-	vocabulary::{IriVocabulary, IriVocabularyMut},
-	Interpretation, Term, Vocabulary, RDF_TYPE,
+use iri_rs::Iri;
+use jsonld_core::{Indexed, Node, Object, object::node::Multiset, rdf::RDF_TYPE};
+use ld_core::{CowRdfTerm, LinkedDataResource, OwnedRdfTerm};
+use rdf_rs::{
+	Interpretation,
+	interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
+	vocabulary::{IriVocabulary, Vocabulary},
 };
 use std::hash::Hash;
 
@@ -25,20 +23,23 @@ pub fn serialize_node_with<I, V, T>(
 	value: &T,
 ) -> Result<Node<V::Iri, V::BlankId>, Error>
 where
-	V: Vocabulary + IriVocabularyMut,
+	V: Vocabulary + rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
-	T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
+	T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 {
 	let id = match value
-		.lexical_representation(vocabulary, interpretation)
+		.lexical_representation(interpretation)
 		.map(CowRdfTerm::into_owned)
 	{
-		Some(Term::Literal(_)) => return Err(Error::InvalidNode),
-		Some(Term::Id(id)) => Some(jsonld_core::Id::Valid(id)),
+		Some(OwnedRdfTerm::Literal(_)) => return Err(Error::InvalidNode),
+		Some(OwnedRdfTerm::Iri(iri)) => Some(jsonld_core::Id::Valid(
+			jsonld_core::ValidId::Iri(vocabulary.insert_owned(iri)),
+		)),
+		Some(OwnedRdfTerm::BlankId(b)) => Some(jsonld_core::Id::Valid(
+			jsonld_core::ValidId::Blank(vocabulary.insert_owned_blank_id(b)),
+		)),
 		None => None,
 	};
 
@@ -72,29 +73,31 @@ impl<'a, I, V: Vocabulary> SerializeNode<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::SubjectVisitor<I, V>
-	for SerializeNode<'a, I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeNode<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = Node<V::Iri, V::BlankId>;
 	type Error = Error;
 
 	fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<I, V>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
+		L: ?Sized + LinkedDataResource<I>,
+		T: ?Sized + ld_core::LinkedDataPredicateObjects<I>,
 	{
 		let prop = match predicate
-			.lexical_representation(self.vocabulary, self.interpretation)
+			.lexical_representation(self.interpretation)
 			.map(CowRdfTerm::into_owned)
 		{
-			Some(Term::Id(id)) => jsonld_core::Id::Valid(id),
+			Some(OwnedRdfTerm::Iri(iri)) => jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Iri(self.vocabulary.insert_owned(iri)),
+			),
+			Some(OwnedRdfTerm::BlankId(b)) => jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Blank(self.vocabulary.insert_owned_blank_id(b)),
+			),
 			_ => return Err(Error::InvalidPredicate),
 		};
 
@@ -126,14 +129,19 @@ where
 
 	fn reverse_predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<I, V>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
+		L: ?Sized + LinkedDataResource<I>,
+		T: ?Sized + ld_core::LinkedDataPredicateObjects<I>,
 	{
 		let prop = match predicate
-			.lexical_representation(self.vocabulary, self.interpretation)
+			.lexical_representation(self.interpretation)
 			.map(CowRdfTerm::into_owned)
 		{
-			Some(Term::Id(id)) => jsonld_core::Id::Valid(id),
+			Some(OwnedRdfTerm::Iri(iri)) => jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Iri(self.vocabulary.insert_owned(iri)),
+			),
+			Some(OwnedRdfTerm::BlankId(b)) => jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Blank(self.vocabulary.insert_owned_blank_id(b)),
+			),
 			_ => return Err(Error::InvalidPredicate),
 		};
 
@@ -149,7 +157,7 @@ where
 
 	fn include<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+		T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 	{
 		let node = serialize_node_with(self.vocabulary, self.interpretation, value)?;
 
@@ -161,7 +169,7 @@ where
 
 	fn graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataGraph<I, V>,
+		T: ?Sized + ld_core::LinkedDataGraph<I>,
 	{
 		let serializer = SerializeGraph::new(self.vocabulary, self.interpretation);
 
@@ -194,12 +202,12 @@ pub(crate) fn into_type_value<I, B>(
 	}
 }
 
-pub(crate) fn is_iri<V, B>(vocabulary: &V, id: &jsonld_core::Id<V::Iri, B>, iri: &Iri) -> bool
+pub(crate) fn is_iri<V, B>(vocabulary: &V, id: &jsonld_core::Id<V::Iri, B>, iri: Iri<&str>) -> bool
 where
 	V: IriVocabulary,
 {
 	match id {
-		jsonld_core::Id::Valid(rdf_types::Id::Iri(i)) => match vocabulary.iri(i) {
+		jsonld_core::Id::Valid(jsonld_core::ValidId::Iri(i)) => match vocabulary.iri(i) {
 			Some(i) => i == iri,
 			None => false,
 		},

@@ -1,11 +1,12 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
-use crate::{Id, Indexed, IndexedObject, Object, Objects, Relabel, Term, object, utils};
+use crate::{Id, Indexed, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use indexmap::IndexSet;
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_syntax::{IntoJson, IntoJsonWithContext, Keyword};
-use rdf_types::{BlankIdBuf, Generator, Subject, Vocabulary, VocabularyMut};
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
+use rdf_rs::{BlankIdBuf, LocalGenerator};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
@@ -129,16 +130,17 @@ impl<T, B> Node<T, B> {
 
 	/// Assigns an identifier to this node and every other node included in this
 	/// one using the given `generator`.
-	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		T: Eq + Hash,
 		B: Eq + Hash,
+		V: VocabularyMut,
 	{
 		if self.id.is_none() {
-			self.id = Some(generator.next(vocabulary).into())
+			self.id = Some(crate::id::generator_next_id(vocabulary, generator).into())
 		}
 
 		if let Some(graph) = self.graph_mut() {
@@ -177,7 +179,7 @@ impl<T, B> Node<T, B> {
 	}
 
 	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-	pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
+	pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
 	where
 		T: Eq + Hash,
 		B: Eq + Hash,
@@ -633,25 +635,26 @@ impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
 }
 
 impl<T, B> Relabel<T, B> for Node<T, B> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
-		relabeling: &mut hashbrown::HashMap<B, Subject<T, B>>,
+		relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
 	) where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
+		N: VocabularyMut,
 	{
 		self.id = match self.id.take() {
-			Some(Id::Valid(Subject::Blank(b))) => {
+			Some(Id::Valid(ValidId::Blank(b))) => {
 				let value = relabeling
 					.entry(b)
-					.or_insert_with(|| generator.next(vocabulary))
+					.or_insert_with(|| crate::id::generator_next_id(vocabulary, generator))
 					.clone();
 				Some(value.into())
 			}
 			None => {
-				let value = generator.next(vocabulary);
+				let value = crate::id::generator_next_id(vocabulary, generator);
 				Some(value.into())
 			}
 			id => id,
@@ -661,7 +664,7 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
 			if let Some(b) = ty.as_blank().cloned() {
 				*ty = relabeling
 					.entry(b)
-					.or_insert_with(|| generator.next(vocabulary))
+					.or_insert_with(|| crate::id::generator_next_id(vocabulary, generator))
 					.clone()
 					.into();
 			}

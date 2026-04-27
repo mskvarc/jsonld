@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use iref::{IriRef, IriRefBuf};
+use iri_rs::IriRefBuf;
 use reqwest::header::HeaderValue;
 
 pub struct Link {
@@ -83,8 +83,8 @@ impl Link {
 		}
 	}
 
-	pub fn href(&self) -> &IriRef {
-		self.href.as_iri_ref()
+	pub fn href(&self) -> &IriRefBuf {
+		&self.href
 	}
 
 	pub fn rel(&self) -> Option<&[u8]> {

@@ -1,13 +1,11 @@
 use std::hash::Hash;
 
 use jsonld_core::{ExpandedDocument, Indexed, Object};
-use linked_data::{CowRdfTerm, LinkedDataResource};
-use rdf_types::{
-	interpretation::{
-		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
-	},
-	vocabulary::IriVocabularyMut,
-	Interpretation, Term, Vocabulary,
+use ld_core::{CowRdfTerm, LinkedDataResource, OwnedRdfTerm};
+use rdf_rs::{
+	Interpretation,
+	interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
+	vocabulary::Vocabulary,
 };
 
 use crate::Error;
@@ -34,33 +32,36 @@ impl<'a, I, V: Vocabulary> SerializeDefaultGraph<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::GraphVisitor<I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::GraphVisitor<I>
 	for SerializeDefaultGraph<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = ();
 	type Error = Error;
 
 	fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+		T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 	{
 		let id = match value
-			.lexical_representation(self.vocabulary, self.interpretation)
+			.lexical_representation(self.interpretation)
 			.map(CowRdfTerm::into_owned)
 		{
-			Some(Term::Literal(lit)) => {
+			Some(OwnedRdfTerm::Literal(lit)) => {
 				let value = literal_to_value(self.vocabulary, lit);
 				self.result.insert(Indexed::new(Object::Value(value), None));
 				return Ok(());
 			}
-			Some(Term::Id(id)) => Some(jsonld_core::Id::Valid(id)),
+			Some(OwnedRdfTerm::Iri(iri)) => Some(jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Iri(self.vocabulary.insert_owned(iri)),
+			)),
+			Some(OwnedRdfTerm::BlankId(b)) => Some(jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Blank(self.vocabulary.insert_owned_blank_id(b)),
+			)),
 			_ => None,
 		};
 

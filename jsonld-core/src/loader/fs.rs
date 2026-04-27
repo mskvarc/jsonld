@@ -1,6 +1,6 @@
 use super::{Loader, RemoteDocument};
 use crate::{LoadError, LoadingResult};
-use iref::{Iri, IriBuf};
+use iri_rs::{Iri, IriBuf};
 use json_syntax::Parse;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -50,12 +50,14 @@ impl FsLoader {
 	}
 
 	/// Returns the local file path associated to the given `url` if any.
-	pub fn filepath(&self, url: &Iri) -> Option<PathBuf> {
+	pub fn filepath(&self, url: Iri<&str>) -> Option<PathBuf> {
 		for (path, target_url) in &self.mount_points {
-			if let Some((suffix, _, _)) = url.as_iri_ref().suffix(target_url) {
+			if let Some(suffix) = url.as_str().strip_prefix(target_url.as_str()) {
 				let mut filepath = path.clone();
-				for seg in suffix.as_path().segments() {
-					filepath.push(seg.as_str())
+				for seg in suffix.trim_start_matches('/').split('/') {
+					if !seg.is_empty() {
+						filepath.push(seg)
+					}
 				}
 
 				return Some(filepath);
@@ -67,25 +69,25 @@ impl FsLoader {
 }
 
 impl Loader for FsLoader {
-	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
+	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
 		match self.filepath(url) {
 			Some(filepath) => {
-				let file = File::open(filepath)
-					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
+				let file =
+					File::open(filepath).map_err(|e| LoadError::new(url.into(), Error::IO(e)))?;
 				let mut buf_reader = BufReader::new(file);
 				let mut contents = String::new();
 				buf_reader
 					.read_to_string(&mut contents)
-					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
+					.map_err(|e| LoadError::new(url.into(), Error::IO(e)))?;
 				let (doc, _) = json_syntax::Value::parse_str(&contents)
-					.map_err(|e| LoadError::new(url.to_owned(), Error::Parse(e)))?;
+					.map_err(|e| LoadError::new(url.into(), Error::Parse(e)))?;
 				Ok(RemoteDocument::new(
-					Some(url.to_owned()),
+					Some(url.into()),
 					Some("application/ld+json".parse().unwrap()),
 					doc,
 				))
 			}
-			None => Err(LoadError::new(url.to_owned(), Error::NoMountPoint)),
+			None => Err(LoadError::new(url.into(), Error::NoMountPoint)),
 		}
 	}
 }

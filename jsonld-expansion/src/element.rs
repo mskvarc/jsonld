@@ -7,7 +7,7 @@ use json_syntax::{Value, object::Entry};
 use jsonld_core::{Context, Environment, Id, Indexed, Object, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};
 use mown::Mown;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::{borrow::Cow, hash::Hash};
 
 pub(crate) struct ExpandedEntry<'a, T, B>(pub &'a str, pub Term<T, B>, pub &'a Value);

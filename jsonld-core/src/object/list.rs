@@ -1,9 +1,10 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
-use crate::{Id, IndexedObject, Relabel, TryFromJson};
+use crate::{Id, IndexedObject, Relabel, TryFromJson, ValidId};
 use contextual::WithContext;
 use educe::Educe;
 use jsonld_syntax::{IntoJson, IntoJsonWithContext};
-use rdf_types::{Generator, Subject, Vocabulary, VocabularyMut};
+use rdf_rs::LocalGenerator;
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -119,14 +120,15 @@ impl<T, B> List<T, B> {
 }
 
 impl<T, B> Relabel<T, B> for List<T, B> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
-		relabeling: &mut hashbrown::HashMap<B, Subject<T, B>>,
+		relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
 	) where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
+		N: VocabularyMut,
 	{
 		for object in self {
 			object.relabel_with(vocabulary, generator, relabeling)

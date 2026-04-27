@@ -1,7 +1,7 @@
 use super::{IntoSyntax, Nest};
 use crate::{Container, Direction, LenientLangTagBuf, Nullable, Term, Type};
 use contextual::WithContext;
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_syntax::{
 	KeywordType,
 	context::{
@@ -9,7 +9,9 @@ use jsonld_syntax::{
 		term_definition::Index,
 	},
 };
-use rdf_types::{BlankIdBuf, Id, Vocabulary, vocabulary::IriVocabulary};
+use crate::ValidId as Id;
+use rdf_rs::vocabulary::{IriVocabulary, Vocabulary};
+use rdf_rs::BlankIdBuf;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::{borrow::Borrow, fmt};

@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::{LoadError, LoadErrorCause, LoadingResult};
-use iref::{Iri, IriBuf};
+use iri_rs::{Iri, IriBuf};
 
 use super::Loader;
 
@@ -27,7 +27,7 @@ where
 	L1: Loader,
 	L2: Loader,
 {
-	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
+	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
 		match self.0.load(url).await {
 			Ok(doc) => Ok(doc),
 			Err(LoadError { cause: e1, .. }) => match self.1.load(url).await {

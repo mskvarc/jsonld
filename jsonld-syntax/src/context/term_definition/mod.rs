@@ -3,8 +3,8 @@ use crate::{
 	LenientLangTag, LenientLangTagBuf, Nullable,
 };
 use educe::Educe;
-use iref::{Iri, IriBuf};
-use rdf_types::{BlankId, BlankIdBuf};
+use iri_rs::{Iri, IriBuf};
+use rdf_rs::{BlankId, BlankIdBuf};
 
 mod id;
 mod index;
@@ -54,8 +54,8 @@ impl TermDefinition {
 pub struct Simple(pub(crate) String);
 
 impl Simple {
-	pub fn as_iri(&self) -> Option<&Iri> {
-		Iri::new(&self.0).ok()
+	pub fn as_iri(&self) -> Option<Iri<&str>> {
+		Iri::parse(self.0.as_str()).ok()
 	}
 
 	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
@@ -77,7 +77,7 @@ impl Simple {
 
 impl From<IriBuf> for Simple {
 	fn from(value: IriBuf) -> Self {
-		Self(value.into_string())
+		Self(value.into_inner())
 	}
 }
 

@@ -3,7 +3,7 @@ use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Term, Type, Value, object};
 use jsonld_syntax::Keyword;
 use mown::Mown;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Compact the given indexed value.

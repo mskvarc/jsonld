@@ -105,6 +105,8 @@ fn parse_path(p: syn::TypePath) -> Result<Type, UnknownType> {
 		Ok(Type::ProcessingMode)
 	} else if is_rdf_direction_path(&p) {
 		Ok(Type::RdfDirection)
+	} else if is_static_iri_path(&p) {
+		Ok(Type::Iri)
 	} else if p.path.leading_colon.is_none()
 		&& p.path.segments.len() == 1
 		&& p.path.segments[0].arguments.is_empty()
@@ -112,6 +114,49 @@ fn parse_path(p: syn::TypePath) -> Result<Type, UnknownType> {
 		Ok(Type::Ref(p.path.segments[0].ident.clone()))
 	} else {
 		Err(UnknownType)
+	}
+}
+
+/// Recognizes `Iri<&'static str>`, `iri_rs::Iri<&'static str>`,
+/// or `iref::Iri<&'static str>` (legacy).
+fn is_static_iri_path(p: &syn::TypePath) -> bool {
+	if !p.qself.is_none() {
+		return false;
+	}
+
+	let last = p.path.segments.last().unwrap();
+	if last.ident != "Iri" {
+		return false;
+	}
+
+	let head_ok = match p.path.segments.len() {
+		1 => p.path.leading_colon.is_none(),
+		2 => {
+			let head = &p.path.segments[0];
+			head.arguments.is_empty()
+				&& (head.ident == "iri_rs" || head.ident == "iref" || head.ident == "jsonld")
+		}
+		_ => false,
+	};
+
+	if !head_ok {
+		return false;
+	}
+
+	match &last.arguments {
+		syn::PathArguments::AngleBracketed(args) if args.args.len() == 1 => {
+			match &args.args[0] {
+				syn::GenericArgument::Type(syn::Type::Reference(r)) => {
+					r.mutability.is_none()
+						&& r.lifetime
+							.as_ref()
+							.map_or(false, |lft| lft.ident == "static")
+						&& is_str(&r.elem)
+				}
+				_ => false,
+			}
+		}
+		_ => false,
 	}
 }
 

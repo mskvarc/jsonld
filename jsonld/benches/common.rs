@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
+use iri_rs::iri;
 use jsonld::{
 	BlankIdBuf, ExpandedDocument, IriBuf, JsonLdProcessor, NoLoader, RemoteDocument,
 	context_processing::{Process, ProcessedOwned},
 	syntax::{Parse, TryFromJson, Value, context::Context as SyntaxContext},
 };
-use static_iref::iri;
 
 pub struct Scenario {
 	pub name: &'static str,
@@ -20,7 +20,7 @@ fn scenario(name: &'static str, doc: String, context: String) -> Scenario {
 pub fn parse_remote_doc(doc: &str) -> RemoteDocument {
 	let value = Value::parse_str(doc).expect("doc parse").0;
 	RemoteDocument::new(
-		Some(iri!("https://bench.example.com/doc.jsonld").to_owned()),
+		Some(iri!("https://bench.example.com/doc.jsonld").into()),
 		None,
 		value,
 	)
@@ -38,9 +38,9 @@ pub async fn pre_expand(remote: &RemoteDocument) -> ExpandedDocument<IriBuf, Bla
 pub async fn pre_process_context(ctx: SyntaxContext) -> ProcessedOwned<IriBuf, BlankIdBuf> {
 	let processed = ctx
 		.process(
-			jsonld::rdf_types::vocabulary::no_vocabulary_mut(),
+			jsonld::rdf_rs::vocabulary::no_vocabulary_mut(),
 			&NoLoader,
-			Some(iri!("https://bench.example.com/").to_owned()),
+			Some(iri!("https://bench.example.com/").into()),
 		)
 		.await
 		.expect("ctx process");
@@ -175,8 +175,14 @@ fn many_entities(n: usize) -> Scenario {
 
 fn type_coercion_iri() -> Scenario {
 	let context = r#"{"author":{"@id":"http://schema.org/author","@type":"@id"},"creator":{"@id":"http://purl.org/dc/terms/creator","@type":"@id"},"editor":{"@id":"http://schema.org/editor","@type":"@id"},"reviewer":{"@id":"http://schema.org/reviewer","@type":"@id"}}"#;
-	let mut doc = format!(r#"{{"@context":{ctx},"@id":"https://ex.org/book","#, ctx = context);
-	for (i, term) in ["author", "creator", "editor", "reviewer"].iter().enumerate() {
+	let mut doc = format!(
+		r#"{{"@context":{ctx},"@id":"https://ex.org/book","#,
+		ctx = context
+	);
+	for (i, term) in ["author", "creator", "editor", "reviewer"]
+		.iter()
+		.enumerate()
+	{
 		if i > 0 {
 			doc.push(',');
 		}
@@ -244,7 +250,9 @@ fn container_index() -> Scenario {
 		if i > 0 {
 			doc.push(',');
 		}
-		doc.push_str(&format!(r#""key-{i}":{{"@id":"https://ex.org/{i}","name":"E{i}"}}"#));
+		doc.push_str(&format!(
+			r#""key-{i}":{{"@id":"https://ex.org/{i}","name":"E{i}"}}"#
+		));
 	}
 	doc.push_str("}}");
 	scenario("container_index", doc, context.to_string())

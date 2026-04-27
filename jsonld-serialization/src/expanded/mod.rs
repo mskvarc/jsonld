@@ -1,11 +1,9 @@
 use jsonld_core::{ExpandedDocument, Indexed, Node, Object};
-use linked_data::CowRdfTerm;
-use rdf_types::{
-	interpretation::{
-		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
-	},
-	vocabulary::IriVocabularyMut,
-	Interpretation, Term, Vocabulary,
+use ld_core::{CowRdfTerm, OwnedRdfTerm};
+use rdf_rs::{
+	interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
+	vocabulary::Vocabulary,
+	Interpretation,
 };
 use std::hash::Hash;
 
@@ -41,22 +39,20 @@ impl<'a, I, V: Vocabulary> SerializeExpandedDocument<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::Visitor<I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::Visitor<I>
 	for SerializeExpandedDocument<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = ExpandedDocument<V::Iri, V::BlankId>;
 	type Error = Error;
 
 	fn default_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataGraph<I, V>,
+		T: ?Sized + ld_core::LinkedDataGraph<I>,
 	{
 		let serializer =
 			SerializeDefaultGraph::new(self.vocabulary, self.interpretation, &mut self.result);
@@ -66,14 +62,19 @@ where
 
 	fn named_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataResource<I, V> + linked_data::LinkedDataGraph<I, V>,
+		T: ?Sized + ld_core::LinkedDataResource<I> + ld_core::LinkedDataGraph<I>,
 	{
 		let mut node = match value
-			.lexical_representation(self.vocabulary, self.interpretation)
+			.lexical_representation(self.interpretation)
 			.map(CowRdfTerm::into_owned)
 		{
-			Some(Term::Literal(_)) => return Err(Error::InvalidGraph),
-			Some(Term::Id(id)) => Node::with_id(jsonld_core::Id::Valid(id)),
+			Some(OwnedRdfTerm::Literal(_)) => return Err(Error::InvalidGraph),
+			Some(OwnedRdfTerm::Iri(iri)) => Node::with_id(jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Iri(self.vocabulary.insert_owned(iri)),
+			)),
+			Some(OwnedRdfTerm::BlankId(b)) => Node::with_id(jsonld_core::Id::Valid(
+				jsonld_core::ValidId::Blank(self.vocabulary.insert_owned_blank_id(b)),
+			)),
 			None => Node::new(),
 		};
 

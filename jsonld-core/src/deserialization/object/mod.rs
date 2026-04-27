@@ -2,40 +2,38 @@ mod list;
 mod node;
 mod value;
 
-use linked_data::{
+use ld_core::{
 	LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject,
 };
-use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
+use rdf_rs::Interpretation;
 
 use crate::Object;
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataResource<I, V> for Object<T, B>
+impl<T, B, I: Interpretation> LinkedDataResource<I> for Object<T, B>
 where
-	T: LinkedDataResource<I, V>,
-	B: LinkedDataResource<I, V>,
+	T: LinkedDataResource<I>,
+	B: LinkedDataResource<I>,
 {
 	fn interpretation(
 		&self,
-		vocabulary: &mut V,
 		interpretation: &mut I,
-	) -> linked_data::ResourceInterpretation<'_, I, V> {
+	) -> ld_core::ResourceInterpretation<'_, I> {
 		match self {
-			Self::Node(node) => node.interpretation(vocabulary, interpretation),
-			Self::List(list) => list.interpretation(vocabulary, interpretation),
-			Self::Value(value) => value.interpretation(vocabulary, interpretation),
+			Self::Node(node) => node.interpretation(interpretation),
+			Self::List(list) => list.interpretation(interpretation),
+			Self::Value(value) => value.interpretation(interpretation),
 		}
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataSubject<I, V> for Object<T, B>
+impl<T, B, I: Interpretation> LinkedDataSubject<I> for Object<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_subject<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::SubjectVisitor<I, V>,
+		S: ld_core::SubjectVisitor<I>,
 	{
 		match self {
 			Self::Node(node) => node.visit_subject(visitor),
@@ -45,16 +43,14 @@ where
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
-	for Object<T, B>
+impl<T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Object<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_objects<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<I, V>,
+		S: ld_core::PredicateObjectsVisitor<I>,
 	{
 		match self {
 			Self::Node(node) => node.visit_objects(visitor),
@@ -64,15 +60,14 @@ where
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V> for Object<T, B>
+impl<T, B, I: Interpretation> LinkedDataGraph<I> for Object<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_graph<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<I, V>,
+		S: ld_core::GraphVisitor<I>,
 	{
 		match self {
 			Self::Node(node) => node.visit_graph(visitor),
@@ -82,15 +77,14 @@ where
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for Object<T, B>
+impl<T, B, I: Interpretation> LinkedData<I> for Object<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<I, V>,
+		S: ld_core::Visitor<I>,
 	{
 		match self {
 			Self::Node(node) => node.visit(visitor),

@@ -16,13 +16,13 @@ contextual = "0.1.6"
 educe = "0.6.0"
 futures = "0.3.32"
 indexmap = "2.14.0"
-iref = "3.2.2"
+iri-rs = "3.3.2"
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-expansion.workspace = true
 jsonld-syntax.workspace = true
 json-syntax = "0.12.5"
-langtag = "0.4.0"
+langtag = "1.1.0"
 mown = "1.0.0"
-rdf-types = "0.22.5"
+rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 thiserror = "2.0.18"

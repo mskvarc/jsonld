@@ -1,15 +1,15 @@
 use jsonld::{syntax::Parse, JsonLdProcessor, RemoteDocument};
-use static_iref::iri;
+use iri_rs::iri;
 
 async fn custom_01() {
 	let mut loader = jsonld::FsLoader::new();
 
 	loader.mount(
-		iri!("https://www.w3.org/").to_owned(),
+		iri!("https://www.w3.org/").into(),
 		"tests/custom/extern/www.w3.org/",
 	);
 	loader.mount(
-		iri!("https://w3id.org/").to_owned(),
+		iri!("https://w3id.org/").into(),
 		"tests/custom/extern/w3id.org/",
 	);
 
@@ -17,7 +17,7 @@ async fn custom_01() {
 	let (json, _) = jsonld::syntax::Value::parse_str(&input).unwrap();
 	let doc = RemoteDocument::new(None, None, json);
 
-	let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
+	let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
 
 	eprintln!("available stack: {:?}", stacker::remaining_stack());
 	doc.to_rdf(&mut generator, &loader).await.unwrap();

@@ -1,6 +1,6 @@
 use crate::{CompactIri, Keyword};
-use iref::Iri;
-use rdf_types::BlankId;
+use iri_rs::Iri;
+use rdf_rs::BlankId;
 use std::borrow::Borrow;
 use std::fmt;
 use std::hash::Hash;
@@ -12,8 +12,8 @@ use std::hash::Hash;
 pub struct Key(String);
 
 impl Key {
-	pub fn as_iri(&self) -> Option<&Iri> {
-		Iri::new(&self.0).ok()
+	pub fn as_iri(&self) -> Option<Iri<&str>> {
+		Iri::parse(self.0.as_str()).ok()
 	}
 
 	pub fn as_compact_iri(&self) -> Option<&CompactIri> {

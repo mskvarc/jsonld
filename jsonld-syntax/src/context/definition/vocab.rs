@@ -1,6 +1,6 @@
 use crate::{CompactIri, ExpandableRef};
-use iref::Iri;
-use rdf_types::BlankId;
+use iri_rs::Iri;
+use rdf_rs::BlankId;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -8,8 +8,8 @@ use rdf_types::BlankId;
 pub struct Vocab(String);
 
 impl Vocab {
-	pub fn as_iri(&self) -> Option<&Iri> {
-		Iri::new(&self.0).ok()
+	pub fn as_iri(&self) -> Option<Iri<&str>> {
+		Iri::parse(self.0.as_str()).ok()
 	}
 
 	pub fn as_compact_iri(&self) -> Option<&CompactIri> {

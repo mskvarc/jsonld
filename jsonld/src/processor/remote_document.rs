@@ -8,7 +8,8 @@ use crate::expansion::{self, Expand};
 use crate::{Context, Flatten, Loader, RemoteDocument, RemoteDocumentReference};
 use contextual::WithContext;
 use jsonld_core::{Document, RemoteContextReference};
-use rdf_types::{Generator, VocabularyMut};
+use rdf_rs::LocalGenerator;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
@@ -162,7 +163,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 	async fn flatten_full<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
+		generator: &'a mut impl LocalGenerator,
 		context: Option<RemoteContextReference<I>>,
 		loader: &'a impl Loader,
 		options: Options<I>,
@@ -286,7 +287,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 	async fn flatten_full<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
+		generator: &'a mut impl LocalGenerator,
 		context: Option<RemoteContextReference<I>>,
 		loader: &'a impl Loader,
 		options: Options<I>,

@@ -3,7 +3,7 @@ use algorithm::{Action, RejectVocab};
 pub use jsonld_core::{Context, ProcessingMode, warning};
 use jsonld_core::{ExtractContextError, LoadError, Loader};
 use jsonld_syntax::ErrorCode;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::{fmt, hash::Hash};
 
 pub mod algorithm;

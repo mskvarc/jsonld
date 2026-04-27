@@ -14,7 +14,7 @@ use jsonld_core::{
 };
 use jsonld_syntax::{ContainerKind, ErrorCode, Keyword};
 use mown::Mown;
-use rdf_types::{vocabulary, VocabularyMut};
+use rdf_rs::vocabulary::{self, VocabularyMut};
 use std::hash::Hash;
 
 mod document;

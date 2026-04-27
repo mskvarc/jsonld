@@ -1,5 +1,5 @@
 use crate::{CompactIri, ExpandableRef, Keyword};
-use iref::Iri;
+use iri_rs::Iri;
 use std::hash::Hash;
 
 #[derive(Clone, PartialOrd, Ord, Debug)]
@@ -11,9 +11,9 @@ pub enum Type {
 }
 
 impl Type {
-	pub fn as_iri(&self) -> Option<&Iri> {
+	pub fn as_iri(&self) -> Option<Iri<&str>> {
 		match self {
-			Self::Term(t) => Iri::new(t).ok(),
+			Self::Term(t) => Iri::parse(t.as_str()).ok(),
 			Self::Keyword(_) => None,
 		}
 	}

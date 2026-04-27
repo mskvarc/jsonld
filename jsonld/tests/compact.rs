@@ -1,7 +1,7 @@
 use contextual::WithContext;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
-use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
-use static_iref::iri;
+use rdf_rs::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
+use iri_rs::iri;
 
 #[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/compact-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
@@ -11,7 +11,7 @@ use static_iref::iri;
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 #[ignore_test("#tp004", see = "https://github.com/w3c/json-ld-api/issues/517")]
 mod compact {
-	use iref::Iri;
+	use iri_rs::Iri;
 
 	#[iri("test:CompactTest")]
 	pub struct Test {
@@ -19,7 +19,7 @@ mod compact {
 		pub comments: &'static [&'static str],
 
 		#[iri("manifest:action")]
-		pub input: &'static Iri,
+		pub input: Iri<&'static str>,
 
 		#[iri("manifest:name")]
 		pub name: &'static str,
@@ -28,7 +28,7 @@ mod compact {
 		pub options: Options,
 
 		#[iri("test:context")]
-		pub context: &'static Iri,
+		pub context: Iri<&'static str>,
 
 		#[iri("rdf:type")]
 		pub desc: Description,
@@ -38,7 +38,7 @@ mod compact {
 		#[iri("test:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
-			expect: &'static Iri,
+			expect: Iri<&'static str>,
 		},
 		#[iri("test:NegativeEvaluationTest")]
 		Negative {
@@ -50,10 +50,10 @@ mod compact {
 	#[derive(Default)]
 	pub struct Options {
 		#[iri("test:base")]
-		pub base: Option<&'static Iri>,
+		pub base: Option<Iri<&'static str>>,
 
 		#[iri("test:expandContext")]
-		pub expand_context: Option<&'static Iri>,
+		pub expand_context: Option<Iri<&'static str>>,
 
 		#[iri("test:processingMode")]
 		pub processing_mode: Option<jsonld::ProcessingMode>,
@@ -99,7 +99,7 @@ impl compact::Test {
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader = jsonld::FsLoader::default();
 		loader.mount(
-			iri!("https://w3c.github.io/json-ld-api").to_owned(),
+			iri!("https://w3c.github.io/json-ld-api").into(),
 			"tests/json-ld-api",
 		);
 

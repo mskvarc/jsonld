@@ -12,7 +12,7 @@ use jsonld_core::{
 };
 use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
 use mown::Mown;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Convert a term to a node id, if possible.

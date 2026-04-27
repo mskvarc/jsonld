@@ -57,7 +57,7 @@ impl<T: IntoJson> IntoJson for Box<T> {
 	}
 }
 
-impl IntoJson for iref::IriRefBuf {
+impl IntoJson for iri_rs::IriRefBuf {
 	fn into_json(self) -> json_syntax::Value {
 		json_syntax::Value::String(self.as_str().into())
 	}
@@ -187,7 +187,7 @@ impl IntoJson for ContextEntry {
 	fn into_json(self) -> json_syntax::Value {
 		match self {
 			Self::Null => json_syntax::Value::Null,
-			Self::IriRef(iri) => iref::IriRefBuf::into_json(iri),
+			Self::IriRef(iri) => iri_rs::IriRefBuf::into_json(iri),
 			Self::Definition(def) => context::Definition::into_json(def),
 		}
 	}

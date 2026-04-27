@@ -2,7 +2,7 @@ use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler, ex
 use json_syntax::Array;
 use jsonld_core::{Context, Environment, Object, context::TermDefinitionRef, object};
 use jsonld_syntax::ContainerKind;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 #[allow(clippy::too_many_arguments)]

@@ -2,7 +2,7 @@ use contextual::WithContext;
 use jsonld_serialization::serialize;
 use json_syntax::Print;
 
-#[derive(linked_data::Serialize)]
+#[derive(ld_core::Serialize)]
 #[ld(prefix("ex" = "http://example.org/"))]
 struct Foo {
 	#[ld("ex:name")]

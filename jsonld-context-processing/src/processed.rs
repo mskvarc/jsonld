@@ -1,6 +1,6 @@
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_core::Context;
-use rdf_types::BlankIdBuf;
+use rdf_rs::BlankIdBuf;
 use std::ops;
 
 /// Processed context that also borrows the original, unprocessed, context.

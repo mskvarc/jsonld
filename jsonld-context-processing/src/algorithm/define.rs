@@ -1,6 +1,6 @@
 use super::{Environment, Merged, expand_iri_simple, expand_iri_with};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
-use iref::{Iri, IriRef};
+use iri_rs::{Iri, IriRef};
 use jsonld_core::{
 	Container, Context, Id, Loader, ProcessingMode, Term, Type, ValidId,
 	context::{NormalTermDefinition, TypeTermDefinition},
@@ -12,7 +12,8 @@ use jsonld_syntax::{
 		term_definition::{self, IdRef},
 	},
 };
-use rdf_types::{BlankId, VocabularyMut};
+use rdf_rs::BlankId;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::{collections::HashMap, hash::Hash};
 
 fn is_gen_delim(c: char) -> bool {
@@ -477,7 +478,7 @@ where
 
 										result.push_str(compact_iri.suffix());
 
-										if let Ok(iri) = Iri::new(result.as_str()) {
+										if let Ok(iri) = Iri::parse(result.as_str()) {
 											definition.value =
 												Some(Term::Id(Id::iri(env.vocabulary.insert(iri))))
 										} else {
@@ -492,14 +493,14 @@ where
 										definition.value = Some(Term::Id(Id::blank(
 											env.vocabulary.insert_blank_id(blank_id),
 										)))
-									} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
-										match iri_ref.as_iri() {
-											Some(iri) => {
+									} else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
+										match Iri::try_from(iri_ref) {
+											Ok(iri) => {
 												definition.value = Some(Term::Id(Id::iri(
 													env.vocabulary.insert(iri),
 												)))
 											}
-											None => {
+											Err(_) => {
 												if iri_ref.as_str().contains('/') {
 													// Term is a relative IRI reference.
 													// Set the IRI mapping of definition to the result of IRI expanding
@@ -544,7 +545,7 @@ where
 													.unwrap()
 													.to_string();
 												result.push_str(key.as_str());
-												if let Ok(iri) = Iri::new(result.as_str()) {
+												if let Ok(iri) = Iri::parse(result.as_str()) {
 													definition.value =
 														Some(Term::<N::Iri, N::BlankId>::from(
 															env.vocabulary.insert(iri),

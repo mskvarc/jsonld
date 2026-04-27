@@ -2,12 +2,13 @@ use crate::compaction::{self, Compact};
 use crate::context_processing::{self, Process};
 use crate::expansion;
 use crate::syntax::ErrorCode;
-use crate::{flattening::ConflictingIndexes, Context, ExpandedDocument, Loader, ProcessingMode};
-use iref::IriBuf;
+use crate::{Context, ExpandedDocument, Loader, ProcessingMode, flattening::ConflictingIndexes};
+use iri_rs::IriBuf;
 use jsonld_core::rdf::RdfDirection;
 use jsonld_core::{ContextLoadError, LoadError};
 use jsonld_core::{Document, RdfQuads, RemoteContextReference};
-use rdf_types::{vocabulary, BlankIdBuf, Generator, Vocabulary, VocabularyMut};
+use rdf_rs::vocabulary::{self, Vocabulary, VocabularyMut};
+use rdf_rs::{BlankIdBuf, LocalGenerator};
 use std::hash::Hash;
 
 mod remote_document;
@@ -301,13 +302,13 @@ pub type CompareResult = Result<bool, ExpandError>;
 ///     [`BlankIdBuf`] must be used as IRI and blank node id respectively.
 ///
 /// [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
-/// [`BlankIdBuf`]: rdf_types::BlankIdBuf
-/// [`Vocabulary`]: rdf_types::Vocabulary
+/// [`BlankIdBuf`]: rdf_rs::BlankIdBuf
+/// [`Vocabulary`]: rdf_rs::Vocabulary
 ///
 /// # Example
 ///
 /// ```
-/// use static_iref::iri;
+/// use iri_rs::iri;
 /// use jsonld::{JsonLdProcessor, RemoteDocumentReference};
 ///
 /// # #[async_std::main]
@@ -331,9 +332,9 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
@@ -379,9 +380,9 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
@@ -429,9 +430,9 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// use locspan::Meta;
 	///
 	/// # #[async_std::main]
@@ -477,7 +478,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
 	/// use locspan::Meta;
 	///
@@ -512,7 +513,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	{
 		self.compare_with_using(
 			other,
-			rdf_types::vocabulary::no_vocabulary_mut(),
+			rdf_rs::vocabulary::no_vocabulary_mut(),
 			loader,
 			options,
 		)
@@ -527,7 +528,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
 	/// use locspan::Meta;
 	///
@@ -554,7 +555,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 	{
-		self.compare_with(other, rdf_types::vocabulary::no_vocabulary_mut(), loader)
+		self.compare_with(other, rdf_rs::vocabulary::no_vocabulary_mut(), loader)
 			.await
 	}
 
@@ -566,12 +567,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -616,12 +617,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -667,12 +668,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -716,7 +717,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
 	///
 	/// # #[async_std::main]
@@ -761,7 +762,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
 	///
 	/// # #[async_std::main]
@@ -853,12 +854,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -909,12 +910,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -968,12 +969,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1024,7 +1025,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
 	///
 	/// # #[async_std::main]
@@ -1075,7 +1076,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
 	///
 	/// # #[async_std::main]
@@ -1120,10 +1121,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// An optional `context` can be given to compact the document.
 	///
 	/// Flattening requires assigning an identifier to nested anonymous nodes,
-	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
 	/// as parameter. This generator is in charge of creating new fresh identifiers
 	/// (with their metadata). The most common generator is
-	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	/// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
 	///
 	/// On success, the result is a
 	/// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
@@ -1132,13 +1133,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1150,7 +1151,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_full(
@@ -1169,7 +1170,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	async fn flatten_full<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
+		generator: &'a mut impl LocalGenerator,
 		context: Option<RemoteContextReference<Iri>>,
 		loader: &'a impl Loader,
 		options: Options<Iri>,
@@ -1184,10 +1185,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// and `loader`, using the given `options`.
 	///
 	/// Flattening requires assigning an identifier to nested anonymous nodes,
-	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
 	/// as parameter. This generator is in charge of creating new fresh identifiers
 	/// (with their metadata). The most common generator is
-	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	/// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
 	///
 	/// Warnings are ignored.
 	/// On success, the result is a
@@ -1197,13 +1198,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1215,7 +1216,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_with_using(
@@ -1232,7 +1233,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	async fn flatten_with_using<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
+		generator: &'a mut impl LocalGenerator,
 		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> FlattenResult<Iri, N::BlankId>
@@ -1249,10 +1250,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// and `loader`.
 	///
 	/// Flattening requires assigning an identifier to nested anonymous nodes,
-	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
 	/// as parameter. This generator is in charge of creating new fresh identifiers
 	/// (with their metadata). The most common generator is
-	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	/// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
 	///
 	/// Default options are used.
 	/// Warnings are ignored.
@@ -1263,13 +1264,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+	/// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1281,7 +1282,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_with(
@@ -1297,7 +1298,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	async fn flatten_with<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
+		generator: &'a mut impl LocalGenerator,
 		loader: &'a impl Loader,
 	) -> FlattenResult<Iri, N::BlankId>
 	where
@@ -1313,10 +1314,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// given `options`.
 	///
 	/// Flattening requires assigning an identifier to nested anonymous nodes,
-	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
 	/// as parameter. This generator is in charge of creating new fresh identifiers
 	/// (with their metadata). The most common generator is
-	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	/// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
 	///
 	/// Warnings are ignored.
 	/// On success, the result is a
@@ -1326,7 +1327,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
 	///
 	/// # #[async_std::main]
@@ -1339,7 +1340,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_using(
@@ -1354,7 +1355,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	#[allow(async_fn_in_trait)]
 	async fn flatten_using<'a>(
 		&'a self,
-		generator: &'a mut impl Generator,
+		generator: &'a mut impl LocalGenerator,
 		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> FlattenResult<Iri, BlankIdBuf>
@@ -1369,10 +1370,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// Flatten the document with the given `generator` and `loader`.
 	///
 	/// Flattening requires assigning an identifier to nested anonymous nodes,
-	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
 	/// as parameter. This generator is in charge of creating new fresh identifiers
 	/// (with their metadata). The most common generator is
-	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	/// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
 	///
 	/// Default options are used.
 	/// Warnings are ignored.
@@ -1383,7 +1384,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
 	///
 	/// # #[async_std::main]
@@ -1396,7 +1397,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten(
@@ -1410,7 +1411,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	#[allow(async_fn_in_trait)]
 	async fn flatten<'a>(
 		&'a self,
-		generator: &'a mut impl Generator,
+		generator: &'a mut impl LocalGenerator,
 		loader: &'a impl Loader,
 	) -> FlattenResult<Iri, BlankIdBuf>
 	where
@@ -1441,13 +1442,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+	/// use rdf_rs::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1459,7 +1460,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_full(
@@ -1490,7 +1491,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + Eq + Hash,
-		G: Generator<N>,
+		G: LocalGenerator,
 	{
 		let rdf_direction = options.rdf_direction;
 		let produce_generalized_rdf = options.produce_generalized_rdf;
@@ -1527,13 +1528,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+	/// use rdf_rs::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1545,7 +1546,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_with_using(
@@ -1574,7 +1575,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + Eq + Hash,
-		G: Generator<N>,
+		G: LocalGenerator,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, options, ())
 			.await
@@ -1601,13 +1602,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+	/// use rdf_rs::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
 	/// // to an actual `IriBuf`.
 	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
@@ -1619,7 +1620,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_with(
@@ -1646,7 +1647,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + Eq + Hash,
-		G: Generator<N>,
+		G: LocalGenerator,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, Options::default(), ())
 			.await
@@ -1671,9 +1672,9 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::Quad;
+	/// use rdf_rs::Quad;
 	/// use locspan::{Location, Span};
 	///
 	/// # #[async_std::main]
@@ -1686,7 +1687,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_using(
@@ -1718,7 +1719,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		G: Generator,
+		G: LocalGenerator,
 	{
 		self.to_rdf_with_using((), generator, loader, options).await
 	}
@@ -1744,9 +1745,9 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # Example
 	///
 	/// ```
-	/// use static_iref::iri;
+	/// use iri_rs::iri;
 	/// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::Quad;
+	/// use rdf_rs::Quad;
 	/// use locspan::{Location, Span};
 	///
 	/// # #[async_std::main]
@@ -1759,7 +1760,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = jsonld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new();
+	/// let mut generator = rdf_rs::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf(
@@ -1785,7 +1786,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		G: Generator,
+		G: LocalGenerator,
 	{
 		self.to_rdf_using(generator, loader, Options::default())
 			.await
@@ -1800,7 +1801,7 @@ pub struct ToRdf<V: Vocabulary, G> {
 	produce_generalized_rdf: bool,
 }
 
-impl<V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<V, G> {
+impl<V: Vocabulary, G: rdf_rs::LocalGenerator> ToRdf<V, G> {
 	fn new(
 		mut vocabulary: V,
 		mut generator: G,
@@ -1809,6 +1810,7 @@ impl<V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<V, G> {
 		produce_generalized_rdf: bool,
 	) -> Self
 	where
+		V: VocabularyMut,
 		V::Iri: Clone + Eq + Hash,
 		V::BlankId: Clone + Eq + Hash,
 	{
@@ -1934,7 +1936,7 @@ mod tests {
 	use futures::Future;
 	use json_syntax::Value;
 	use jsonld_core::{NoLoader, RemoteDocument};
-	use rdf_types::generator;
+	use rdf_rs::generator;
 
 	use crate::JsonLdProcessor;
 

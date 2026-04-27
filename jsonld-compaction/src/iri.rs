@@ -6,7 +6,7 @@ use jsonld_core::{
 	object,
 };
 use jsonld_syntax::{is_keyword, is_keyword_like};
-use rdf_types::Vocabulary;
+use rdf_rs::vocabulary::Vocabulary;
 use std::hash::Hash;
 
 pub struct IriConfusedWithPrefix;
@@ -473,22 +473,19 @@ where
 	// an IRI confused with prefix error has been detected, and processing is aborted.
 	if let Some(iri) = var.as_iri() {
 		let iri = vocabulary.iri(iri).unwrap();
-		if active_context.contains_term(iri.scheme().as_str()) {
+		if active_context.contains_term(iri.scheme()) {
 			return Err(IriConfusedWithPrefix);
 		}
 	}
 
-	// If vocab is false,
-	// transform var to a relative IRI reference using the base IRI from active context,
-	// if it exists.
+	// If vocab is false, transform var to a relative IRI reference using the
+	// base IRI from active context, if it exists.
+	// TODO: iri-rs has no `Iri::relative_to`; for now emit the absolute form.
 	if !vocab {
-		if let Some(base_iri) = active_context.base_iri() {
-			let base_iri = vocabulary.iri(base_iri).unwrap();
+		if let Some(_base_iri) = active_context.base_iri() {
 			if let Some(iri) = var.as_iri() {
 				let iri = vocabulary.iri(iri).unwrap();
-				return Ok(Some(disambiguate_keyword(
-					iri.relative_to(base_iri).as_str().into(),
-				)));
+				return Ok(Some(disambiguate_keyword(iri.as_str().into())));
 			}
 		}
 	}

@@ -1,6 +1,6 @@
 use jsonld_core::{ExpandedDocument, FlattenedDocument, Loader, Term};
 use jsonld_syntax::{IntoJson, Keyword};
-use rdf_types::{Vocabulary, vocabulary};
+use rdf_rs::vocabulary::{self, Vocabulary};
 use std::hash::Hash;
 
 use crate::{
@@ -42,7 +42,7 @@ pub trait Compact<I, B> {
 		options: crate::Options,
 	) -> CompactDocumentResult
 	where
-		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
+		N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		L: Loader;
@@ -57,7 +57,7 @@ pub trait Compact<I, B> {
 		loader: &'a L,
 	) -> CompactDocumentResult
 	where
-		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
+		N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		L: Loader,
@@ -74,7 +74,7 @@ pub trait Compact<I, B> {
 		loader: &'a L,
 	) -> CompactDocumentResult
 	where
-		(): rdf_types::VocabularyMut<Iri = I, BlankId = B>,
+		(): rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		L: Loader,
@@ -93,7 +93,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
 		options: crate::Options,
 	) -> CompactDocumentResult
 	where
-		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
+		N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		L: Loader,
@@ -125,7 +125,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
 		options: crate::Options,
 	) -> CompactDocumentResult
 	where
-		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
+		N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		L: Loader,

@@ -4,7 +4,7 @@ use jsonld_context_processing::{Options as ProcessingOptions, Process, Processin
 use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, Term, Type};
 use jsonld_syntax::Keyword;
 use mown::Mown;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 fn optional_string(s: Option<String>) -> json_syntax::Value {

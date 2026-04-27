@@ -1,8 +1,9 @@
 use crate::{Id, ValidId};
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_syntax::Keyword;
-use rdf_types::{BlankIdBuf, vocabulary::Vocabulary};
+use rdf_rs::vocabulary::Vocabulary;
+use rdf_rs::BlankIdBuf;
 use std::fmt;
 
 /// Identifier, keyword or `@null`.
@@ -49,7 +50,7 @@ impl<I, B> Term<I, B> {
 
 	pub fn map_id<U, C>(
 		self,
-		f: impl FnOnce(rdf_types::Id<I, B>) -> rdf_types::Id<U, C>,
+		f: impl FnOnce(ValidId<I, B>) -> ValidId<U, C>,
 	) -> Term<U, C> {
 		match self {
 			Self::Null => Term::Null,

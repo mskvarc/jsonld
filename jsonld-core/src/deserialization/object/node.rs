@@ -1,40 +1,35 @@
-use linked_data::{
+use ld_core::{
 	LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject,
 	ResourceInterpretation,
 };
-use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
+use rdf_rs::Interpretation;
 
-use crate::{rdf::RDF_TYPE, IndexedNode, IndexedObject, Node};
+use crate::{IndexedNode, IndexedObject, Node, rdf::RDF_TYPE};
 
-impl<T, B, V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Node<T, B>
+impl<T, B, I: Interpretation> LinkedDataResource<I> for Node<T, B>
 where
-	T: LinkedDataResource<I, V>,
-	B: LinkedDataResource<I, V>,
+	T: LinkedDataResource<I>,
+	B: LinkedDataResource<I>,
 {
-	fn interpretation(
-		&self,
-		vocabulary: &mut V,
-		interpretation: &mut I,
-	) -> ResourceInterpretation<'_, I, V> {
+	fn interpretation(&self, interpretation: &mut I) -> ResourceInterpretation<'_, I> {
 		match &self.id {
-			Some(crate::Id::Valid(id)) => id.interpretation(vocabulary, interpretation),
+			Some(crate::Id::Valid(id)) => id.interpretation(interpretation),
 			_ => ResourceInterpretation::Uninterpreted(None),
 		}
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataSubject<I, V> for Node<T, B>
+impl<T, B, I: Interpretation> LinkedDataSubject<I> for Node<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_subject<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::SubjectVisitor<I, V>,
+		S: ld_core::SubjectVisitor<I>,
 	{
 		if !self.types().is_empty() {
-			visitor.predicate(RDF_TYPE, &Types(self.types()))?;
+			visitor.predicate(&RDF_TYPE, &Types(self.types()))?;
 		}
 
 		for (property, objects) in self.properties() {
@@ -65,31 +60,28 @@ where
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
-	for Node<T, B>
+impl<T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Node<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<I, V>,
+		S: ld_core::PredicateObjectsVisitor<I>,
 	{
 		visitor.object(self)?;
 		visitor.end()
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V> for Node<T, B>
+impl<T, B, I: Interpretation> LinkedDataGraph<I> for Node<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<I, V>,
+		S: ld_core::GraphVisitor<I>,
 	{
 		match self.graph() {
 			Some(g) => {
@@ -106,15 +98,14 @@ where
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for Node<T, B>
+impl<T, B, I: Interpretation> LinkedData<I> for Node<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<I, V>,
+		S: ld_core::Visitor<I>,
 	{
 		if self.is_graph() {
 			visitor.named_graph(self)?;
@@ -128,16 +119,14 @@ where
 
 struct Types<'a, T, B>(&'a [crate::Id<T, B>]);
 
-impl<'a, T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
-	for Types<'a, T, B>
+impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Types<'a, T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<I, V>,
+		S: ld_core::PredicateObjectsVisitor<I>,
 	{
 		for ty in self.0 {
 			if let crate::Id::Valid(id) = ty {
@@ -151,16 +140,14 @@ where
 
 struct Objects<'a, T, B>(&'a [IndexedObject<T, B>]);
 
-impl<'a, T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
-	for Objects<'a, T, B>
+impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Objects<'a, T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<I, V>,
+		S: ld_core::PredicateObjectsVisitor<I>,
 	{
 		for object in self.0 {
 			visitor.object(object.inner())?;
@@ -172,16 +159,14 @@ where
 
 struct Nodes<'a, T, B>(&'a [IndexedNode<T, B>]);
 
-impl<'a, T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
-	for Nodes<'a, T, B>
+impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Nodes<'a, T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<I, V>,
+		S: ld_core::PredicateObjectsVisitor<I>,
 	{
 		for node in self.0 {
 			visitor.object(node.inner())?;

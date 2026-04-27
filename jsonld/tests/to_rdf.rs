@@ -1,17 +1,71 @@
-use contextual::WithContext;
+use contextual::{DisplayWithContext, WithContext};
+use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
-use nquads_syntax::{Parse, strip_quad};
-use rdf_types::{
-	dataset::{IndexedBTreeDataset, isomorphism::are_isomorphic_with},
-	interpretation::VocabularyInterpretation,
+use rdf_rs::{
+	GeneralizedQuad, LocalTerm, Term as RdfTerm,
+	dataset::{IndexedBTreeDataset, isomorphism::dataset_equivalent},
+	impl_resource,
 	vocabulary::{
-		BlankIdIndex, EmbedIntoVocabulary, IndexVocabulary, IriIndex, IriVocabularyMut,
-		LiteralIndex,
+		BlankIdIndex, BlankIdVocabulary, BlankIdVocabularyMut, IndexVocabulary, IriIndex,
+		IriVocabulary, IriVocabularyMut, LiteralIndex, LiteralVocabulary, LiteralVocabularyMut,
 	},
 };
-use static_iref::iri;
 
-type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralIndex>;
+/// Uniform resource type holding any RDF term that can flow through quads.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum IndexTerm {
+	Iri(IriIndex),
+	Blank(BlankIdIndex),
+	Literal(LiteralIndex),
+}
+
+impl_resource!(IndexTerm);
+
+impl IndexTerm {
+	fn from_local_term(t: LocalTerm, vocabulary: &mut IndexVocabulary) -> Self {
+		match t {
+			LocalTerm::BlankId(b) => Self::Blank(vocabulary.insert_owned_blank_id(b)),
+			LocalTerm::Named(RdfTerm::Iri(iri)) => Self::Iri(vocabulary.insert_owned(iri)),
+			LocalTerm::Named(RdfTerm::Literal(lit)) => {
+				Self::Literal(vocabulary.insert_owned_literal(lit))
+			}
+			LocalTerm::Triple(_) => panic!("triple terms are not supported in this test"),
+		}
+	}
+
+	fn from_id_index(id: jsonld::ValidId<IriIndex, BlankIdIndex>) -> Self {
+		match id {
+			jsonld::ValidId::Iri(i) => Self::Iri(i),
+			jsonld::ValidId::Blank(b) => Self::Blank(b),
+		}
+	}
+
+	fn from_value(v: jsonld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>) -> Self {
+		use jsonld::rdf::Value;
+		match v {
+			Value::Id(id) => Self::from_id_index(id),
+			Value::Literal(l) => Self::Literal(l),
+		}
+	}
+}
+
+impl<V> DisplayWithContext<V> for IndexTerm
+where
+	V: IriVocabulary<Iri = IriIndex>
+		+ BlankIdVocabulary<BlankId = BlankIdIndex>
+		+ LiteralVocabulary<Literal = LiteralIndex>,
+{
+	fn fmt_with(&self, vocabulary: &V, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Iri(i) => write!(f, "<{}>", vocabulary.iri(i).unwrap()),
+			Self::Blank(b) => write!(f, "{}", vocabulary.blank_id(b).unwrap()),
+			Self::Literal(l) => {
+				let lit = vocabulary.literal(l).unwrap();
+				write!(f, "{:?}", lit.value)
+			}
+		}
+	}
+}
 
 #[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/toRdf-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
@@ -22,7 +76,7 @@ type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralI
 #[ignore_test("#te122", see = "https://github.com/w3c/json-ld-api/issues/480")]
 #[ignore_test("#tli12", see = "https://github.com/w3c/json-ld-api/issues/533")]
 mod to_rdf {
-	use iref::Iri;
+	use iri_rs::Iri;
 	use jsonld::rdf::RdfDirection;
 
 	#[iri("jld:ToRDFTest")]
@@ -31,7 +85,7 @@ mod to_rdf {
 		pub comments: &'static [&'static str],
 
 		#[iri("manifest:action")]
-		pub input: &'static Iri,
+		pub input: Iri<&'static str>,
 
 		#[iri("manifest:name")]
 		pub name: &'static str,
@@ -47,7 +101,7 @@ mod to_rdf {
 		#[iri("jld:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
-			expect: &'static Iri,
+			expect: Iri<&'static str>,
 		},
 		#[iri("jld:NegativeEvaluationTest")]
 		Negative {
@@ -63,7 +117,7 @@ mod to_rdf {
 	#[derive(Default)]
 	pub struct Options {
 		#[iri("jld:base")]
-		pub base: Option<&'static Iri>,
+		pub base: Option<Iri<&'static str>>,
 
 		#[iri("jld:processingMode")]
 		pub processing_mode: Option<jsonld::ProcessingMode>,
@@ -75,7 +129,7 @@ mod to_rdf {
 		pub normative: Option<bool>,
 
 		#[iri("jld:expandContext")]
-		pub expand_context: Option<&'static Iri>,
+		pub expand_context: Option<Iri<&'static str>>,
 
 		#[iri("jld:produceGeneralizedRdf")]
 		pub produce_generalized_rdf: bool,
@@ -112,7 +166,7 @@ impl to_rdf::Test {
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader = jsonld::FsLoader::default();
 		loader.mount(
-			iri!("https://w3c.github.io/json-ld-api").to_owned(),
+			iri!("https://w3c.github.io/json-ld-api").into(),
 			"tests/json-ld-api",
 		);
 
@@ -135,7 +189,8 @@ impl to_rdf::Test {
 			to_rdf::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 
-				let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
+				let mut generator =
+					rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
 				let mut to_rdf = json_ld
 					.to_rdf_full(&mut vocabulary, &mut generator, &loader, options, ())
 					.await
@@ -144,42 +199,62 @@ impl to_rdf::Test {
 				let dataset: IndexedBTreeDataset<IndexTerm> = to_rdf
 					.quads()
 					.cloned()
-					.map(|rdf_types::Quad(s, p, o, g)| {
-						rdf_types::Quad(
-							s.into_term(),
-							p.into_term(),
-							o,
-							g.map(rdf_types::Subject::into_term),
+					.map(|rdf_rs::GeneralizedQuad(s, p, o, g)| {
+						rdf_rs::Quad(
+							IndexTerm::from_id_index(s),
+							IndexTerm::from_id_index(p),
+							IndexTerm::from_value(o),
+							g.map(IndexTerm::from_id_index),
 						)
 					})
 					.collect();
 
 				let expected_content =
 					std::fs::read_to_string(loader.filepath(expect).unwrap()).unwrap();
-				let expected_dataset: IndexedBTreeDataset<IndexTerm> =
-					nquads_syntax::GrdfDocument::parse_str(&expected_content)
-						.unwrap()
-						.into_value()
-						.into_iter()
-						.map(|q| strip_quad(q.into_value()).embed_into_vocabulary(&mut vocabulary))
-						.collect();
+				let (parsed, _code_map) =
+					n_quads::grdf_document_from_str(&expected_content).unwrap();
+				let expected_dataset: IndexedBTreeDataset<IndexTerm> = parsed
+					.into_iter()
+					.map(|GeneralizedQuad(s, p, o, g)| {
+						rdf_rs::Quad(
+							IndexTerm::from_local_term(s, &mut vocabulary),
+							IndexTerm::from_local_term(p, &mut vocabulary),
+							IndexTerm::from_local_term(o, &mut vocabulary),
+							g.map(|t| IndexTerm::from_local_term(t, &mut vocabulary)),
+						)
+					})
+					.collect();
 
-				let success = are_isomorphic_with(
-					&VocabularyInterpretation::<IndexVocabulary>::new(),
-					&dataset,
-					&expected_dataset,
-				);
+				let success = dataset_equivalent(&dataset, &expected_dataset);
 
 				if !success {
 					eprintln!("test failed");
 					eprintln!("output=");
-					for q in dataset {
-						eprintln!("{}", q.with(&vocabulary));
+					for q in &dataset {
+						eprintln!(
+							"{} {} {}{}",
+							q.0.with(&vocabulary),
+							q.1.with(&vocabulary),
+							q.2.with(&vocabulary),
+							match &q.3 {
+								Some(g) => format!(" {}", g.with(&vocabulary)),
+								None => String::new(),
+							}
+						);
 					}
 
 					eprintln!("expected=");
-					for q in expected_dataset {
-						eprintln!("{}", q.with(&vocabulary));
+					for q in &expected_dataset {
+						eprintln!(
+							"{} {} {}{}",
+							q.0.with(&vocabulary),
+							q.1.with(&vocabulary),
+							q.2.with(&vocabulary),
+							match &q.3 {
+								Some(g) => format!(" {}", g.with(&vocabulary)),
+								None => String::new(),
+							}
+						);
 					}
 				}
 

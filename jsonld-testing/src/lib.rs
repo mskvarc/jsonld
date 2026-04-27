@@ -2,12 +2,12 @@
 //! that can generate Rust test suites from a JSON-LD document.
 use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
-use iref::{IriBuf, IriRefBuf};
-use jsonld::{Expand, FsLoader, LoadError, ValidId};
+use iri_rs::{Iri, IriBuf, IriRefBuf};
+use jsonld::{Expand, FsLoader, LoadError};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use rdf_types::{
+use rdf_rs::{
 	dataset::IndexedBTreeDataset,
 	vocabulary::{IriVocabulary, IriVocabularyMut, LiteralIndex},
 	Quad,
@@ -23,7 +23,20 @@ use vocab::{BlankIdIndex, IndexQuad, IndexTerm, IriIndex, Vocab};
 mod ty;
 use ty::{Type, UnknownType};
 
-type IndexVocabulary = rdf_types::vocabulary::IndexVocabulary<IriIndex, BlankIdIndex>;
+type IndexVocabulary = rdf_rs::vocabulary::IndexVocabulary;
+
+/// Cache of well-known [`Vocab`] IRIs interned in the working vocabulary.
+struct WellKnown {
+	rdf_type: IriIndex,
+}
+
+impl WellKnown {
+	fn new(vocabulary: &mut IndexVocabulary) -> Self {
+		Self {
+			rdf_type: vocabulary.insert(Iri::<&str>::from(Vocab::Rdf(vocab::Rdf::Type))),
+		}
+	}
+}
 
 struct MountAttribute {
 	prefix: IriBuf,
@@ -156,14 +169,14 @@ fn expand_iri(
 				let mut result = vocabulary.iri(prefix).unwrap().to_string();
 				result.push_str(suffix);
 
-				match iref::Iri::new(&result) {
+				match iri_rs::Iri::parse(result.as_str()) {
 					Ok(iri) => Ok(vocabulary.insert(iri)),
 					Err(_) => Err(InvalidIri(iri.to_string())),
 				}
 			}
-			None => Ok(vocabulary.insert(iri.as_iri())),
+			None => Ok(vocabulary.insert(iri.as_ref())),
 		},
-		None => Ok(vocabulary.insert(iri.as_iri())),
+		None => Ok(vocabulary.insert(iri.as_ref())),
 	}
 }
 
@@ -205,7 +218,7 @@ fn parse_input(
 ) -> Result<TestSpec, Box<Error>> {
 	let suite: IriArg = syn::parse(args).map_err(|e| Box::new(e.into()))?;
 	let base = suite.iri;
-	let suite = vocabulary.insert(base.as_iri());
+	let suite = vocabulary.insert(base.as_ref());
 
 	let mut bindings: HashMap<String, IriIndex> = HashMap::new();
 	let mut ignore: HashMap<IriIndex, String> = HashMap::new();
@@ -220,14 +233,20 @@ fn parse_input(
 				PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default())
 					.join(mount.target)
 			};
-			loader.mount(mount.prefix.as_iri().to_owned(), target)
+			loader.mount(mount.prefix, target)
 		} else if attr.path().is_ident("iri_prefix") {
 			let attr: PrefixBinding = attr.parse_args().map_err(|e| Box::new(e.into()))?;
-			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
+			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_ref()));
 		} else if attr.path().is_ident("ignore_test") {
 			let attr: IgnoreAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
-			let resolved = attr.iri_ref.resolved(base.as_iri());
-			ignore.insert(vocabulary.insert(resolved.as_iri()), attr.link);
+			let base_ref = base.as_ref();
+			let resolved = attr
+				.iri_ref
+				.resolved(&base_ref)
+				.expect("resolved IRI should be valid");
+			let resolved_iri: iri_rs::Iri<String> = iri_rs::Iri::try_from(resolved)
+				.expect("resolved reference should be an absolute IRI");
+			ignore.insert(vocabulary.insert(resolved_iri.as_ref()), attr.link);
 		} else {
 			input.attrs.push(attr)
 		}
@@ -467,10 +486,7 @@ enum Error {
 	Load(LoadError),
 	Expand(jsonld::expansion::Error),
 	InvalidIri(String),
-	InvalidValue(
-		Type,
-		jsonld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
-	),
+	InvalidValue(Type, IndexTerm),
 	InvalidTypeField,
 	NoTypeVariants(IndexTerm),
 	MultipleTypeVariants(IndexTerm),
@@ -519,6 +535,8 @@ async fn generate_test_suite(
 ) -> Result<TokenStream, Box<Error>> {
 	use jsonld::{Loader, RdfQuads};
 
+	let well_known = WellKnown::new(vocabulary);
+
 	let json_ld = loader
 		.load_with(vocabulary, spec.suite)
 		.await
@@ -529,7 +547,7 @@ async fn generate_test_suite(
 		.await
 		.map_err(Error::Expand)?;
 
-	let mut generator = rdf_types::generator::Blank::new();
+	let mut generator = rdf_rs::generator::Blank::new();
 	expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
 	let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);
@@ -539,11 +557,9 @@ async fn generate_test_suite(
 
 	for Quad(subject, predicate, object, graph) in &dataset {
 		if graph.is_none() {
-			if let IndexTerm::Id(ValidId::Iri(id)) = subject {
-				if *predicate
-					== IndexTerm::Id(ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))))
-				{
-					if let jsonld::rdf::Value::Id(ValidId::Iri(ty)) = object {
+			if let IndexTerm::Iri(id) = subject {
+				if *predicate == IndexTerm::Iri(well_known.rdf_type) {
+					if let IndexTerm::Iri(ty) = object {
 						if let Some(type_id) = spec.type_map.get(ty) {
 							match spec.ignore.get(id) {
 								Some(link) => {
@@ -579,7 +595,7 @@ async fn generate_test_suite(
 
 		let func_name = func_name(
 			&spec.prefix,
-			vocabulary.iri(&test).unwrap().fragment().unwrap().as_str(),
+			vocabulary.iri(&test).unwrap().fragment().unwrap(),
 		);
 		let func_id = quote::format_ident!("{}", func_name);
 
@@ -632,16 +648,21 @@ fn func_name(prefix: &str, id: &str) -> String {
 }
 
 fn quad_to_owned(
-	rdf_types::Quad(subject, predicate, object, graph): jsonld::rdf::QuadRef<
+	rdf_rs::GeneralizedQuad(subject, predicate, object, graph): jsonld::rdf::QuadRef<
 		IriIndex,
 		BlankIdIndex,
 		LiteralIndex,
 	>,
 ) -> IndexQuad {
+	use jsonld::rdf::Value;
+	let object_term = match object {
+		Value::Id(id) => IndexTerm::from_id(id),
+		Value::Literal(l) => IndexTerm::Literal(l),
+	};
 	Quad(
-		IndexTerm::Id(*subject.as_ref()),
-		IndexTerm::Id(*predicate.as_ref()),
-		object,
-		graph.copied().map(IndexTerm::Id),
+		IndexTerm::from_id(subject.into_owned()),
+		IndexTerm::from_id(predicate.into_owned()),
+		object_term,
+		graph.cloned().map(IndexTerm::from_id),
 	)
 }

@@ -1,7 +1,7 @@
 use contextual::DisplayWithContext;
 use jsonld_context_processing::algorithm::MalformedIri;
 use langtag::InvalidLangTag;
-use rdf_types::vocabulary::BlankIdVocabulary;
+use rdf_rs::vocabulary::BlankIdVocabulary;
 use std::fmt;
 
 #[derive(Debug)]

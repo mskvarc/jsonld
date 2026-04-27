@@ -9,7 +9,7 @@ use jsonld_core::{
 	object::{self, List},
 };
 use jsonld_syntax::Keyword;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 #[allow(clippy::too_many_arguments)]

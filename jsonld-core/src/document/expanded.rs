@@ -2,9 +2,9 @@ use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
 use crate::{Id, Indexed, IndexedObject, Node, Object, Relabel, TryFromJson};
 use hashbrown::HashMap;
 use indexmap::IndexSet;
-use iref::IriBuf;
-use rdf_types::vocabulary::VocabularyMut;
-use rdf_types::{BlankIdBuf, Generator, Vocabulary};
+use iri_rs::IriBuf;
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
+use rdf_rs::{BlankIdBuf, LocalGenerator};
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -65,13 +65,14 @@ impl<T, B> ExpandedDocument<T, B> {
 	/// Give an identifier (`@id`) to every nodes using the given generator to
 	/// generate fresh identifiers for anonymous nodes.
 	#[inline(always)]
-	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		T: Eq + Hash,
 		B: Eq + Hash,
+		V: VocabularyMut,
 	{
 		let objects = std::mem::take(&mut self.0);
 		for mut object in objects {
@@ -83,26 +84,27 @@ impl<T, B> ExpandedDocument<T, B> {
 	/// Give an identifier (`@id`) to every nodes using the given generator to
 	/// generate fresh identifiers for anonymous nodes.
 	#[inline(always)]
-	pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
+	pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
 	where
 		T: Eq + Hash,
 		B: Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
-		self.identify_all_with(&mut (), generator)
+		self.identify_all_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
 	}
 
 	/// Give an identifier (`@id`) to every nodes and canonicalize every
 	/// literals using the given generator to generate fresh identifiers for
 	/// anonymous nodes.
 	#[inline(always)]
-	pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+	pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
+		V: VocabularyMut,
 	{
 		let objects = std::mem::take(&mut self.0);
 		let mut relabeling = HashMap::new();
@@ -118,24 +120,25 @@ impl<T, B> ExpandedDocument<T, B> {
 	/// literals using the given generator to generate fresh identifiers for
 	/// anonymous nodes.
 	#[inline(always)]
-	pub fn relabel_and_canonicalize<G: Generator>(&mut self, generator: &mut G)
+	pub fn relabel_and_canonicalize<G: LocalGenerator>(&mut self, generator: &mut G)
 	where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
-		self.relabel_and_canonicalize_with(&mut (), generator)
+		self.relabel_and_canonicalize_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
 	}
 
 	/// Relabels nodes.
 	#[inline(always)]
-	pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+	pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
+		V: VocabularyMut,
 	{
 		let objects = std::mem::take(&mut self.0);
 		let mut relabeling = HashMap::new();
@@ -147,13 +150,13 @@ impl<T, B> ExpandedDocument<T, B> {
 
 	/// Relabels nodes.
 	#[inline(always)]
-	pub fn relabel<G: Generator>(&mut self, generator: &mut G)
+	pub fn relabel<G: LocalGenerator>(&mut self, generator: &mut G)
 	where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
-		self.relabel_with(&mut (), generator)
+		self.relabel_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
 	}
 
 	/// Puts this document literals into canonical form using the given

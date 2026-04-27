@@ -1,9 +1,8 @@
 use std::ops::Deref;
 use std::{borrow::Borrow, hash::Hash};
 
-use iref::IriBuf;
-use linked_data::{LinkedData, LinkedDataGraph, LinkedDataResource, LinkedDataSubject};
-use rdf_types::{BlankIdBuf, Interpretation, Vocabulary, vocabulary::IriVocabularyMut};
+use iri_rs::IriBuf;
+use rdf_rs::BlankIdBuf;
 
 pub mod expanded;
 pub mod flattened;
@@ -99,30 +98,4 @@ impl<I, B> serde::Serialize for Document<I, B> {
 	}
 }
 
-impl<V: Vocabulary, I: Interpretation> LinkedData<I, V> for Document<V::Iri, V::BlankId>
-where
-	V: IriVocabularyMut,
-	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-{
-	fn visit<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
-	where
-		S: linked_data::Visitor<I, V>,
-	{
-		self.expanded.visit(visitor)
-	}
-}
-
-impl<V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Document<V::Iri, V::BlankId>
-where
-	V: IriVocabularyMut,
-	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-{
-	fn visit_graph<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
-	where
-		S: linked_data::GraphVisitor<I, V>,
-	{
-		self.expanded.visit_graph(visitor)
-	}
-}
+// TODO (task 7): port LinkedData / LinkedDataGraph impls to ld_core's Interpretation-only API

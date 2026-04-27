@@ -6,9 +6,10 @@ use crate::{
 use contextual::WithContext;
 use educe::Educe;
 use indexmap::IndexMap;
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_syntax::IntoJsonWithContext;
-use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
+use rdf_rs::BlankIdBuf;
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
 use std::hash::{Hash, Hasher};
 
 pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf> = Multiset<IndexedNode<T, B>>;

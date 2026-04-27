@@ -1,4 +1,4 @@
-use iref::IriBuf;
+use iri_rs::IriBuf;
 
 use super::BindingRef;
 use super::Context;

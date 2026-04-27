@@ -4,10 +4,12 @@ pub mod inverse;
 
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
 use contextual::WithContext;
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_syntax::{KeywordType, Nullable};
 use once_cell::sync::OnceCell;
-use rdf_types::{BlankIdBuf, Id, Vocabulary};
+use crate::ValidId as Id;
+use rdf_rs::vocabulary::Vocabulary;
+use rdf_rs::BlankIdBuf;
 use std::borrow::Borrow;
 use std::hash::Hash;
 
@@ -234,7 +236,10 @@ impl<T, B> Context<T, B> {
 		jsonld_syntax::context::Definition {
 			base: self
 				.base_iri
-				.map(|i| Nullable::Some(vocabulary.iri(&i).unwrap().to_owned().into())),
+				.map(|i| {
+					let iri: iri_rs::IriBuf = vocabulary.iri(&i).unwrap().into();
+					Nullable::Some(iri.into())
+				}),
 			import: None,
 			language: self.default_language.map(Nullable::Some),
 			direction: self.default_base_direction.map(Nullable::Some),

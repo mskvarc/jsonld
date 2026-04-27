@@ -4,7 +4,7 @@ use super::{
 	Context, ContextEntry, Definition, TermDefinition,
 };
 use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson};
-use iref::IriRefBuf;
+use iri_rs::IriRefBuf;
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum InvalidContext {

@@ -1,4 +1,4 @@
-use iref::{IriRef, IriRefBuf};
+use iri_rs::{IriRef, IriRefBuf};
 
 pub struct InvalidCompactIri<T>(pub T);
 
@@ -9,7 +9,7 @@ impl CompactIri {
 	pub fn new(s: &str) -> Result<&Self, InvalidCompactIri<&str>> {
 		match s.split_once(':') {
 			Some((prefix, suffix)) if prefix != "_" && !suffix.starts_with("//") => {
-				match IriRef::new(s) {
+				match IriRef::parse(s) {
 					Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
 					Err(_) => Err(InvalidCompactIri(s)),
 				}
@@ -45,8 +45,8 @@ impl CompactIri {
 		&self[i + 1..]
 	}
 
-	pub fn as_iri_ref(&self) -> &IriRef {
-		IriRef::new(self.as_str()).unwrap()
+	pub fn as_iri_ref(&self) -> IriRef<&str> {
+		IriRef::parse(self.as_str()).unwrap()
 	}
 }
 

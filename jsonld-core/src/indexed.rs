@@ -1,6 +1,6 @@
 use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
 use jsonld_syntax::{IntoJson, IntoJsonWithContext};
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 

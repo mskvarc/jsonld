@@ -2,7 +2,8 @@
 use crate::flattened::UnorderedFlattenedDocument;
 use crate::{ExpandedDocument, FlattenedDocument, IndexedNode, IndexedObject, Object};
 use contextual::WithContext;
-use rdf_types::{Generator, Vocabulary};
+use rdf_rs::LocalGenerator;
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -18,66 +19,66 @@ pub type FlattenUnorderedResult<I, B> =
 	Result<UnorderedFlattenedDocument<I, B>, ConflictingIndexes<I, B>>;
 
 pub trait Flatten<I, B> {
-	fn flatten_with<V, G: Generator<V>>(
+	fn flatten_with<V, G: LocalGenerator>(
 		self,
 		vocabulary: &mut V,
 		generator: G,
 		ordered: bool,
 	) -> FlattenResult<I, B>
 	where
-		V: Vocabulary<Iri = I, BlankId = B>;
+		V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut;
 
-	fn flatten_unordered_with<V, G: Generator<V>>(
+	fn flatten_unordered_with<V, G: LocalGenerator>(
 		self,
 		vocabulary: &mut V,
 		generator: G,
 	) -> FlattenUnorderedResult<I, B>
 	where
-		V: Vocabulary<Iri = I, BlankId = B>;
+		V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut;
 
-	fn flatten<G: Generator>(self, generator: G, ordered: bool) -> FlattenResult<I, B>
+	fn flatten<G: LocalGenerator>(self, generator: G, ordered: bool) -> FlattenResult<I, B>
 	where
 		(): Vocabulary<Iri = I, BlankId = B>,
 		Self: Sized,
 	{
 		self.flatten_with(
-			rdf_types::vocabulary::no_vocabulary_mut(),
+			rdf_rs::vocabulary::no_vocabulary_mut(),
 			generator,
 			ordered,
 		)
 	}
 
-	fn flatten_unordered<G: Generator>(self, generator: G) -> FlattenUnorderedResult<I, B>
+	fn flatten_unordered<G: LocalGenerator>(self, generator: G) -> FlattenUnorderedResult<I, B>
 	where
 		(): Vocabulary<Iri = I, BlankId = B>,
 		Self: Sized,
 	{
-		self.flatten_unordered_with(rdf_types::vocabulary::no_vocabulary_mut(), generator)
+		self.flatten_unordered_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
 	}
 }
 
 impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash> Flatten<I, B> for ExpandedDocument<I, B> {
-	fn flatten_with<V, G: Generator<V>>(
+	fn flatten_with<V, G: LocalGenerator>(
 		self,
 		vocabulary: &mut V,
 		generator: G,
 		ordered: bool,
 	) -> FlattenResult<I, B>
 	where
-		V: Vocabulary<Iri = I, BlankId = B>,
+		V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut,
 	{
 		Ok(self
 			.generate_node_map_with(vocabulary, generator)?
 			.flatten_with(vocabulary, ordered))
 	}
 
-	fn flatten_unordered_with<V, G: Generator<V>>(
+	fn flatten_unordered_with<V, G: LocalGenerator>(
 		self,
 		vocabulary: &mut V,
 		generator: G,
 	) -> FlattenUnorderedResult<I, B>
 	where
-		V: Vocabulary<Iri = I, BlankId = B>,
+		V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut,
 	{
 		Ok(self
 			.generate_node_map_with(vocabulary, generator)?

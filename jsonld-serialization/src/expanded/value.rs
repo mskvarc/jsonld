@@ -1,25 +1,36 @@
-use jsonld_core::{LangString, Value, object::Literal};
-use linked_data::RdfLiteral;
-use rdf_types::{LiteralType, vocabulary::IriVocabularyMut};
-use xsd_types::XSD_STRING;
+use jsonld_core::{Direction, LangString, Value, object::Literal};
+use ld_core::RdfLiteral;
+use rdf_rs::{LiteralType, vocabulary::IriVocabularyMut};
+use xsd_rs::XSD_STRING;
 
 pub fn literal_to_value<V: IriVocabularyMut>(
 	vocabulary: &mut V,
-	lit: RdfLiteral<V>,
+	lit: RdfLiteral,
 ) -> Value<V::Iri> {
 	match lit {
 		RdfLiteral::Any(s, ty) => match ty {
-			LiteralType::Any(iri) => {
-				let literal_ty = if vocabulary.iri(&iri).unwrap() == XSD_STRING {
-					None
+			LiteralType::Any(datatype) => {
+				let iri = datatype.into_iri();
+				if iri.as_ref() == XSD_STRING {
+					Value::Literal(Literal::String(s.into()), None)
 				} else {
-					Some(iri)
-				};
-
-				Value::Literal(Literal::String(s.into()), literal_ty)
+					let id = vocabulary.insert_owned(iri);
+					Value::Literal(Literal::String(s.into()), Some(id))
+				}
 			}
 			LiteralType::LangString(language) => {
-				Value::LangString(LangString::new(s.into(), Some(language.into()), None).unwrap())
+				Value::LangString(
+					LangString::new(s.into(), Some(language.into()), None).unwrap(),
+				)
+			}
+			LiteralType::DirLangString { tag, direction } => {
+				let dir = match direction {
+					rdf_rs::Direction::Ltr => Direction::Ltr,
+					rdf_rs::Direction::Rtl => Direction::Rtl,
+				};
+				Value::LangString(
+					LangString::new(s.into(), Some(tag.into()), Some(dir)).unwrap(),
+				)
 			}
 		},
 		RdfLiteral::Xsd(xsd) => xsd_to_value(vocabulary, xsd),
@@ -27,25 +38,25 @@ pub fn literal_to_value<V: IriVocabularyMut>(
 	}
 }
 
-fn xsd_to_value<V: IriVocabularyMut>(vocabulary: &mut V, value: xsd_types::Value) -> Value<V::Iri> {
+fn xsd_to_value<V: IriVocabularyMut>(vocabulary: &mut V, value: xsd_rs::Value) -> Value<V::Iri> {
 	let ty = value.datatype();
 	let number = match value {
-		xsd_types::Value::Boolean(b) => return Value::Literal(Literal::Boolean(b.into()), None),
-		xsd_types::Value::String(s) => return Value::Literal(Literal::String(s.into()), None),
-		xsd_types::Value::Decimal(v) => v.to_string(),
-		xsd_types::Value::Integer(v) => v.to_string(),
-		xsd_types::Value::NonPositiveInteger(v) => v.to_string(),
-		xsd_types::Value::NegativeInteger(v) => v.to_string(),
-		xsd_types::Value::Long(v) => v.to_string(),
-		xsd_types::Value::Int(v) => v.to_string(),
-		xsd_types::Value::Short(v) => v.to_string(),
-		xsd_types::Value::Byte(v) => v.to_string(),
-		xsd_types::Value::NonNegativeInteger(v) => v.to_string(),
-		xsd_types::Value::UnsignedLong(v) => v.to_string(),
-		xsd_types::Value::UnsignedInt(v) => v.to_string(),
-		xsd_types::Value::UnsignedShort(v) => v.to_string(),
-		xsd_types::Value::UnsignedByte(v) => v.to_string(),
-		xsd_types::Value::PositiveInteger(v) => v.to_string(),
+		xsd_rs::Value::Boolean(b) => return Value::Literal(Literal::Boolean(b.into()), None),
+		xsd_rs::Value::String(s) => return Value::Literal(Literal::String(s.into()), None),
+		xsd_rs::Value::Decimal(v) => v.to_string(),
+		xsd_rs::Value::Integer(v) => v.to_string(),
+		xsd_rs::Value::NonPositiveInteger(v) => v.to_string(),
+		xsd_rs::Value::NegativeInteger(v) => v.to_string(),
+		xsd_rs::Value::Long(v) => v.to_string(),
+		xsd_rs::Value::Int(v) => v.to_string(),
+		xsd_rs::Value::Short(v) => v.to_string(),
+		xsd_rs::Value::Byte(v) => v.to_string(),
+		xsd_rs::Value::NonNegativeInteger(v) => v.to_string(),
+		xsd_rs::Value::UnsignedLong(v) => v.to_string(),
+		xsd_rs::Value::UnsignedInt(v) => v.to_string(),
+		xsd_rs::Value::UnsignedShort(v) => v.to_string(),
+		xsd_rs::Value::UnsignedByte(v) => v.to_string(),
+		xsd_rs::Value::PositiveInteger(v) => v.to_string(),
 		other => {
 			let ty = vocabulary.insert(ty.iri());
 			return Value::Literal(Literal::String(other.to_string().into()), Some(ty));

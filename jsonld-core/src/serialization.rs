@@ -1,16 +1,19 @@
 use hashbrown::HashSet;
-use iref::Iri;
+use iri_rs::Iri;
+use iri_rs::iri;
 use json_syntax::Parse;
-use linked_data::{FromLinkedDataError, LinkedDataDeserialize};
-use rdf_types::{
-	dataset::{PatternMatchingDataset, TraversableDataset},
-	interpretation::{
-		ReverseIdInterpretation, ReverseIriInterpretation, ReverseTermInterpretation,
-	},
-	vocabulary::{BlankIdVocabulary, IriVocabulary},
-	LiteralTypeRef, Quad, Term, Vocabulary,
+use rdf_rs::{
+	GeneralizedQuad as Quad, LiteralTypeRef,
+	interpretation::{ReverseIdInterpretation, ReverseIriInterpretation, ReverseTermInterpretation},
+	vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary},
 };
-use static_iref::iri;
+
+/// Local two-variant term enum used during serialization (an Id or a literal
+/// value). Mirrors the shape of the legacy `rdf_types::Term<I, L>`.
+enum SerTerm<I, L> {
+	Id(I),
+	Literal(L),
+}
 use std::{
 	collections::{BTreeMap, BTreeSet},
 	hash::Hash,
@@ -18,12 +21,12 @@ use std::{
 };
 
 use crate::{
+	ExpandedDocument, Id, Indexed, IndexedObject, LangString, Node, Object, ValidId, Value,
 	object::{List, Literal},
 	rdf::{
 		RDF_FIRST, RDF_JSON, RDF_NIL, RDF_REST, RDF_TYPE, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER,
 		XSD_STRING,
 	},
-	ExpandedDocument, Id, Indexed, IndexedObject, LangString, Node, Object, ValidId, Value,
 };
 
 struct SerDataset<R> {
@@ -194,7 +197,7 @@ impl<R> RdfType<R> {
 	}
 }
 
-const RDF_LIST: &Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#List");
+const RDF_LIST: Iri<&'static str> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#List");
 
 fn rdf_type<'a, V: IriVocabulary, I: ReverseIriInterpretation<Iri = V::Iri>>(
 	vocabulary: &V,
@@ -218,13 +221,13 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 #[derive(Debug, thiserror::Error)]
 pub enum SerializationError {
 	#[error("invalid JSON")]
-	InvalidJson(linked_data::ContextIris, json_syntax::parse::Error),
+	InvalidJson(ld_core::ContextIris, json_syntax::parse::Error),
 
 	#[error("invalid boolean value")]
-	InvalidBoolean(linked_data::ContextIris, String),
+	InvalidBoolean(ld_core::ContextIris, String),
 
 	#[error("invalid number value")]
-	Number(linked_data::ContextIris, String),
+	Number(ld_core::ContextIris, String),
 }
 
 #[derive(Clone, Copy)]
@@ -241,11 +244,11 @@ impl<I, B> ExpandedDocument<I, B> {
 		quads: impl IntoIterator<
 			Item = Quad<&'a T::Resource, &'a T::Resource, &'a T::Resource, &'a T::Resource>,
 		>,
-		context: linked_data::Context<T>,
+		context: ld_core::Context<T>,
 	) -> Result<Self, SerializationError>
 	where
 		V: Vocabulary<Iri = I, BlankId = B>,
-		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal>,
+		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
 		T::Resource: 'a + Ord + Hash,
 		I: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
@@ -281,7 +284,7 @@ impl<I, B> ExpandedDocument<I, B> {
 				Some(RdfProperty::Rest) => {
 					rdf_terms.rest = Some(quad.1);
 					if nil.is_none() {
-						for i in interpretation.iris_of(quad.2) {
+						for i in ReverseIriInterpretation::iris_of(interpretation, quad.2) {
 							let iri = vocabulary.iri(i).unwrap();
 							if iri == RDF_NIL {
 								nil = Some(quad.2);
@@ -377,7 +380,7 @@ impl<I, B> ExpandedDocument<I, B> {
 	) -> Result<Self, SerializationError>
 	where
 		V: Vocabulary<Iri = I, BlankId = B>,
-		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal>,
+		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
 		T::Resource: 'a + Ord + Hash,
 		I: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
@@ -386,7 +389,7 @@ impl<I, B> ExpandedDocument<I, B> {
 			vocabulary,
 			interpretation,
 			quads,
-			linked_data::Context::default(),
+			ld_core::Context::default(),
 		)
 	}
 }
@@ -398,11 +401,11 @@ fn render_object<V, I>(
 	graph: &SerGraph<&I::Resource>,
 	id: &I::Resource,
 	resource: &SerResource<&I::Resource>,
-	context: linked_data::Context<I>,
+	context: ld_core::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
 	V: Vocabulary,
-	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
+	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
 	I::Resource: Ord,
@@ -527,11 +530,11 @@ fn insert_property<'a, V, I, O>(
 	node: &mut Node<V::Iri, V::BlankId>,
 	prop: &I::Resource,
 	values: O,
-	context: linked_data::Context<I>,
+	context: ld_core::Context<I>,
 ) -> Result<(), SerializationError>
 where
 	V: Vocabulary,
-	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
+	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
 	I::Resource: 'a + Ord,
@@ -580,11 +583,11 @@ fn render_object_or_reference<V, I>(
 	rdf_terms: RdfTerms<&I::Resource>,
 	graph: &SerGraph<&I::Resource>,
 	id: &I::Resource,
-	context: linked_data::Context<I>,
+	context: ld_core::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
 	V: Vocabulary,
-	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
+	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
 	I::Resource: Ord,
@@ -613,18 +616,19 @@ fn render_reference<V, I>(
 	vocabulary: &V,
 	interpretation: &I,
 	id: &I::Resource,
-	context: linked_data::Context<I>,
+	context: ld_core::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
 	V: Vocabulary,
-	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
+	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation
+		+ rdf_rs::interpretation::ReverseInterpretation,
 	V::Iri: Clone,
 	V::BlankId: Clone,
 	I::Resource: Ord,
 {
 	match term_of(vocabulary, interpretation, id, context)? {
-		Some(Term::Id(id)) => Ok(Indexed::none(Object::node(Node::with_id(id)))),
-		Some(Term::Literal(value)) => Ok(Indexed::none(Object::Value(value))),
+		Some(SerTerm::Id(id)) => Ok(Indexed::none(Object::node(Node::with_id(id)))),
+		Some(SerTerm::Literal(value)) => Ok(Indexed::none(Object::Value(value))),
 		None => Ok(Indexed::none(Object::node(Node::new()))),
 	}
 }
@@ -647,7 +651,7 @@ where
 		})
 }
 
-type ResourceTerm<V> = Term<
+type ResourceTerm<V> = SerTerm<
 	Id<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>,
 	Value<<V as IriVocabulary>::Iri>,
 >;
@@ -656,27 +660,29 @@ fn term_of<V, T>(
 	vocabulary: &V,
 	interpretation: &T,
 	resource: &T::Resource,
-	context: linked_data::Context<T>,
+	context: ld_core::Context<T>,
 ) -> Result<Option<ResourceTerm<V>>, SerializationError>
 where
 	V: Vocabulary,
-	T: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
+	T: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>
+		+ rdf_rs::interpretation::ReverseInterpretation,
 	V::Iri: Clone,
 	V::BlankId: Clone,
 {
 	match id_of(interpretation, resource) {
-		Some(id) => Ok(Some(Term::Id(id))),
-		None => match interpretation.literals_of(resource).next() {
+		Some(id) => Ok(Some(SerTerm::Id(id))),
+		None => match rdf_rs::interpretation::ReverseLiteralInterpretation::literals_of(interpretation, resource).next() {
 			Some(l) => {
 				let l = vocabulary.literal(l).unwrap();
 				let value = match l.type_ {
-					LiteralTypeRef::Any(i) => {
-						let ty = vocabulary.iri(i).unwrap();
+					LiteralTypeRef::Any(d) => {
+						let ty = d.as_iri();
+						let ty_handle = vocabulary.get(ty).expect("literal type IRI not in vocabulary");
 						if ty == RDF_JSON {
 							let (json, _) =
 								json_syntax::Value::parse_str(l.value).map_err(|e| {
 									SerializationError::InvalidJson(
-										context.into_iris(vocabulary, interpretation),
+										context.into_iris(interpretation),
 										e,
 									)
 								})?;
@@ -687,55 +693,47 @@ where
 								"false" | "0" => false,
 								other => {
 									return Err(SerializationError::InvalidBoolean(
-										context.into_iris(vocabulary, interpretation),
+										context.into_iris(interpretation),
 										other.to_owned(),
-									))
+									));
 								}
 							};
 
-							Value::Literal(Literal::Boolean(b), Some(i.clone()))
+							Value::Literal(Literal::Boolean(b), Some(ty_handle))
 						} else if ty == XSD_INTEGER || ty == XSD_DOUBLE {
 							let n = json_syntax::NumberBuf::from_str(l.as_str()).map_err(|_| {
 								SerializationError::Number(
-									context.into_iris(vocabulary, interpretation),
+									context.into_iris(interpretation),
 									l.as_ref().to_owned(),
 								)
 							})?;
-							Value::Literal(Literal::Number(n), Some(i.clone()))
+							Value::Literal(Literal::Number(n), Some(ty_handle))
 						} else if ty == XSD_STRING {
 							Value::Literal(Literal::String(l.as_ref().into()), None)
 						} else {
-							Value::Literal(Literal::String(l.as_ref().into()), Some(i.clone()))
+							Value::Literal(Literal::String(l.as_ref().into()), Some(ty_handle))
 						}
 					}
 					LiteralTypeRef::LangString(tag) => Value::LangString(
 						LangString::new(l.value.into(), Some(tag.to_owned().into()), None).unwrap(),
 					),
+					LiteralTypeRef::DirLangString { tag, .. } => Value::LangString(
+						LangString::new(l.value.into(), Some(tag.to_owned().into()), None).unwrap(),
+					),
 				};
 
-				Ok(Some(Term::Literal(value)))
+				Ok(Some(SerTerm::Literal(value)))
 			}
 			None => Ok(None),
 		},
 	}
 }
 
-impl<V, I> LinkedDataDeserialize<V, I> for ExpandedDocument<V::Iri, V::BlankId>
-where
-	V: Vocabulary,
-	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
-	I::Resource: Ord + Hash,
-	V::Iri: Clone + Eq + Hash,
-	V::BlankId: Clone + Eq + Hash,
-{
-	fn deserialize_dataset_in(
-		vocabulary: &V,
-		interpretation: &I,
-		dataset: &(impl TraversableDataset<Resource = I::Resource> + PatternMatchingDataset),
-		context: linked_data::Context<I>,
-	) -> Result<Self, FromLinkedDataError> {
-		Self::from_interpreted_quads(vocabulary, interpretation, dataset.quads()).map_err(|_| {
-			FromLinkedDataError::InvalidLiteral(context.into_iris(vocabulary, interpretation))
-		})
-	}
-}
+// TODO (task 18 follow-up): port the LinkedDataDeserialize impl to ld_core's
+// new `<I: Interpretation>`-only signature. The legacy impl required a
+// `Vocabulary` to look up IRI / literal lexical values for type comparisons
+// (RDF_JSON, XSD_BOOLEAN, …); the new trait does not surface a vocabulary so
+// the impl needs to be reshaped against `interpretation.iris_of(...)` /
+// `literals_of(...)`. The free function `from_interpreted_quads_in` still
+// works with the vocabulary parameter and remains the entry point for
+// callers that already have one.

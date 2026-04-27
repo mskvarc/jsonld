@@ -1,4 +1,4 @@
-use iref::{Iri, IriRef, IriRefBuf};
+use iri_rs::{Iri, IriRef, IriRefBuf};
 use smallvec::SmallVec;
 
 pub mod definition;
@@ -143,21 +143,21 @@ impl From<IriRefBuf> for Context {
 	}
 }
 
-impl<'a> From<&'a IriRef> for Context {
-	fn from(i: &'a IriRef) -> Self {
-		Self::One(ContextEntry::IriRef(i.to_owned()))
-	}
-}
-
-impl From<iref::IriBuf> for Context {
-	fn from(i: iref::IriBuf) -> Self {
+impl<'a> From<IriRef<&'a str>> for Context {
+	fn from(i: IriRef<&'a str>) -> Self {
 		Self::One(ContextEntry::IriRef(i.into()))
 	}
 }
 
-impl<'a> From<&'a Iri> for Context {
-	fn from(i: &'a Iri) -> Self {
-		Self::One(ContextEntry::IriRef(i.to_owned().into()))
+impl From<iri_rs::IriBuf> for Context {
+	fn from(i: iri_rs::IriBuf) -> Self {
+		Self::One(ContextEntry::IriRef(i.into()))
+	}
+}
+
+impl<'a> From<Iri<&'a str>> for Context {
+	fn from(i: Iri<&'a str>) -> Self {
+		Self::One(ContextEntry::IriRef(IriRefBuf::from(IriRef::<&str>::from(i))))
 	}
 }
 
@@ -199,21 +199,21 @@ impl From<IriRefBuf> for ContextEntry {
 	}
 }
 
-impl<'a> From<&'a IriRef> for ContextEntry {
-	fn from(i: &'a IriRef) -> Self {
-		ContextEntry::IriRef(i.to_owned())
-	}
-}
-
-impl From<iref::IriBuf> for ContextEntry {
-	fn from(i: iref::IriBuf) -> Self {
+impl<'a> From<IriRef<&'a str>> for ContextEntry {
+	fn from(i: IriRef<&'a str>) -> Self {
 		ContextEntry::IriRef(i.into())
 	}
 }
 
-impl<'a> From<&'a Iri> for ContextEntry {
-	fn from(i: &'a Iri) -> Self {
-		ContextEntry::IriRef(i.to_owned().into())
+impl From<iri_rs::IriBuf> for ContextEntry {
+	fn from(i: iri_rs::IriBuf) -> Self {
+		ContextEntry::IriRef(i.into())
+	}
+}
+
+impl<'a> From<Iri<&'a str>> for ContextEntry {
+	fn from(i: Iri<&'a str>) -> Self {
+		ContextEntry::IriRef(IriRefBuf::from(IriRef::<&str>::from(i)))
 	}
 }
 

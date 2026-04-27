@@ -1,7 +1,7 @@
 use crate::context::definition::KeyOrKeywordRef;
 use crate::{CompactIri, ExpandableRef, Keyword};
-use iref::Iri;
-use rdf_types::BlankId;
+use iri_rs::Iri;
+use rdf_rs::BlankId;
 use std::fmt;
 use std::hash::Hash;
 
@@ -14,9 +14,9 @@ pub enum Id {
 }
 
 impl Id {
-	pub fn as_iri(&self) -> Option<&Iri> {
+	pub fn as_iri(&self) -> Option<Iri<&str>> {
 		match self {
-			Self::Term(t) => Iri::new(t).ok(),
+			Self::Term(t) => Iri::parse(t.as_str()).ok(),
 			Self::Keyword(_) => None,
 		}
 	}

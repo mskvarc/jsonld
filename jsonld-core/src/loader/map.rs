@@ -1,6 +1,6 @@
 use super::{Loader, RemoteDocument};
 use crate::{LoadError, LoadingResult};
-use iref::{Iri, IriBuf};
+use iri_rs::{Iri, IriBuf};
 use std::collections::{BTreeMap, HashMap};
 
 /// Error returned using [`HashMap`] or [`BTreeMap`] as a [`Loader`] with the
@@ -10,19 +10,19 @@ use std::collections::{BTreeMap, HashMap};
 pub struct EntryNotFound;
 
 impl Loader for HashMap<IriBuf, RemoteDocument> {
-	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
-		match self.get(url) {
+	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+		match self.get(url.as_str()) {
 			Some(document) => Ok(document.clone()),
-			None => Err(LoadError::new(url.to_owned(), EntryNotFound)),
+			None => Err(LoadError::new(url.into(), EntryNotFound)),
 		}
 	}
 }
 
 impl Loader for BTreeMap<IriBuf, RemoteDocument> {
-	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
-		match self.get(url) {
+	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+		match self.get(url.as_str()) {
 			Some(document) => Ok(document.clone()),
-			None => Err(LoadError::new(url.to_owned(), EntryNotFound)),
+			None => Err(LoadError::new(url.into(), EntryNotFound)),
 		}
 	}
 }

@@ -1,5 +1,5 @@
 use crate::CompactIri;
-use iref::Iri;
+use iri_rs::Iri;
 use std::fmt;
 use std::hash::Hash;
 
@@ -9,8 +9,8 @@ use std::hash::Hash;
 pub struct Index(String);
 
 impl Index {
-	pub fn as_iri(&self) -> Option<&Iri> {
-		Iri::new(&self.0).ok()
+	pub fn as_iri(&self) -> Option<Iri<&str>> {
+		Iri::parse(self.0.as_str()).ok()
 	}
 
 	pub fn as_compact_iri(&self) -> Option<&CompactIri> {

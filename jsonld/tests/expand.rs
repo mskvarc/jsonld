@@ -1,7 +1,7 @@
 use contextual::WithContext;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
-use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
-use static_iref::iri;
+use rdf_rs::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
+use iri_rs::iri;
 
 #[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
@@ -10,7 +10,7 @@ use static_iref::iri;
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 mod expand {
-	use iref::Iri;
+	use iri_rs::Iri;
 
 	#[iri("test:ExpandTest")]
 	pub struct Test {
@@ -18,7 +18,7 @@ mod expand {
 		pub comments: &'static [&'static str],
 
 		#[iri("manifest:action")]
-		pub input: &'static Iri,
+		pub input: Iri<&'static str>,
 
 		#[iri("manifest:name")]
 		pub name: &'static str,
@@ -34,7 +34,7 @@ mod expand {
 		#[iri("test:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
-			expect: &'static Iri,
+			expect: Iri<&'static str>,
 		},
 		#[iri("test:NegativeEvaluationTest")]
 		Negative {
@@ -46,10 +46,10 @@ mod expand {
 	#[derive(Default)]
 	pub struct Options {
 		#[iri("test:base")]
-		pub base: Option<&'static Iri>,
+		pub base: Option<Iri<&'static str>>,
 
 		#[iri("test:expandContext")]
-		pub expand_context: Option<&'static Iri>,
+		pub expand_context: Option<Iri<&'static str>>,
 
 		#[iri("test:processingMode")]
 		pub processing_mode: Option<jsonld::ProcessingMode>,
@@ -89,7 +89,7 @@ impl expand::Test {
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader = jsonld::FsLoader::default();
 		loader.mount(
-			iri!("https://w3c.github.io/json-ld-api").to_owned(),
+			iri!("https://w3c.github.io/json-ld-api").into(),
 			"tests/json-ld-api",
 		);
 

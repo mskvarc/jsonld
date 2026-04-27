@@ -1,8 +1,8 @@
 use hashbrown::HashSet;
-use iref::{Iri, IriBuf};
+use iri_rs::iri;
+use iri_rs::{Iri, IriBuf};
 use mime::Mime;
-use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
-use static_iref::iri;
+use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{borrow::Cow, hash::Hash};
 
 pub mod chain;
@@ -334,7 +334,7 @@ pub enum StandardProfile {
 }
 
 impl StandardProfile {
-	pub fn from_iri(iri: &Iri) -> Option<Self> {
+	pub fn from_iri(iri: Iri<&str>) -> Option<Self> {
 		if iri == iri!("http://www.w3.org/ns/json-ld#expanded") {
 			Some(Self::Expanded)
 		} else if iri == iri!("http://www.w3.org/ns/json-ld#compacted") {
@@ -350,7 +350,7 @@ impl StandardProfile {
 		}
 	}
 
-	pub fn iri(&self) -> &'static Iri {
+	pub fn iri(&self) -> Iri<&'static str> {
 		match self {
 			Self::Expanded => iri!("http://www.w3.org/ns/json-ld#expanded"),
 			Self::Compacted => iri!("http://www.w3.org/ns/json-ld#compacted"),
@@ -374,30 +374,30 @@ pub enum Profile<I = IriBuf> {
 }
 
 impl Profile {
-	pub fn new(iri: &Iri) -> Self {
+	pub fn new(iri: Iri<&str>) -> Self {
 		match StandardProfile::from_iri(iri) {
 			Some(p) => Self::Standard(p),
-			None => Self::Custom(iri.to_owned()),
+			None => Self::Custom(iri.into()),
 		}
 	}
 
-	pub fn iri(&self) -> &Iri {
+	pub fn iri(&self) -> Iri<&str> {
 		match self {
 			Self::Standard(s) => s.iri(),
-			Self::Custom(c) => c,
+			Self::Custom(c) => c.as_ref(),
 		}
 	}
 }
 
 impl<I> Profile<I> {
-	pub fn new_with(iri: &Iri, vocabulary: &mut impl IriVocabularyMut<Iri = I>) -> Self {
+	pub fn new_with(iri: Iri<&str>, vocabulary: &mut impl IriVocabularyMut<Iri = I>) -> Self {
 		match StandardProfile::from_iri(iri) {
 			Some(p) => Self::Standard(p),
 			None => Self::Custom(vocabulary.insert(iri)),
 		}
 	}
 
-	pub fn iri_with<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> &'a Iri {
+	pub fn iri_with<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> Iri<&'a str> {
 		match self {
 			Self::Standard(s) => s.iri(),
 			Self::Custom(c) => vocabulary.iri(c).unwrap(),
@@ -465,7 +465,7 @@ pub trait Loader {
 
 	/// Loads the document behind the given IRI.
 	#[allow(async_fn_in_trait)]
-	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError>;
+	async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError>;
 }
 
 impl<L: Loader> Loader for &L {
@@ -477,7 +477,7 @@ impl<L: Loader> Loader for &L {
 		L::load_with(self, vocabulary, url).await
 	}
 
-	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError> {
+	async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError> {
 		L::load(self, url).await
 	}
 }
@@ -491,7 +491,7 @@ impl<L: Loader> Loader for &mut L {
 		L::load_with(self, vocabulary, url).await
 	}
 
-	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError> {
+	async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError> {
 		L::load(self, url).await
 	}
 }

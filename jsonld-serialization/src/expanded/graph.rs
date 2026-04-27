@@ -1,13 +1,11 @@
 use std::hash::Hash;
 
 use jsonld_core::{object::Graph, Indexed};
-use linked_data::LinkedDataResource;
-use rdf_types::{
-	interpretation::{
-		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
-	},
-	vocabulary::IriVocabularyMut,
-	Interpretation, Vocabulary,
+use ld_core::LinkedDataResource;
+use rdf_rs::{
+	interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
+	vocabulary::Vocabulary,
+	Interpretation,
 };
 
 use crate::Error;
@@ -30,22 +28,20 @@ impl<'a, I, V: Vocabulary> SerializeGraph<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::GraphVisitor<I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::GraphVisitor<I>
 	for SerializeGraph<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = Graph<V::Iri, V::BlankId>;
 	type Error = Error;
 
 	fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+		T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 	{
 		let object = serialize_object_with(self.vocabulary, self.interpretation, value)?;
 		self.result.insert(Indexed::new(object, None));

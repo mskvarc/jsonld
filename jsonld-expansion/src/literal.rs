@@ -6,7 +6,7 @@ use jsonld_core::{
 	object::value::Literal,
 };
 use jsonld_syntax::{ErrorCode, LenientLangTag, Nullable};
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 
 pub(crate) enum GivenLiteralValue<'a> {
 	Boolean(bool),

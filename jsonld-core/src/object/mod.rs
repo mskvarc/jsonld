@@ -3,10 +3,12 @@ use crate::{Id, Indexed, LenientLangTag, Relabel};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use indexmap::IndexSet;
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use json_syntax::Number;
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
-use rdf_types::{BlankIdBuf, Generator, Subject, Vocabulary, VocabularyMut};
+use crate::ValidId;
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
+use rdf_rs::{BlankIdBuf, LocalGenerator};
 use smallvec::SmallVec;
 use std::hash::Hash;
 
@@ -132,13 +134,14 @@ impl<T, B> Object<T, B> {
 	}
 
 	/// Assigns an identifier to every node included in this object using the given `generator`.
-	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		T: Eq + Hash,
 		B: Eq + Hash,
+		V: VocabularyMut,
 	{
 		match self {
 			Object::Node(n) => n.identify_all_with(vocabulary, generator),
@@ -153,7 +156,7 @@ impl<T, B> Object<T, B> {
 
 	/// Use the given `generator` to assign an identifier to all nodes that
 	/// don't have one.
-	pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
+	pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
 	where
 		T: Eq + Hash,
 		B: Eq + Hash,
@@ -432,14 +435,15 @@ impl<T, B> Object<T, B> {
 }
 
 impl<T, B> Relabel<T, B> for Object<T, B> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
-		relabeling: &mut hashbrown::HashMap<B, Subject<T, B>>,
+		relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
 	) where
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
+		N: VocabularyMut,
 	{
 		match self {
 			Self::Node(n) => n.relabel_with(vocabulary, generator, relabeling),

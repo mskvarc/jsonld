@@ -1,7 +1,7 @@
 use crate::{
 	context::InvalidContext, Container, ContainerKind, Direction, LenientLangTagBuf, Nullable,
 };
-use iref::IriRefBuf;
+use iri_rs::IriRefBuf;
 
 pub trait TryFromJson: Sized {
 	type Error;

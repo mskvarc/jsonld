@@ -1,5 +1,5 @@
 use educe::Educe;
-use iref::IriRef;
+use iri_rs::IriRef;
 use locspan::{Meta, StrippedPartialEq};
 
 use super::{

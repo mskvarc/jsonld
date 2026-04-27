@@ -1,7 +1,7 @@
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Nullable};
-use iref::{IriRef, IriRefBuf};
+use iri_rs::IriRefBuf;
 use json_syntax::print::{
-	printed_string_size, string_literal, Options, PrecomputeSize, Print, Size,
+	Options, PrecomputeSize, Print, Size, printed_string_size, string_literal,
 };
 use std::fmt;
 
@@ -41,7 +41,7 @@ impl Print for LenientLangTag {
 	}
 }
 
-impl PrecomputeSize for Nullable<&IriRef> {
+impl PrecomputeSize for Nullable<&IriRefBuf> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -50,7 +50,7 @@ impl PrecomputeSize for Nullable<&IriRef> {
 	}
 }
 
-impl Print for Nullable<&IriRef> {
+impl Print for Nullable<&IriRefBuf> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),

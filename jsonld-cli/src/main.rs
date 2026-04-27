@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 use clap::Parser;
 use contextual::WithContext;
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld::{JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference, syntax::Parse};
-use rdf_types::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
+use rdf_rs::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
 #[command(name="json-ld", author, version, about, long_about = None)]
@@ -92,13 +92,13 @@ async fn main() {
 		.init()
 		.unwrap();
 
-	let mut vocabulary: rdf_types::vocabulary::IndexVocabulary =
-		rdf_types::vocabulary::IndexVocabulary::new();
+	let mut vocabulary: rdf_rs::vocabulary::IndexVocabulary =
+		rdf_rs::vocabulary::IndexVocabulary::new();
 	let loader = jsonld::loader::ReqwestLoader::new();
 
 	match args.command {
 		Command::Fetch { url } => {
-			let url = vocabulary.insert(url.as_iri());
+			let url = vocabulary.insert(url.as_ref());
 			match RemoteDocumentReference::iri(url)
 				.load_with(&mut vocabulary, &loader)
 				.await
@@ -147,7 +147,7 @@ async fn main() {
 				Ok(mut expanded) => {
 					if relabel {
 						let mut generator =
-							rdf_types::generator::Blank::new_with_prefix("b".to_string());
+							rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
 
 						if canonicalize {
 							expanded.relabel_and_canonicalize_with(&mut vocabulary, &mut generator)
@@ -172,7 +172,7 @@ async fn main() {
 		} => {
 			let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url);
 
-			let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
+			let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
 
 			match remote_document
 				.flatten_with(&mut vocabulary, &mut generator, &loader)
@@ -197,11 +197,11 @@ fn get_remote_document(
 ) -> RemoteDocumentReference<IriIndex> {
 	match url_or_path {
 		Some(IriOrPath::Iri(url)) => {
-			let url = vocabulary.insert(url.as_iri());
+			let url = vocabulary.insert(url.as_ref());
 			RemoteDocumentReference::iri(url)
 		}
 		Some(IriOrPath::Path(path)) => {
-			let url = base_url.map(|iri| vocabulary.insert(iri.as_iri()));
+			let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
 
 			match std::fs::read_to_string(path) {
 				Ok(content) => match jsonld::syntax::Value::parse_str(&content) {
@@ -222,7 +222,7 @@ fn get_remote_document(
 			}
 		}
 		None => {
-			let url = base_url.map(|iri| vocabulary.insert(iri.as_iri()));
+			let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
 
 			match std::io::read_to_string(std::io::stdin()) {
 				Ok(content) => match jsonld::syntax::Value::parse_str(&content) {

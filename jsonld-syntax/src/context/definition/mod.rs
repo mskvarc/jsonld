@@ -2,7 +2,7 @@ use super::{term_definition, TermDefinition};
 use crate::{Direction, Keyword, LenientLangTagBuf, Nullable};
 use educe::Educe;
 use indexmap::IndexMap;
-use iref::IriRefBuf;
+use iri_rs::IriRefBuf;
 
 mod import;
 mod key;
@@ -120,9 +120,9 @@ impl Definition {
 				Keyword::Base => self
 					.base
 					.as_ref()
-					.map(Nullable::as_deref)
+					.map(Nullable::as_ref)
 					.map(EntryValueRef::Base),
-				Keyword::Import => self.import.as_deref().map(EntryValueRef::Import),
+				Keyword::Import => self.import.as_ref().map(EntryValueRef::Import),
 				Keyword::Language => self
 					.language
 					.as_ref()

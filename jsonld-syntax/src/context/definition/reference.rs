@@ -1,13 +1,13 @@
 use super::{BindingsIter, Definition, EntryValueSubItems, Key, Type, Version, Vocab};
 use crate::{context::TermDefinition, Direction, LenientLangTagBuf, Nullable};
 
-use iref::IriRef;
+use iri_rs::IriRefBuf;
 
 impl Definition {
 	pub fn iter(&self) -> Entries<'_> {
 		Entries {
-			base: self.base.as_ref().map(Nullable::as_deref),
-			import: self.import.as_deref(),
+			base: self.base.as_ref().map(Nullable::as_ref),
+			import: self.import.as_ref(),
 			language: self.language.as_ref().map(Nullable::as_ref),
 			direction: self.direction,
 			propagate: self.propagate,
@@ -21,8 +21,8 @@ impl Definition {
 }
 
 pub struct Entries<'a> {
-	base: Option<Nullable<&'a IriRef>>,
-	import: Option<&'a IriRef>,
+	base: Option<Nullable<&'a IriRefBuf>>,
+	import: Option<&'a IriRefBuf>,
 	language: Option<Nullable<&'a LenientLangTagBuf>>,
 	direction: Option<Nullable<Direction>>,
 	propagate: Option<bool>,
@@ -116,8 +116,8 @@ impl<'a> Iterator for Entries<'a> {
 impl<'a> ExactSizeIterator for Entries<'a> {}
 
 pub enum EntryValueRef<'a> {
-	Base(Nullable<&'a IriRef>),
-	Import(&'a IriRef),
+	Base(Nullable<&'a IriRefBuf>),
+	Import(&'a IriRefBuf),
 	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
@@ -148,8 +148,8 @@ impl<'a> EntryValueRef<'a> {
 }
 
 pub enum EntryRef<'a> {
-	Base(Nullable<&'a IriRef>),
-	Import(&'a IriRef),
+	Base(Nullable<&'a IriRefBuf>),
+	Import(&'a IriRefBuf),
 	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),

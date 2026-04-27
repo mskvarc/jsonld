@@ -1,5 +1,6 @@
 use crate::{Id, ValidId, ValidVocabularyId, VocabularyId};
-use rdf_types::{Generator, Vocabulary};
+use rdf_rs::LocalGenerator;
+use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -19,8 +20,9 @@ impl<'n, N: Vocabulary, G> Environment<'n, N, G> {
 	}
 }
 
-impl<'n, V: Vocabulary, G: Generator<V>> Environment<'n, V, G>
+impl<'n, V: Vocabulary, G: LocalGenerator> Environment<'n, V, G>
 where
+	V: VocabularyMut,
 	V::Iri: Clone,
 	V::BlankId: Clone + Hash + Eq,
 {
@@ -29,7 +31,7 @@ where
 		match self.map.entry(blank_id) {
 			Entry::Occupied(entry) => entry.get().clone(),
 			Entry::Vacant(entry) => {
-				let id = self.generator.next(self.vocabulary);
+				let id = crate::id::generator_next_id(self.vocabulary, &mut self.generator);
 				entry.insert(id.clone());
 				id
 			}
@@ -46,6 +48,6 @@ where
 
 	#[allow(clippy::should_implement_trait)]
 	pub fn next(&mut self) -> ValidId<V::Iri, V::BlankId> {
-		self.generator.next(self.vocabulary)
+		crate::id::generator_next_id(self.vocabulary, &mut self.generator)
 	}
 }

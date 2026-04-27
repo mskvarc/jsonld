@@ -3,10 +3,10 @@ use std::hash::Hash;
 use crate::{
 	Error, Options, Process, Processed, ProcessingResult, ProcessingStack, WarningHandler,
 };
-use iref::IriRef;
+use iri_rs::{Iri, IriBuf};
 use jsonld_core::{Context, Environment, ExtractContext, Loader, ProcessingMode, Term};
 use jsonld_syntax::{self as syntax, Nullable};
-use rdf_types::{VocabularyMut, vocabulary::IriVocabularyMut};
+use rdf_rs::vocabulary::VocabularyMut;
 
 mod define;
 mod iri;
@@ -50,18 +50,27 @@ impl Process for syntax::context::Context {
 	}
 }
 
-/// Resolve `iri_ref` against the given base IRI.
-fn resolve_iri<I>(
-	vocabulary: &mut impl IriVocabularyMut<Iri = I>,
-	iri_ref: &IriRef,
+/// Resolve `iri_ref` against the given base IRI, then insert the result in
+/// the vocabulary.
+fn resolve_iri<V, I>(
+	vocabulary: &mut V,
+	iri_ref: iri_rs::IriRef<&str>,
 	base_iri: Option<&I>,
-) -> Option<I> {
+) -> Option<I>
+where
+	V: rdf_rs::vocabulary::IriVocabularyMut<Iri = I>,
+{
 	match base_iri {
 		Some(base_iri) => {
-			let result = iri_ref.resolved(vocabulary.iri(base_iri).unwrap());
-			Some(vocabulary.insert(result.as_iri()))
+			let base = vocabulary.iri(base_iri)?;
+			let resolved = iri_ref.resolved(&base).ok()?;
+			let iri_buf = IriBuf::try_from(resolved).ok()?;
+			Some(vocabulary.insert_owned(iri_buf))
 		}
-		None => iri_ref.as_iri().map(|iri| vocabulary.insert(iri)),
+		None => {
+			let iri = Iri::try_from(iri_ref).ok()?;
+			Some(vocabulary.insert(iri))
+		}
 	}
 }
 
@@ -141,9 +150,8 @@ where
 				// Initialize `context` to the result of resolving context against base URL.
 				// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 				// a loading document failed error has been detected and processing is aborted.
-				let context_iri =
-					resolve_iri(env.vocabulary, iri_ref.as_iri_ref(), base_url.as_ref())
-						.ok_or(Error::LoadingDocumentFailed)?;
+				let context_iri = resolve_iri(env.vocabulary, iri_ref.as_ref(), base_url.as_ref())
+					.ok_or(Error::LoadingDocumentFailed)?;
 
 				// If the number of entries in the `remote_contexts` array exceeds a processor
 				// defined limit, a context overflow error has been detected and processing is
@@ -224,12 +232,9 @@ where
 
 						// 5.6.3) Initialize import to the result of resolving the value of
 						// @import.
-						let import = resolve_iri(
-							env.vocabulary,
-							import_value.as_iri_ref(),
-							base_url.as_ref(),
-						)
-						.ok_or(Error::InvalidImportValue)?;
+						let import =
+							resolve_iri(env.vocabulary, import_value.as_ref(), base_url.as_ref())
+								.ok_or(Error::InvalidImportValue)?;
 
 						// 5.6.4) Dereference import.
 						let import_context = env
@@ -280,15 +285,22 @@ where
 								// If value is null, remove the base IRI of result.
 								result.set_base_iri(None);
 							}
-							syntax::Nullable::Some(iri_ref) => match iri_ref.as_iri() {
-								Some(iri) => result.set_base_iri(Some(env.vocabulary.insert(iri))),
-								None => {
-									let resolved =
-										resolve_iri(env.vocabulary, iri_ref, result.base_iri())
-											.ok_or(Error::InvalidBaseIri)?;
-									result.set_base_iri(Some(resolved))
+							syntax::Nullable::Some(iri_ref) => {
+								match Iri::try_from(iri_ref.as_ref()) {
+									Ok(iri) => {
+										result.set_base_iri(Some(env.vocabulary.insert(iri)))
+									}
+									Err(_) => {
+										let resolved = resolve_iri(
+											env.vocabulary,
+											iri_ref.as_ref(),
+											result.base_iri(),
+										)
+										.ok_or(Error::InvalidBaseIri)?;
+										result.set_base_iri(Some(resolved))
+									}
 								}
-							},
+							}
 						}
 					}
 				}

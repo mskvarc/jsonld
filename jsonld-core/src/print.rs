@@ -7,7 +7,7 @@ pub use json_syntax::print::{Options, Print, Printed};
 
 use crate::{object, ExpandedDocument, Id, Indexed, Object};
 use contextual::WithContext;
-use rdf_types::vocabulary::{IriVocabulary, Vocabulary};
+use rdf_rs::vocabulary::{IriVocabulary, Vocabulary};
 
 pub trait PrintWithSizeAndVocabulary<V> {
 	fn fmt_with_size_and(

@@ -3,13 +3,11 @@ use std::hash::Hash;
 use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
-use iref::{Iri, IriRef};
+use iri_rs::{Iri, IriRef};
 use jsonld_core::{Context, Id, Loader, Term, warning};
 use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key};
-use rdf_types::{
-	BlankId, Vocabulary, VocabularyMut,
-	vocabulary::{BlankIdVocabulary, IriVocabulary},
-};
+use rdf_rs::BlankId;
+use rdf_rs::vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut};
 use syntax::{CompactIri, context::definition::KeyOrKeywordRef, is_keyword_like};
 
 pub struct MalformedIri(pub String);
@@ -146,7 +144,7 @@ where
 					}
 				}
 
-				if let Ok(iri) = Iri::new(value) {
+				if let Ok(iri) = Iri::parse(value) {
 					return Ok(Some(Term::Id(Id::iri(env.vocabulary.insert(iri)))));
 				}
 			}
@@ -180,7 +178,7 @@ where
 			// same way that unreserved characters are treated in URI references, per section 6.5 of
 			// [RFC3987].
 			if document_relative {
-				if let Ok(iri_ref) = IriRef::new(value) {
+				if let Ok(iri_ref) = IriRef::parse(value) {
 					if let Some(iri) =
 						super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
 					{
@@ -301,7 +299,7 @@ where
 					}
 				}
 
-				if let Ok(iri) = Iri::new(value) {
+				if let Ok(iri) = Iri::parse(value) {
 					return Ok(Some(Term::Id(Id::iri(env.vocabulary.insert(iri)))));
 				}
 			}
@@ -335,7 +333,7 @@ where
 			// same way that unreserved characters are treated in URI references, per section 6.5 of
 			// [RFC3987].
 			if document_relative {
-				if let Ok(iri_ref) = IriRef::new(value) {
+				if let Ok(iri_ref) = IriRef::parse(value) {
 					if let Some(iri) =
 						super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
 					{

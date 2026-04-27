@@ -1,11 +1,61 @@
-use iref_enum::IriEnum;
-pub use rdf_types::vocabulary::LiteralIndex;
+use contextual::DisplayWithContext;
+use iri_rs::IriEnum;
+use jsonld::ValidId;
+use rdf_rs::impl_resource;
+pub use rdf_rs::vocabulary::{BlankIdIndex, IriIndex, LiteralIndex};
+use rdf_rs::vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary};
+use std::fmt;
 
-pub type IriIndex = rdf_types::vocabulary::IriOrIndex<Vocab>;
-pub type BlankIdIndex = rdf_types::vocabulary::BlankIdIndex;
+/// Quad shape stored by the proc-macro's working dataset.
+pub type IndexQuad = rdf_rs::Quad<IndexTerm, IndexTerm, IndexTerm, IndexTerm>;
 
-pub type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralIndex>;
-pub type IndexQuad = rdf_types::Quad<IndexTerm>;
+/// Uniform resource type used for every position of a quad in the
+/// proc-macro-internal dataset. `impl_resource!` opts it into all four
+/// position-trait sealed impls (subject/predicate/object/graph) so it can
+/// satisfy [`IndexedBTreeDataset`]'s `R: Resource` requirement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum IndexTerm {
+	Iri(IriIndex),
+	Blank(BlankIdIndex),
+	Literal(LiteralIndex),
+}
+
+impl_resource!(IndexTerm);
+
+impl IndexTerm {
+	pub const fn iri(i: IriIndex) -> Self {
+		Self::Iri(i)
+	}
+
+	pub const fn blank(b: BlankIdIndex) -> Self {
+		Self::Blank(b)
+	}
+
+	pub fn from_id(id: ValidId<IriIndex, BlankIdIndex>) -> Self {
+		match id {
+			ValidId::Iri(i) => Self::Iri(i),
+			ValidId::Blank(b) => Self::Blank(b),
+		}
+	}
+}
+
+impl<V> DisplayWithContext<V> for IndexTerm
+where
+	V: IriVocabulary<Iri = IriIndex>
+		+ BlankIdVocabulary<BlankId = BlankIdIndex>
+		+ LiteralVocabulary<Literal = LiteralIndex>,
+{
+	fn fmt_with(&self, vocabulary: &V, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Iri(i) => write!(f, "{}", vocabulary.iri(i).unwrap()),
+			Self::Blank(b) => write!(f, "{}", vocabulary.blank_id(b).unwrap()),
+			Self::Literal(l) => {
+				let lit = vocabulary.literal(l).unwrap();
+				write!(f, "{:?}", lit.value)
+			}
+		}
+	}
+}
 
 #[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Vocab {

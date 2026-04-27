@@ -13,15 +13,17 @@ readme = "README.md"
 
 [dependencies]
 indexmap = "2.14.0"
-iref = "3.2.2"
+iri-rs = "3.3.2"
 jsonld-core.workspace = true
 json-syntax = "0.12.5"
-linked-data = "0.1.2"
-rdf-types = "0.22.5"
+ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
+rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 thiserror = "2.0.18"
-xsd-types = "0.9.6"
+xsd-rs = { git = "ssh://git@github.com/mskvarc/xsd-rs.git" }
 
 [dev-dependencies]
 contextual = "0.1.6"
 json-syntax = "0.12.5"
-linked-data = { version = "0.1.2", features = ["derive"] }
+ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git", features = [
+    "derive",
+] }

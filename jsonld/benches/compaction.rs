@@ -32,7 +32,7 @@ fn run_compaction(c: &mut Criterion) {
 					let loader = NoLoader;
 					let out = expanded
 						.compact_full(
-							jsonld::rdf_types::vocabulary::no_vocabulary_mut(),
+							jsonld::rdf_rs::vocabulary::no_vocabulary_mut(),
 							processed.as_ref(),
 							&loader,
 							jsonld::compaction::Options::default(),

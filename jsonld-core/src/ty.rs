@@ -1,6 +1,6 @@
 use super::Term;
 use crate::{Id, ValidId};
-use iref::IriBuf;
+use iri_rs::IriBuf;
 use jsonld_syntax::Keyword;
 use std::convert::TryFrom;
 use std::fmt;

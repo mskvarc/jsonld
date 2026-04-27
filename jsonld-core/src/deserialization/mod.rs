@@ -1,20 +1,18 @@
-use linked_data::{LinkedData, LinkedDataGraph, LinkedDataResource, LinkedDataSubject};
-use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
+use ld_core::{LinkedData, LinkedDataGraph, LinkedDataResource, LinkedDataSubject};
+use rdf_rs::Interpretation;
 
 use crate::ExpandedDocument;
 
 mod object;
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V>
-	for ExpandedDocument<T, B>
+impl<T, B, I: Interpretation> LinkedDataGraph<I> for ExpandedDocument<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<I, V>,
+		S: ld_core::GraphVisitor<I>,
 	{
 		for object in self {
 			visitor.subject(object.inner())?;
@@ -24,15 +22,14 @@ where
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for ExpandedDocument<T, B>
+impl<T, B, I: Interpretation> LinkedData<I> for ExpandedDocument<T, B>
 where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
+	T: LinkedDataResource<I> + LinkedDataSubject<I>,
+	B: LinkedDataResource<I> + LinkedDataSubject<I>,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<I, V>,
+		S: ld_core::Visitor<I>,
 	{
 		visitor.default_graph(self)?;
 		visitor.end()

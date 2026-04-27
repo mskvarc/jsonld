@@ -1,14 +1,11 @@
-use crate::{
-	vocab, vocab::IndexTerm, BlankIdIndex, Error, IndexVocabulary, IriIndex, TestSpec, Vocab,
-};
-use contextual::AsRefWithContext;
+use crate::{vocab, vocab::IndexTerm, Error, IndexVocabulary, IriIndex, TestSpec, Vocab};
 use core::fmt;
-use jsonld::ValidId;
+use iri_rs::Iri;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_types::{
+use rdf_rs::{
 	dataset::{IndexedBTreeDataset, PatternMatchingDataset},
-	vocabulary::{IriVocabulary, LiteralIndex, LiteralVocabulary},
+	vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary},
 };
 use std::collections::HashMap;
 
@@ -68,65 +65,78 @@ impl Type {
 		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &IndexedBTreeDataset<IndexTerm>,
-		value: &jsonld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
+		value: &IndexTerm,
 	) -> Result<TokenStream, Box<Error>> {
 		match self {
 			Self::Bool => {
 				let b = match value {
-					jsonld::rdf::Value::Literal(l) => {
+					IndexTerm::Literal(l) => {
 						let literal = vocabulary.literal(l).unwrap();
-						if literal.type_
-							== rdf_types::LiteralType::Any(IriIndex::Iri(Vocab::Xsd(
-								vocab::Xsd::Boolean,
-							))) {
+						let xsd_boolean: Iri<&str> =
+							Iri::<&str>::from(Vocab::Xsd(vocab::Xsd::Boolean));
+						if literal.type_.is_iri(&xsd_boolean) {
 							match literal.value {
 								"true" => true,
 								"false" => false,
 								_ => {
-									return Err(Box::new(Error::InvalidValue(self.clone(), *value)))
+									return Err(Box::new(Error::InvalidValue(
+										self.clone(),
+										value.clone(),
+									)))
 								}
 							}
 						} else {
-							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
+							return Err(Box::new(Error::InvalidValue(
+								self.clone(),
+								value.clone(),
+							)));
 						}
 					}
-					_ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+					_ => {
+						return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())))
+					}
 				};
 
 				Ok(quote! { #b })
 			}
 			Self::String => {
-				let s = match value {
-					jsonld::rdf::Value::Literal(lit) => vocabulary.literal(lit).unwrap().value,
-					jsonld::rdf::Value::Id(id) => id.as_ref_with(vocabulary),
+				let s: String = match value {
+					IndexTerm::Literal(lit) => vocabulary.literal(lit).unwrap().value.to_owned(),
+					IndexTerm::Iri(i) => vocabulary.iri(i).unwrap().as_str().to_owned(),
+					IndexTerm::Blank(b) => vocabulary.blank_id(b).unwrap().as_str().to_owned(),
 				};
 
 				Ok(quote! { #s })
 			}
 			Self::Iri => match value {
-				jsonld::rdf::Value::Id(ValidId::Iri(i)) => {
-					let s = vocabulary.iri(i).unwrap().as_str();
-					Ok(quote! { ::static_iref::iri!(#s) })
+				IndexTerm::Iri(i) => {
+					let iri = vocabulary.iri(i).unwrap();
+					let s = iri.as_str();
+					Ok(quote! { ::iri_rs::iri!(#s) })
 				}
-				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 			},
 			Self::ProcessingMode => {
 				let s = match value {
-					jsonld::rdf::Value::Literal(l) => {
+					IndexTerm::Literal(l) => {
 						let literal = vocabulary.literal(l).unwrap();
-						if literal.type_
-							== rdf_types::LiteralType::Any(IriIndex::Iri(Vocab::Xsd(
-								vocab::Xsd::String,
-							))) {
-							literal.value
+						let xsd_string: Iri<&str> =
+							Iri::<&str>::from(Vocab::Xsd(vocab::Xsd::String));
+						if literal.type_.is_iri(&xsd_string) {
+							literal.value.to_owned()
 						} else {
-							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
+							return Err(Box::new(Error::InvalidValue(
+								self.clone(),
+								value.clone(),
+							)));
 						}
 					}
-					_ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+					_ => {
+						return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())))
+					}
 				};
 
-				match jsonld::ProcessingMode::try_from(s) {
+				match jsonld::ProcessingMode::try_from(s.as_str()) {
 					Ok(p) => match p {
 						jsonld::ProcessingMode::JsonLd1_0 => {
 							Ok(quote! { ::jsonld::ProcessingMode::JsonLd1_0 })
@@ -135,26 +145,30 @@ impl Type {
 							Ok(quote! { ::jsonld::ProcessingMode::JsonLd1_1 })
 						}
 					},
-					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 				}
 			}
 			Self::RdfDirection => {
 				let s = match value {
-					jsonld::rdf::Value::Literal(l) => {
+					IndexTerm::Literal(l) => {
 						let literal = vocabulary.literal(l).unwrap();
-						if literal.type_
-							== rdf_types::LiteralType::Any(IriIndex::Iri(Vocab::Xsd(
-								vocab::Xsd::String,
-							))) {
-							literal.value
+						let xsd_string: Iri<&str> =
+							Iri::<&str>::from(Vocab::Xsd(vocab::Xsd::String));
+						if literal.type_.is_iri(&xsd_string) {
+							literal.value.to_owned()
 						} else {
-							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
+							return Err(Box::new(Error::InvalidValue(
+								self.clone(),
+								value.clone(),
+							)));
 						}
 					}
-					_ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+					_ => {
+						return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())))
+					}
 				};
 
-				match jsonld::rdf::RdfDirection::try_from(s) {
+				match jsonld::rdf::RdfDirection::try_from(s.as_str()) {
 					Ok(p) => match p {
 						jsonld::rdf::RdfDirection::CompoundLiteral => {
 							Ok(quote! { ::jsonld::rdf::RdfDirection::CompoundLiteral })
@@ -163,22 +177,22 @@ impl Type {
 							Ok(quote! { ::jsonld::rdf::RdfDirection::I18nDatatype })
 						}
 					},
-					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 				}
 			}
 			Self::Ref(r) => match value {
-				jsonld::rdf::Value::Id(id) => {
+				IndexTerm::Iri(_) | IndexTerm::Blank(_) => {
 					let d = spec.types.get(r).unwrap();
 					let mod_id = &spec.id;
 					d.generate(
 						vocabulary,
 						spec,
 						dataset,
-						IndexTerm::Id(*id),
+						value.clone(),
 						quote! { #mod_id :: #r },
 					)
 				}
-				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
+				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 			},
 		}
 	}
@@ -208,10 +222,13 @@ impl Struct {
 	) -> Result<TokenStream, Box<Error>> {
 		let mut fields = Vec::new();
 
+		let rdf_type_iri = Iri::<&str>::from(Vocab::Rdf(vocab::Rdf::Type));
+		let rdf_type_index = vocabulary.get(rdf_type_iri);
+
 		for (field_iri, field) in &self.fields {
 			let ident = &field.id;
 			let value =
-				if *field_iri == IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type)) && field.ty.is_id() {
+				if Some(*field_iri) == rdf_type_index && field.ty.is_id() {
 					if field.multiple || !field.required {
 						return Err(Box::new(Error::InvalidTypeField));
 					}
@@ -273,22 +290,24 @@ impl Definition {
 			Self::Struct(s) => s.generate(vocabulary, spec, dataset, id, path),
 			Self::Enum(e) => {
 				let mut variant = None;
-				let node_types = dataset.quad_objects(
-					None,
-					&id,
-					&IndexTerm::Id(ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type)))),
-				);
+				let rdf_type_iri = Iri::<&str>::from(Vocab::Rdf(vocab::Rdf::Type));
+				let rdf_type_index = vocabulary.get(rdf_type_iri);
 
-				for ty_iri in node_types {
-					match ty_iri {
-						jsonld::rdf::Value::Id(ValidId::Iri(ty_iri)) => {
-							if let Some(v) = e.variants.get(ty_iri) {
-								if variant.replace(v).is_some() {
-									return Err(Box::new(Error::MultipleTypeVariants(id)));
+				if let Some(rdf_type_index) = rdf_type_index {
+					let predicate = IndexTerm::iri(rdf_type_index);
+					let node_types = dataset.quad_objects(None, &id, &predicate);
+
+					for ty_iri in node_types {
+						match ty_iri {
+							IndexTerm::Iri(ty_iri) => {
+								if let Some(v) = e.variants.get(ty_iri) {
+									if variant.replace(v).is_some() {
+										return Err(Box::new(Error::MultipleTypeVariants(id)));
+									}
 								}
 							}
+							_ => panic!("invalid type"),
 						}
-						_ => panic!("invalid type"),
 					}
 				}
 

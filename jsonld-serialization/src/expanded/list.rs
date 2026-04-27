@@ -4,13 +4,11 @@ use jsonld_core::{
 	rdf::{RDF_FIRST, RDF_REST},
 	Indexed, IndexedObject, Object,
 };
-use linked_data::{CowRdfTerm, LinkedDataResource};
-use rdf_types::{
-	interpretation::{
-		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
-	},
-	vocabulary::IriVocabularyMut,
-	Id, Interpretation, Term, Vocabulary,
+use ld_core::{CowRdfTerm, LinkedDataResource, OwnedRdfTerm};
+use rdf_rs::{
+	interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
+	vocabulary::Vocabulary,
+	Interpretation,
 };
 
 use crate::Error;
@@ -35,68 +33,64 @@ impl<'a, I, V: Vocabulary> SerializeList<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::SubjectVisitor<I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I>
 	for SerializeList<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = Vec<IndexedObject<V::Iri, V::BlankId>>;
 	type Error = Error;
 
 	fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<I, V>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
+		L: ?Sized + LinkedDataResource<I>,
+		T: ?Sized + ld_core::LinkedDataPredicateObjects<I>,
 	{
 		let repr = predicate
-			.interpretation(self.vocabulary, self.interpretation)
-			.into_lexical_representation(self.vocabulary, self.interpretation)
-			.map(CowRdfTerm::into_term);
+			.interpretation(self.interpretation)
+			.into_lexical_representation(self.interpretation)
+			.map(CowRdfTerm::into_owned);
 
 		match repr {
-			Some(Term::Id(id)) => {
-				if let Id::Iri(iri) = id {
-					let iri = self.vocabulary.iri(iri.as_ref()).unwrap();
-					if iri == RDF_FIRST {
-						let serializer =
-							SerializeListFirst::new(self.vocabulary, self.interpretation);
-						self.first = value.visit_objects(serializer)?;
-					} else if iri == RDF_REST {
-						let serializer =
-							SerializeListRest::new(self.vocabulary, self.interpretation);
-						self.rest = value.visit_objects(serializer)?;
-					}
+			Some(OwnedRdfTerm::Iri(iri)) => {
+				if iri.as_ref() == RDF_FIRST {
+					let serializer =
+						SerializeListFirst::new(self.vocabulary, self.interpretation);
+					self.first = value.visit_objects(serializer)?;
+				} else if iri.as_ref() == RDF_REST {
+					let serializer =
+						SerializeListRest::new(self.vocabulary, self.interpretation);
+					self.rest = value.visit_objects(serializer)?;
 				}
 
 				Ok(())
 			}
+			Some(OwnedRdfTerm::BlankId(_)) => Ok(()),
 			_ => Err(Error::InvalidPredicate),
 		}
 	}
 
 	fn reverse_predicate<L, T>(&mut self, _predicate: &L, _subjects: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<I, V>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
+		L: ?Sized + LinkedDataResource<I>,
+		T: ?Sized + ld_core::LinkedDataPredicateObjects<I>,
 	{
 		Err(Error::ListReverseProperty)
 	}
 
 	fn graph<T>(&mut self, _value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataGraph<I, V>,
+		T: ?Sized + ld_core::LinkedDataGraph<I>,
 	{
 		Ok(())
 	}
 
 	fn include<T>(&mut self, _value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+		T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 	{
 		Err(Error::ListInclude)
 	}
@@ -125,22 +119,20 @@ impl<'a, I, V: Vocabulary> SerializeListFirst<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::PredicateObjectsVisitor<I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I>
 	for SerializeListFirst<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = Option<Object<V::Iri, V::BlankId>>;
 	type Error = Error;
 
 	fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+		T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 	{
 		self.result = Some(serialize_object_with(
 			self.vocabulary,
@@ -171,22 +163,20 @@ impl<'a, I, V: Vocabulary> SerializeListRest<'a, I, V> {
 	}
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> linked_data::PredicateObjectsVisitor<I, V>
+impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I>
 	for SerializeListRest<'a, I, V>
 where
-	V: IriVocabularyMut,
+	V: rdf_rs::vocabulary::VocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
-		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
-		+ ReverseLiteralInterpretation<Literal = V::Literal>,
+	I: ReverseInterpretation + ReverseLocalInterpretation,
 {
 	type Ok = Vec<IndexedObject<V::Iri, V::BlankId>>;
 	type Error = Error;
 
 	fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
+		T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
 	{
 		let serializer = SerializeList::new(self.vocabulary, self.interpretation);
 		self.result = value.visit_subject(serializer)?;

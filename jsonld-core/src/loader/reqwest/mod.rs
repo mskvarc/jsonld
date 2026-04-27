@@ -5,7 +5,7 @@ use crate::Profile;
 
 use super::{Loader, RemoteDocument};
 use hashbrown::HashSet;
-use iref::{Iri, IriBuf};
+use iri_rs::{Iri, IriBuf};
 use json_syntax::Parse;
 use reqwest::{
 	StatusCode,
@@ -143,9 +143,9 @@ pub enum ParseError {
 }
 
 impl Loader for ReqwestLoader {
-	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
+	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
 		let mut redirection_number = 0;
-		let mut url = url.to_owned();
+		let mut url: IriBuf = url.into();
 		'next_url: loop {
 			if redirection_number > self.options.max_redirections {
 				return Err(LoadError::new(url.clone(), Error::TooManyRedirections));
@@ -187,7 +187,11 @@ impl Loader for ReqwestLoader {
 												));
 											}
 
-											context_url = Some(link.href().resolved(&url));
+											if let Ok(resolved) = link.href().resolved(&url) {
+												if let Ok(iri) = IriBuf::try_from(resolved) {
+													context_url = Some(iri);
+												}
+											}
 										}
 									}
 								}
@@ -200,7 +204,7 @@ impl Loader for ReqwestLoader {
 								.flat_map(|p| p.split(|b| *b == b' '))
 							{
 								if let Ok(p) = std::str::from_utf8(p) {
-									if let Ok(iri) = Iri::new(p) {
+									if let Ok(iri) = Iri::parse(p) {
 										profile.insert(Profile::new(iri));
 									}
 								}
@@ -230,9 +234,13 @@ impl Loader for ReqwestLoader {
 										&& link.type_() == Some(b"application/ld+json")
 									{
 										log::debug!("link found");
-										url = link.href().resolved(&url);
-										redirection_number += 1;
-										continue 'next_url;
+										if let Ok(resolved) = link.href().resolved(&url) {
+											if let Ok(next) = IriBuf::try_from(resolved) {
+												url = next;
+												redirection_number += 1;
+												continue 'next_url;
+											}
+										}
 									}
 								}
 							}

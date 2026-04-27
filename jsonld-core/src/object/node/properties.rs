@@ -5,7 +5,7 @@ use crate::{
 };
 use educe::Educe;
 use indexmap::IndexMap;
-use rdf_types::VocabularyMut;
+use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::{Hash, Hasher};
 
 pub type PropertyObjects<T, B> = Multiset<IndexedObject<T, B>>;

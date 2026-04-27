@@ -16,14 +16,14 @@ proc-macro = true
 [dependencies]
 async-std = "1.13.2"
 contextual = "0.1.6"
-iref = "3.2.2"
-iref-enum = "3.0.0"
+iri-rs = { version = "3.3.2", features = ["static", "enum"] }
 jsonld.workspace = true
 litrs = "1.0.0"
 proc-macro2 = "1.0.106"
 proc-macro-error = "1.0.4"
 quote = "1.0.45"
-rdf-types = { version = "0.22.5", features = ["contextual"] }
-static-iref = "3.0.0"
+rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git", features = [
+    "contextual",
+] }
 syn = { version = "2.0.117", features = ["full"] }
 yansi = "1.0.1"

@@ -1,4 +1,4 @@
-use iref::IriRef;
+use iri_rs::IriRefBuf;
 use jsonld_syntax as syntax;
 use syntax::Nullable;
 
@@ -24,12 +24,12 @@ impl<'a> Merged<'a> {
 		})
 	}
 
-	pub fn base(&self) -> Option<syntax::Nullable<&IriRef>> {
+	pub fn base(&self) -> Option<syntax::Nullable<&IriRefBuf>> {
 		self.base
 			.base
 			.as_ref()
 			.or_else(|| self.imported().and_then(|i| i.base.as_ref()))
-			.map(Nullable::as_deref)
+			.map(Nullable::as_ref)
 	}
 
 	pub fn vocab(&self) -> Option<syntax::Nullable<&syntax::context::definition::Vocab>> {

@@ -1,9 +1,9 @@
 use crate::{Direction, LangString, LenientLangTag, object};
 use educe::Educe;
-use iref::{Iri, IriBuf};
+use iri_rs::{Iri, IriBuf};
 use json_syntax::{Number, NumberBuf};
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
-use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
+use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{hash::Hash, marker::PhantomData};
 
 use super::InvalidExpandedJson;
@@ -269,7 +269,7 @@ impl<T> Value<T> {
 			Some(type_entry) => match type_entry.value {
 				json_syntax::Value::String(ty) => match ty.as_str() {
 					"@json" => Ok(Self::Json(value_entry.value)),
-					iri => match Iri::new(iri) {
+					iri => match Iri::parse(iri) {
 						Ok(iri) => {
 							let ty = vocabulary.insert(iri);
 							let lit = value_entry.value.try_into()?;
