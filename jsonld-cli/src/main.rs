@@ -4,17 +4,17 @@ use std::str::FromStr;
 use clap::Parser;
 use contextual::WithContext;
 use iref::IriBuf;
-use jsonld::{syntax::Parse, JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference};
+use jsonld::{JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference, syntax::Parse};
 use rdf_types::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
-#[clap(name="json-ld", author, version, about, long_about = None)]
+#[command(name="json-ld", author, version, about, long_about = None)]
 struct Args {
 	/// Sets the level of verbosity.
-	#[clap(short, long = "verbose", parse(from_occurrences))]
-	verbosity: usize,
+	#[arg(short, long = "verbose", action = clap::ArgAction::Count)]
+	verbosity: u8,
 
-	#[clap(subcommand)]
+	#[command(subcommand)]
 	command: Command,
 }
 
@@ -31,24 +31,24 @@ pub enum Command {
 		url_or_path: Option<IriOrPath>,
 
 		/// Base URL to use when reading from the standard input or file system.
-		#[clap(short, long)]
+		#[arg(short, long)]
 		base_url: Option<IriBuf>,
 
 		/// Relabel the nodes.
 		///
 		/// This will give a blank node identifier to unidentified nodes and
 		/// replace existing blank node identifiers.
-		#[clap(short = 'l', long)]
+		#[arg(short = 'l', long)]
 		relabel: bool,
 
 		/// Put the expanded document in canonical form.
-		#[clap(short, long)]
+		#[arg(short, long)]
 		canonicalize: bool,
 
-		#[clap(long = "no-vocab")]
+		#[arg(long = "no-vocab")]
 		no_vocab: bool,
 
-		#[clap(long = "no-undef")]
+		#[arg(long = "no-undef")]
 		no_undef: bool,
 	},
 
@@ -59,11 +59,12 @@ pub enum Command {
 		url_or_path: Option<IriOrPath>,
 
 		/// Base URL to use when reading from the standard input or file system.
-		#[clap(short, long)]
+		#[arg(short, long)]
 		base_url: Option<IriBuf>,
 	},
 }
 
+#[derive(Clone)]
 pub enum IriOrPath {
 	Iri(IriBuf),
 	Path(PathBuf),
@@ -86,7 +87,10 @@ async fn main() {
 	let args = Args::parse();
 
 	// Init logger.
-	stderrlog::new().verbosity(args.verbosity).init().unwrap();
+	stderrlog::new()
+		.verbosity(args.verbosity as usize)
+		.init()
+		.unwrap();
 
 	let mut vocabulary: rdf_types::vocabulary::IndexVocabulary =
 		rdf_types::vocabulary::IndexVocabulary::new();
