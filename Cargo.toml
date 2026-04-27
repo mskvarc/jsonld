@@ -35,3 +35,11 @@ jsonld-expansion = { path = "jsonld-expansion", version = "0.22.0" }
 jsonld-serialization = { path = "jsonld-serialization", version = "0.22.0" }
 jsonld-syntax = { path = "jsonld-syntax", version = "0.22.0" }
 jsonld-testing = { path = "jsonld-testing", version = "0.22.0" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+lto = "thin"
+codegen-units = 1
