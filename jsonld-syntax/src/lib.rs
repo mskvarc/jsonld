@@ -7,6 +7,7 @@ pub mod context;
 mod direction;
 mod error;
 mod expandable;
+pub mod intern;
 mod into_json;
 mod keyword;
 mod lang;

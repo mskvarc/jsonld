@@ -1,47 +1,77 @@
+use crate::intern::{Spur, intern, resolve};
 use crate::{CompactIri, Keyword};
 use iri_rs::Iri;
 use rdf_rs::BlankId;
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::fmt;
 use std::hash::Hash;
 
 /// Context key.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Key(String);
+///
+/// Internally a [`Spur`] (a 32-bit handle into a process-wide string
+/// interner), so cloning is `Copy`-cheap and comparison is a single integer
+/// equality. The interned string is reachable via [`Key::as_str`].
+#[derive(Clone, Copy, Debug)]
+pub struct Key(Spur);
 
 impl Key {
 	pub fn as_iri(&self) -> Option<Iri<&str>> {
-		Iri::parse(self.0.as_str()).ok()
+		Iri::parse(self.as_str()).ok()
 	}
 
 	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
+		CompactIri::new(self.as_str()).ok()
 	}
 
 	pub fn as_blank_id(&self) -> Option<&BlankId> {
-		BlankId::new(&self.0).ok()
+		BlankId::new(self.as_str()).ok()
 	}
 
-	pub fn as_str(&self) -> &str {
-		&self.0
+	pub fn as_str(&self) -> &'static str {
+		resolve(self.0)
 	}
 
 	pub fn len(&self) -> usize {
-		self.0.len()
+		self.as_str().len()
 	}
 
 	pub fn is_empty(&self) -> bool {
-		self.0.is_empty()
+		self.as_str().is_empty()
 	}
 
 	pub fn into_string(self) -> String {
-		self.0
+		self.as_str().to_owned()
 	}
 
 	pub fn is_keyword_like(&self) -> bool {
 		crate::is_keyword_like(self.as_str())
+	}
+}
+
+impl PartialEq for Key {
+	fn eq(&self, other: &Self) -> bool {
+		// Equal spurs ⇔ equal strings (the interner never reuses spurs).
+		self.0 == other.0
+	}
+}
+
+impl Eq for Key {}
+
+impl PartialOrd for Key {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Key {
+	fn cmp(&self, other: &Self) -> Ordering {
+		// Ord must reflect string ordering; spur ordering is allocation order.
+		if self.0 == other.0 {
+			Ordering::Equal
+		} else {
+			self.as_str().cmp(other.as_str())
+		}
 	}
 }
 
@@ -54,31 +84,54 @@ impl From<json_syntax::object::Key> for Key {
 #[allow(clippy::derived_hash_with_manual_eq)]
 impl Hash for Key {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		// Hash via the underlying string so that `Borrow<str>` lookups
+		// (e.g. `HashMap::get(&"foo")`) stay equivalent.
 		self.as_str().hash(state)
 	}
 }
 
 impl From<String> for Key {
 	fn from(k: String) -> Self {
-		Self(k)
+		Self(intern(&k))
 	}
 }
 
 impl<'a> From<&'a str> for Key {
 	fn from(value: &'a str) -> Self {
-		Self(value.to_owned())
+		Self(intern(value))
 	}
 }
 
 impl fmt::Display for Key {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		self.0.fmt(f)
+		self.as_str().fmt(f)
 	}
 }
 
 impl Borrow<str> for Key {
 	fn borrow(&self) -> &str {
 		self.as_str()
+	}
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Key {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		serializer.serialize_str(self.as_str())
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Key {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		let s = <&str>::deserialize(deserializer)?;
+		Ok(Self::from(s))
 	}
 }
 
@@ -99,7 +152,7 @@ impl<'a> KeyRef<'a> {
 	}
 
 	pub fn to_owned(self) -> Key {
-		Key(self.0.to_owned())
+		Key::from(self.0)
 	}
 }
 
@@ -111,7 +164,7 @@ impl<'a> From<&'a str> for KeyRef<'a> {
 
 impl<'a> From<&'a Key> for KeyRef<'a> {
 	fn from(k: &'a Key) -> Self {
-		Self(&k.0)
+		Self(k.as_str())
 	}
 }
 
