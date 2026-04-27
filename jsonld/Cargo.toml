@@ -38,6 +38,15 @@ iref.workspace = true
 static-iref.workspace = true
 nquads-syntax = "0.19"
 stacker = "0.1.15"
+criterion = "0.8.2"
+
+[[bench]]
+name = "expansion"
+harness = false
+
+[[bench]]
+name = "compaction"
+harness = false
 
 [package.metadata.docs.rs]
 all-features = true
