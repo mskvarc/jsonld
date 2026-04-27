@@ -33,7 +33,9 @@ fn candidate_beats(key: &str, suffix: &str, candidate_len: usize, current: &str)
 
 /// Compact the given term without considering any value.
 ///
-/// Calls [`compact_iri_full`] with `None` for `value`.
+/// Calls [`compact_iri_full`] with `None` for `value`. Memoized per active
+/// context: repeated `(var, vocab, reverse)` lookups return the cached result
+/// without rerunning the algorithm.
 pub(crate) fn compact_iri<N>(
 	vocabulary: &N,
 	active_context: &Context<N::Iri, N::BlankId>,
@@ -47,7 +49,15 @@ where
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
 {
-	compact_iri_full::<N, Object<N::Iri, N::BlankId>>(
+	let cache = active_context.compact_iri_cache();
+	{
+		let guard = cache.lock().unwrap();
+		if let Some(hit) = guard.get(&(var.clone(), vocab, reverse)) {
+			return Ok(hit.clone());
+		}
+	}
+
+	let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(
 		vocabulary,
 		active_context,
 		var,
@@ -55,7 +65,13 @@ where
 		vocab,
 		reverse,
 		options,
-	)
+	)?;
+
+	cache
+		.lock()
+		.unwrap()
+		.insert((var.clone(), vocab, reverse), result.clone());
+	Ok(result)
 }
 
 pub(crate) fn compact_key<N>(

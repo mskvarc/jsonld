@@ -12,7 +12,7 @@ use rdf_rs::vocabulary::Vocabulary;
 use rdf_rs::BlankIdBuf;
 use std::borrow::Borrow;
 use std::hash::Hash;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub use jsonld_syntax::context::{
 	definition::{Key, KeyOrType, Type},
@@ -29,6 +29,9 @@ pub use inverse::InverseContext;
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
+/// Cache key for [`Context::compact_iri_cache`]: `(var, vocab, reverse)`.
+pub type CompactIriKey<T, B> = (Term<T, B>, bool, bool);
+
 pub struct Context<T = IriBuf, B = BlankIdBuf> {
 	original_base_url: Option<T>,
 	base_iri: Option<T>,
@@ -39,6 +42,7 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
 	definitions: Arc<Definitions<T, B>>,
 	inverse: OnceCell<InverseContext<T, B>>,
 	prefix_terms: OnceCell<Vec<Key>>,
+	compact_iri_cache: OnceCell<Box<Mutex<crate::HashMap<CompactIriKey<T, B>, Option<String>>>>>,
 }
 
 impl<T, B> Default for Context<T, B> {
@@ -53,6 +57,7 @@ impl<T, B> Default for Context<T, B> {
 			definitions: Arc::new(Definitions::default()),
 			inverse: OnceCell::default(),
 			prefix_terms: OnceCell::default(),
+			compact_iri_cache: OnceCell::default(),
 		}
 	}
 }
@@ -75,6 +80,7 @@ impl<T, B> Context<T, B> {
 			definitions: Arc::new(Definitions::default()),
 			inverse: OnceCell::default(),
 			prefix_terms: OnceCell::default(),
+			compact_iri_cache: OnceCell::default(),
 		}
 	}
 
@@ -219,6 +225,19 @@ impl<T, B> Context<T, B> {
 		})
 	}
 
+	/// Returns the per-context memoization map for the compact-IRI algorithm.
+	///
+	/// The cache stores results keyed on `(var, vocab, reverse)`. It is
+	/// invalidated whenever the context's term definitions, base IRI,
+	/// vocabulary, language, or direction change, since those affect
+	/// compaction output.
+	pub fn compact_iri_cache(
+		&self,
+	) -> &Mutex<crate::HashMap<CompactIriKey<T, B>, Option<String>>> {
+		self.compact_iri_cache
+			.get_or_init(|| Box::new(Mutex::new(crate::HashMap::default())))
+	}
+
 	/// Sets the normal definition for the given term `key`.
 	pub fn set_normal(
 		&mut self,
@@ -231,6 +250,7 @@ impl<T, B> Context<T, B> {
 	{
 		self.inverse.take();
 		self.prefix_terms.take();
+		self.compact_iri_cache.take();
 		Arc::make_mut(&mut self.definitions).set_normal(key, definition)
 	}
 
@@ -240,36 +260,42 @@ impl<T, B> Context<T, B> {
 		T: Clone,
 		B: Clone,
 	{
+		self.compact_iri_cache.take();
 		Arc::make_mut(&mut self.definitions).set_type(type_)
 	}
 
 	/// Sets the base IRI.
 	pub fn set_base_iri(&mut self, iri: Option<T>) {
 		self.inverse.take();
+		self.compact_iri_cache.take();
 		self.base_iri = iri
 	}
 
 	/// Sets the `@vocab` value.
 	pub fn set_vocabulary(&mut self, vocab: Option<Term<T, B>>) {
 		self.inverse.take();
+		self.compact_iri_cache.take();
 		self.vocabulary = vocab;
 	}
 
 	/// Sets the default `@language` value.
 	pub fn set_default_language(&mut self, lang: Option<LenientLangTagBuf>) {
 		self.inverse.take();
+		self.compact_iri_cache.take();
 		self.default_language = lang;
 	}
 
 	/// Sets the default `@direction` value.
 	pub fn set_default_base_direction(&mut self, dir: Option<Direction>) {
 		self.inverse.take();
+		self.compact_iri_cache.take();
 		self.default_base_direction = dir;
 	}
 
 	/// Sets the previous context.
 	pub fn set_previous_context(&mut self, previous: Self) {
 		self.inverse.take();
+		self.compact_iri_cache.take();
 		self.previous_context = Some(Arc::new(previous))
 	}
 
@@ -343,6 +369,7 @@ impl<T, B> Context<T, B> {
 			definitions: Arc::new(Arc::unwrap_or_clone(self.definitions).map_ids(map_iri, map_id)),
 			inverse: OnceCell::new(),
 			prefix_terms: OnceCell::new(),
+			compact_iri_cache: OnceCell::new(),
 		}
 	}
 }
@@ -387,6 +414,7 @@ impl<T: Clone, B: Clone> Clone for Context<T, B> {
 			definitions: Arc::clone(&self.definitions),
 			inverse: OnceCell::default(),
 			prefix_terms: OnceCell::default(),
+			compact_iri_cache: OnceCell::default(),
 		}
 	}
 }
