@@ -480,12 +480,21 @@ where
 
 	// If vocab is false, transform var to a relative IRI reference using the
 	// base IRI from active context, if it exists.
-	// TODO: iri-rs has no `Iri::relative_to`; for now emit the absolute form.
 	if !vocab {
-		if let Some(_base_iri) = active_context.base_iri() {
+		if let Some(base_iri) = active_context.base_iri() {
 			if let Some(iri) = var.as_iri() {
 				let iri = vocabulary.iri(iri).unwrap();
-				return Ok(Some(disambiguate_keyword(iri.as_str().into())));
+				let base = vocabulary.iri(base_iri).unwrap();
+				let rel = iri.relative_to(&base);
+				let s = rel.as_str();
+				// RFC 3986 relativization yields "" when target equals base;
+				// JSON-LD test 0076 expects last path segment of base instead.
+				let out = if s.is_empty() {
+					base.as_str().rsplit('/').next().unwrap_or("").to_string()
+				} else {
+					s.to_string()
+				};
+				return Ok(Some(disambiguate_keyword(out)));
 			}
 		}
 	}

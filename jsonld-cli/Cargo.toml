@@ -13,7 +13,7 @@ readme = "README.md"
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
 contextual = "0.1.6"
-iri-rs = { version = "3.3.2", features = ["static"] }
+iri-rs = { version = "3.3.3", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
 log = "0.4.29"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }

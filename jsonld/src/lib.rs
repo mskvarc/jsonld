@@ -42,8 +42,7 @@
 //! ### Example
 //!
 //! ```
-//! use iri_rs::IriBuf;
-//! use iri_rs::iri;
+//! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
 //!
 //! # #[async_std::main]
@@ -51,7 +50,7 @@
 //! // Create a "remote" document by parsing a file manually.
 //! let input = RemoteDocument::new(
 //!   // We use `IriBuf` as IRI type.
-//!   Some(iri!("https://example.com/sample.jsonld").to_owned()),
+//!   Some(IriBuf::from(iri!("https://example.com/sample.jsonld"))),
 //!
 //!   // Optional content type.
 //!   Some("application/ld+json".parse().unwrap()),
@@ -92,17 +91,17 @@
 //! Here is another example using `RemoteDocumentReference`.
 //!
 //! ```
-//! use iri_rs::iri;
+//! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
 //!
 //! # #[async_std::main]
 //! # async fn main() {
-//! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
+//! let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = jsonld::FsLoader::default();
-//! loader.mount(iri!("https://example.com/").to_owned(), "examples");
+//! loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
 //!
 //! let expanded = input.expand(&mut loader)
 //!   .await
@@ -116,9 +115,10 @@
 //! [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 //!
 //! ```
-//! # use iri_rs::iri;
+//! # use iri_rs::{iri, IriBuf};
 //! # use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-//! use rdf_rs::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+//! use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+//! use jsonld::Id;
 //! use contextual::WithContext;
 //! # #[async_std::main]
 //! # async fn main() {
@@ -132,7 +132,7 @@
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = jsonld::FsLoader::default();
-//! loader.mount(iri!("https://example.com/").to_owned(), "examples");
+//! loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
 //!
 //! let expanded = input
 //!   .expand_with(&mut vocabulary, &mut loader)
@@ -140,7 +140,7 @@
 //!   .expect("expansion failed");
 //!
 //! // `foaf:name` property identifier.
-//! let name_id = Subject::Iri(vocabulary.insert(iri!("http://xmlns.com/foaf/0.1/name")));
+//! let name_id = Id::iri(vocabulary.insert(iri!("http://xmlns.com/foaf/0.1/name")));
 //!
 //! for object in expanded {
 //!   if let Some(id) = object.id() {
@@ -179,19 +179,19 @@
 //! using [`JsonLdProcessor::compact`].
 //!
 //! ```
-//! use iri_rs::iri;
+//! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
 //!
 //! # #[async_std::main]
 //! # async fn main() {
-//! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
+//! let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 //!
-//! let context = RemoteContextReference::iri(iri!("https://example.com/context.jsonld").to_owned());
+//! let context = RemoteContextReference::iri(IriBuf::from(iri!("https://example.com/context.jsonld")));
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = jsonld::FsLoader::default();
-//! loader.mount(iri!("https://example.com/").to_owned(), "examples");
+//! loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
 //!
 //! let compact = input
 //!   .compact(context, &mut loader)
@@ -236,17 +236,17 @@
 //! using [`JsonLdProcessor::flatten`].
 //!
 //! ```
-//! use iri_rs::iri;
+//! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
 //!
 //! # #[async_std::main]
 //! # async fn main() {
-//! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
+//! let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = jsonld::FsLoader::default();
-//! loader.mount(iri!("https://example.com/").to_owned(), "examples");
+//! loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
 //!
 //! let mut generator = rdf_rs::generator::Blank::new();
 //!
@@ -289,13 +289,13 @@
 //! By importing the [`contextual::WithContext`] which provides the `with`
 //! method you can display such value like this:
 //! ```
-//! use iri_rs::iri;
+//! use iri_rs::{iri, IriBuf};
 //! use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
 //! use contextual::WithContext;
 //!
 //! let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 //! let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
-//! let value = rdf_rs::Subject::Iri(i);
+//! let value = jsonld::Id::iri(i);
 //!
 //! println!("{}", value.with(&vocabulary))
 //! ```

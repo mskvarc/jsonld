@@ -23,7 +23,7 @@ educe = "0.6.0"
 futures = "0.3.32"
 hashbrown = "0.17.0"
 indexmap = "2.14.0"
-iri-rs = { version = "3.3.2", features = ["static"] }
+iri-rs = { version = "3.3.3", features = ["static"] }
 jsonld-syntax.workspace = true
 json-syntax = { version = "0.12.5", features = ["contextual", "canonicalize"] }
 langtag = "1.1.0"

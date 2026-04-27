@@ -13,7 +13,7 @@ readme = "README.md"
 
 [dependencies]
 indexmap = "2.14.0"
-iri-rs = "3.3.2"
+iri-rs = "3.3.3"
 jsonld-core.workspace = true
 json-syntax = "0.12.5"
 ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
