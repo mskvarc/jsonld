@@ -147,6 +147,24 @@ impl<T, B> Context<T, B> {
 		}
 	}
 
+	/// Returns the address of the `Arc` backing the term definitions.
+	///
+	/// Two contexts that share this pointer share the exact same definitions
+	/// (copy-on-write via [`Arc::make_mut`]). Useful as a cheap fingerprint
+	/// for memoization keys.
+	pub fn definitions_arc_ptr(&self) -> *const Definitions<T, B> {
+		Arc::as_ptr(&self.definitions)
+	}
+
+	/// Returns the address of the `Arc` backing the previous context, or null
+	/// when there is none. See [`Self::definitions_arc_ptr`].
+	pub fn previous_context_arc_ptr(&self) -> *const Self {
+		self.previous_context
+			.as_ref()
+			.map(Arc::as_ptr)
+			.unwrap_or(std::ptr::null())
+	}
+
 	/// Returns the number of terms defined.
 	pub fn len(&self) -> usize {
 		self.definitions.len()

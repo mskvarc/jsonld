@@ -7,9 +7,11 @@ use rdf_rs::vocabulary::VocabularyMut;
 use std::{fmt, hash::Hash};
 
 pub mod algorithm;
+mod cache;
 mod processed;
 mod stack;
 
+pub use cache::ProcessingCache;
 pub use processed::*;
 pub use stack::ProcessingStack;
 
@@ -166,6 +168,60 @@ pub trait Process {
 		N::BlankId: Clone + PartialEq,
 		L: Loader,
 		W: WarningHandler<N>;
+
+	/// Process the local context, consulting `cache` first and storing the
+	/// result on a miss.
+	///
+	/// The cache must outlive the active context and local context references
+	/// to remain sound. See [`ProcessingCache`] for the soundness contract.
+	#[allow(async_fn_in_trait)]
+	#[allow(clippy::too_many_arguments)]
+	async fn process_full_with_cache<N, L, W>(
+		&self,
+		vocabulary: &mut N,
+		active_context: &Context<N::Iri, N::BlankId>,
+		loader: &L,
+		base_url: Option<N::Iri>,
+		options: Options,
+		warnings: W,
+		cache: &ProcessingCache<N::Iri, N::BlankId>,
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+	where
+		N: VocabularyMut,
+		N::Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
+		L: Loader,
+		W: WarningHandler<N>;
+
+	/// Process the local context, consulting `cache` first and storing the
+	/// result on a miss. Convenience wrapper using the default warning handler.
+	#[allow(async_fn_in_trait)]
+	async fn process_with_cache<N, L>(
+		&self,
+		vocabulary: &mut N,
+		active_context: &Context<N::Iri, N::BlankId>,
+		loader: &L,
+		base_url: Option<N::Iri>,
+		options: Options,
+		cache: &ProcessingCache<N::Iri, N::BlankId>,
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+	where
+		N: VocabularyMut,
+		N::Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
+		L: Loader,
+	{
+		self.process_full_with_cache(
+			vocabulary,
+			active_context,
+			loader,
+			base_url,
+			options,
+			warning::Print,
+			cache,
+		)
+		.await
+	}
 
 	/// Process the local context with specific options.
 	#[allow(clippy::type_complexity)]

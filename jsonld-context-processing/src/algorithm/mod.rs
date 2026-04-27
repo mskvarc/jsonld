@@ -1,7 +1,9 @@
 use std::hash::Hash;
+use std::sync::Arc;
 
 use crate::{
-	Error, Options, Process, Processed, ProcessingResult, ProcessingStack, WarningHandler,
+	Error, Options, Process, Processed, ProcessingCache, ProcessingResult, ProcessingStack,
+	WarningHandler, cache::cache_key,
 };
 use iri_rs::{Iri, IriBuf};
 use jsonld_core::{Context, Environment, ExtractContext, Loader, ProcessingMode, Term};
@@ -47,6 +49,47 @@ impl Process for syntax::context::Context {
 			options,
 		)
 		.await
+	}
+
+	async fn process_full_with_cache<N, L, W>(
+		&self,
+		vocabulary: &mut N,
+		active_context: &Context<N::Iri, N::BlankId>,
+		loader: &L,
+		base_url: Option<N::Iri>,
+		options: Options,
+		mut warnings: W,
+		cache: &ProcessingCache<N::Iri, N::BlankId>,
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+	where
+		N: VocabularyMut,
+		N::Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
+		L: Loader,
+		W: WarningHandler<N>,
+	{
+		let key = cache_key(active_context, self, base_url.as_ref(), options);
+
+		if let Some(cached) = cache.get(key) {
+			return Ok(Processed::new(self, (*cached).clone()));
+		}
+
+		let processed = process_context(
+			Environment {
+				vocabulary,
+				loader,
+				warnings: &mut warnings,
+			},
+			active_context,
+			self,
+			ProcessingStack::default(),
+			base_url,
+			options,
+		)
+		.await?;
+
+		cache.insert(key, Arc::new(processed.processed.clone()));
+		Ok(processed)
 	}
 }
 
