@@ -4,9 +4,35 @@ use super::BindingRef;
 use super::Context;
 use super::Key;
 use crate::{Container, Direction, HashMap, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
-use std::cmp::Ordering;
+use hashbrown::hash_map::Entry;
 use std::fmt;
 use std::hash::Hash;
+
+/// Length-then-lex ordering: `true` if `a` is "shorter or, on tie, lex-less"
+/// than `b`. Matches the inverse-context build rule for picking the smaller
+/// term within a slot.
+#[inline]
+fn term_lt(a: &Key, b: &Key) -> bool {
+	let al = a.as_str().len();
+	let bl = b.as_str().len();
+	al < bl || (al == bl && a.as_str() < b.as_str())
+}
+
+#[inline]
+fn keep_smaller_opt(slot: &mut Option<Key>, candidate: &Key) {
+	match slot {
+		None => *slot = Some(candidate.clone()),
+		Some(existing) if term_lt(candidate, existing) => *slot = Some(candidate.clone()),
+		_ => {}
+	}
+}
+
+#[inline]
+fn keep_smaller(slot: &mut Key, candidate: &Key) {
+	if term_lt(candidate, slot) {
+		*slot = candidate.clone();
+	}
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum TypeSelection<T = IriBuf> {
@@ -44,9 +70,7 @@ impl<T> InverseType<T> {
 	}
 
 	fn set_any(&mut self, term: &Key) {
-		if self.any.is_none() {
-			self.any = Some(term.clone())
-		}
+		keep_smaller_opt(&mut self.any, term);
 	}
 
 	fn set_none(&mut self, term: &Key)
@@ -60,8 +84,14 @@ impl<T> InverseType<T> {
 	where
 		T: Clone + Hash + Eq,
 	{
-		if !self.map.contains_key(ty) {
-			self.map.insert(ty.clone(), term.clone());
+		match self.map.entry(ty.clone()) {
+			Entry::Vacant(v) => {
+				v.insert(term.clone());
+			}
+			Entry::Occupied(mut o) if term_lt(term, o.get()) => {
+				o.insert(term.clone());
+			}
+			_ => {}
 		}
 	}
 }
@@ -91,9 +121,7 @@ impl InverseLang {
 	}
 
 	fn set_any(&mut self, term: &Key) {
-		if self.any.is_none() {
-			self.any = Some(term.clone())
-		}
+		keep_smaller_opt(&mut self.any, term);
 	}
 
 	fn set_none(&mut self, term: &Key) {
@@ -106,7 +134,15 @@ impl InverseLang {
 		term: &Key,
 	) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
-		self.map.entry(lang_dir).or_insert_with(|| term.clone());
+		match self.map.entry(lang_dir) {
+			Entry::Vacant(v) => {
+				v.insert(term.clone());
+			}
+			Entry::Occupied(mut o) if term_lt(term, o.get()) => {
+				o.insert(term.clone());
+			}
+			_ => {}
+		}
 	}
 }
 
@@ -286,19 +322,10 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>>
 	fn from(context: &'a Context<T, B>) -> Self {
 		let mut result = InverseContext::new();
 
-		let mut definitions: Vec<_> = context.definitions().iter().collect();
-		definitions.sort_by(|a, b| {
-			let a = a.term().as_str();
-			let b = b.term().as_str();
-			let ord = a.len().cmp(&b.len());
-			if ord == Ordering::Equal {
-				a.cmp(b)
-			} else {
-				ord
-			}
-		});
-
-		for binding in definitions {
+		// No upfront sort: instead, every slot keeps the smaller term
+		// (length-then-lex) on collision. Same end-state as the old sort-then-
+		// first-wins approach, without the O(P log P) cost.
+		for binding in context.definitions().iter() {
 			if let BindingRef::Normal(term, term_definition) = binding {
 				if let Some(var) = term_definition.value.as_ref() {
 					let container = &term_definition.container;
@@ -306,14 +333,17 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>>
 					let type_lang_map =
 						container_map.reference_mut(container, || InverseContainer::new(term));
 
+					// `any.none` is initialized on first insert by
+					// `InverseContainer::new`; subsequent bindings still need
+					// to update it if they are smaller.
+					keep_smaller(&mut type_lang_map.any.none, term);
+
 					let type_map = &mut type_lang_map.typ;
 					let lang_map = &mut type_lang_map.language;
 
 					if term_definition.reverse_property {
 						// If the term definition indicates that the term represents a reverse property:
-						if type_map.reverse.is_none() {
-							type_map.reverse = Some(term.clone())
-						}
+						keep_smaller_opt(&mut type_map.reverse, term);
 					} else {
 						match &term_definition.typ {
 							Some(Type::None) => {
