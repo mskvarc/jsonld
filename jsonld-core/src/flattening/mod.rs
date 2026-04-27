@@ -119,46 +119,54 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
 	{
 		let (mut default_graph, named_graphs) = self.into_parts();
 
-		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();
-		if ordered {
-			named_graphs.sort_by(|a, b| {
-				a.0.with(vocabulary)
-					.as_str()
-					.cmp(b.0.with(vocabulary).as_str())
-			});
-		}
+		let named_graphs: Vec<_> = if ordered {
+			let mut decorated: Vec<_> = named_graphs
+				.into_iter()
+				.map(|entry| (entry.0.with(vocabulary).as_str().to_string(), entry))
+				.collect();
+			decorated.sort_by(|a, b| a.0.cmp(&b.0));
+			decorated.into_iter().map(|(_, entry)| entry).collect()
+		} else {
+			named_graphs.into_iter().collect()
+		};
 
 		for (graph_id, graph) in named_graphs {
 			let entry = default_graph.declare_node(graph_id, None).ok().unwrap();
-			let mut nodes: Vec<_> = graph.into_nodes().collect();
-			if ordered {
-				nodes.sort_by(|a, b| {
-					a.id.as_ref()
-						.unwrap()
-						.with(vocabulary)
-						.as_str()
-						.cmp(b.id.as_ref().unwrap().with(vocabulary).as_str())
-				});
-			}
+			let nodes: Vec<_> = if ordered {
+				let mut decorated: Vec<_> = graph
+					.into_nodes()
+					.map(|n| {
+						let key = n.id.as_ref().unwrap().with(vocabulary).as_str().to_string();
+						(key, n)
+					})
+					.collect();
+				decorated.sort_by(|a, b| a.0.cmp(&b.0));
+				decorated.into_iter().map(|(_, n)| n).collect()
+			} else {
+				graph.into_nodes().collect()
+			};
 			entry.set_graph_entry(Some(
 				nodes.into_iter().filter_map(filter_sub_graph).collect(),
 			));
 		}
 
-		let mut nodes: Vec<_> = default_graph
-			.into_nodes()
-			.filter_map(filter_graph)
-			.collect();
-
-		if ordered {
-			nodes.sort_by(|a, b| {
-				a.id.as_ref()
-					.unwrap()
-					.with(vocabulary)
-					.as_str()
-					.cmp(b.id.as_ref().unwrap().with(vocabulary).as_str())
-			});
-		}
+		let nodes: Vec<_> = if ordered {
+			let mut decorated: Vec<_> = default_graph
+				.into_nodes()
+				.filter_map(filter_graph)
+				.map(|n| {
+					let key = n.id.as_ref().unwrap().with(vocabulary).as_str().to_string();
+					(key, n)
+				})
+				.collect();
+			decorated.sort_by(|a, b| a.0.cmp(&b.0));
+			decorated.into_iter().map(|(_, n)| n).collect()
+		} else {
+			default_graph
+				.into_nodes()
+				.filter_map(filter_graph)
+				.collect()
+		};
 
 		nodes
 	}

@@ -111,16 +111,20 @@ where
 
 	// For each key expanded property and value expanded value in element, ordered
 	// lexicographically by expanded property if ordered is true:
-	let mut expanded_entries: Vec<_> = node.properties().iter().collect();
-	if options.ordered {
+	let expanded_entries: Vec<_> = if options.ordered {
+		// Decorate-sort-undecorate: cache `as_str()` so the comparator does
+		// not call `with(vocabulary).as_str()` O(P log P) times.
 		let vocabulary: &N = vocabulary;
-		expanded_entries.sort_by(|(a, _), (b, _)| {
-			(**a)
-				.with(vocabulary)
-				.as_str()
-				.cmp((**b).with(vocabulary).as_str())
-		})
-	}
+		let mut decorated: Vec<_> = node
+			.properties()
+			.iter()
+			.map(|entry| (entry.0.with(vocabulary).as_str().to_string(), entry))
+			.collect();
+		decorated.sort_by(|a, b| a.0.cmp(&b.0));
+		decorated.into_iter().map(|(_, entry)| entry).collect()
+	} else {
+		node.properties().iter().collect()
+	};
 
 	// If expanded property is @id:
 	if let Some(id_entry) = &node.id {
