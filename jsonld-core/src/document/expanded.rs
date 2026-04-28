@@ -8,8 +8,7 @@ use crate::{
     TryFromJson,
     object::{FragmentRef, InvalidExpandedJson, Traverse},
 };
-use hashbrown::HashMap;
-use indexmap::IndexSet;
+use crate::{HashMap, IndexSet};
 use iri_rs::IriBuf;
 use rdf_rs::{
     BlankIdBuf,
@@ -27,7 +26,7 @@ pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf>(IndexSet<IndexedObject<T
 impl<T, B> Default for ExpandedDocument<T, B> {
     #[inline(always)]
     fn default() -> Self {
-        Self(IndexSet::new())
+        Self(IndexSet::default())
     }
 }
 

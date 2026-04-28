@@ -1,8 +1,7 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
-use crate::{Id, Indexed, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
+use crate::{Id, Indexed, IndexSet, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
-use indexmap::IndexSet;
 use iri_rs::IriBuf;
 use jsonld_syntax::{IntoJson, IntoJsonWithContext, Keyword};
 use rdf_rs::{

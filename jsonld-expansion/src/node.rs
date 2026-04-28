@@ -14,7 +14,6 @@ use crate::{
     filter_top_level_item,
 };
 use contextual::WithContext;
-use indexmap::IndexSet;
 use json_syntax::object::Entry;
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
@@ -23,6 +22,7 @@ use jsonld_core::{
     Environment,
     Id,
     Indexed,
+    IndexSet,
     IndexedObject,
     LangString,
     Loader,
@@ -730,7 +730,7 @@ where
                                     // represented using an array.
                                     if container_mapping.contains(ContainerKind::Graph) && !item.is_graph() {
                                         let mut node = Node::new();
-                                        let mut graph = IndexSet::new();
+                                        let mut graph = IndexSet::default();
                                         graph.insert(item);
                                         node.set_graph_entry(Some(graph));
                                         item = Object::node(node).into();
@@ -869,7 +869,7 @@ where
                             .into_iter()
                             .map(|ev| {
                                 let mut node = Node::new();
-                                let mut graph = IndexSet::new();
+                                let mut graph = IndexSet::default();
                                 graph.insert(ev);
                                 node.set_graph_entry(Some(graph));
                                 Object::node(node).into()

@@ -1,4 +1,4 @@
-use hashbrown::HashMap;
+use crate::HashMap;
 use iri_rs::IriRefBuf;
 use reqwest::header::HeaderValue;
 

@@ -12,11 +12,12 @@ documentation = "https://docs.rs/jsonld-core"
 readme = "README.md"
 
 [features]
-default = []
+default = ["fast-hash"]
+fast-hash = ["iri-rs/fast-hash", "jsonld-syntax/fast-hash"]
 reqwest = ["bytes", "dep:reqwest", "utf8-decode", "reqwest-middleware"]
 serde = ["dep:serde", "json-syntax/serde"]
-ahash = ["dep:ahash"]
-gxhash = ["dep:gxhash"]
+ahash = ["dep:ahash", "jsonld-syntax/ahash"]
+gxhash = ["dep:gxhash", "jsonld-syntax/gxhash"]
 
 [dependencies]
 ahash = { version = "0.8", optional = true }

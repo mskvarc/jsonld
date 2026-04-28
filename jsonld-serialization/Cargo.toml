@@ -11,6 +11,10 @@ description = "JSON-LD serialization"
 documentation = "https://docs.rs/jsonld-serialization"
 readme = "README.md"
 
+[features]
+default = ["fast-hash"]
+fast-hash = ["iri-rs/fast-hash", "jsonld-core/fast-hash"]
+
 [dependencies]
 indexmap = "2.14.0"
 iri-rs = "3.3.4"

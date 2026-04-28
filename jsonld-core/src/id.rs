@@ -1,9 +1,10 @@
 use crate::{
+    HashMap,
+    HashSet,
     Term,
     object::{InvalidExpandedJson, TryFromJson},
 };
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
-use hashbrown::{HashMap, HashSet};
 use iri_rs::{Iri, IriBuf};
 use jsonld_syntax::IntoJsonWithContext;
 use rdf_rs::{

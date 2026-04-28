@@ -1,4 +1,4 @@
-use hashbrown::HashSet;
+use crate::HashSet;
 use iri_rs::{Iri, iri};
 use json_syntax::Parse;
 use rdf_rs::{
@@ -423,7 +423,7 @@ where
                 }
 
                 if let Some(graph) = &resource.graph {
-                    let mut value = crate::object::Graph::new();
+                    let mut value = crate::object::Graph::default();
 
                     for (id, resource) in &graph.resources {
                         if resource.references != 1 && !resource.is_empty() {

@@ -1,4 +1,4 @@
-use hashbrown::HashSet;
+use crate::HashSet;
 use iri_rs::{Iri, IriBuf, iri};
 use mime::Mime;
 use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};

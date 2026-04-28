@@ -1,6 +1,5 @@
-use crate::{Container, ContainerKind, ContextEntry, Direction, Keyword, LenientLangTagBuf, Nullable, context};
+use crate::{Container, ContainerKind, ContextEntry, Direction, Keyword, LenientLangTagBuf, Nullable, context, hash::IndexSet};
 use contextual::Contextual;
-use indexmap::IndexSet;
 
 impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Vec<T> {
     fn into_json_with(self, context: &N) -> json_syntax::Value {

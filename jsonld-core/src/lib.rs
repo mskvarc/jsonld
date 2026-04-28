@@ -26,7 +26,7 @@ pub use container::{Container, ContainerKind};
 pub use context::Context;
 pub use document::*;
 pub use flattening::Flatten;
-pub use hash::{DefaultBuildHasher, HashMap, HashSet};
+pub use hash::{DefaultBuildHasher, HashMap, HashSet, IndexMap, IndexSet};
 pub use id::*;
 pub use indexed::*;
 pub use lang_string::*;

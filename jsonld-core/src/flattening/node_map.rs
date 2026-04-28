@@ -1,7 +1,6 @@
 use super::Environment;
-use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, object};
+use crate::{ExpandedDocument, Id, Indexed, IndexSet, IndexedNode, IndexedObject, Node, Object, object};
 use educe::Educe;
-use indexmap::IndexSet;
 use rdf_rs::{
     LocalGenerator,
     vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut},
@@ -365,7 +364,7 @@ where
     if let Some(graph_entry) = node.graph_entry() {
         node_map.declare_graph(id.clone());
 
-        let mut flat_graph = IndexSet::new();
+        let mut flat_graph = IndexSet::default();
         for object in graph_entry.iter() {
             let flat_object = extend_node_map(env, node_map, object, Some(&id))?;
             flat_graph.insert(flat_object);

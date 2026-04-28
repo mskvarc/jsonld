@@ -1,7 +1,6 @@
 use super::{TermDefinition, term_definition};
-use crate::{Direction, Keyword, LenientLangTagBuf, Nullable};
+use crate::{Direction, Keyword, LenientLangTagBuf, Nullable, hash::IndexMap};
 use educe::Educe;
-use indexmap::IndexMap;
 use iri_rs::IriRefBuf;
 
 mod import;

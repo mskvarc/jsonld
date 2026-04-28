@@ -1,8 +1,7 @@
 //! Nodes, lists and values.
-use crate::{Id, Indexed, LenientLangTag, Relabel, ValidId};
+use crate::{Id, Indexed, IndexSet, LenientLangTag, Relabel, ValidId};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
-use indexmap::IndexSet;
 use iri_rs::IriBuf;
 use json_syntax::Number;
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
@@ -795,7 +794,7 @@ impl<T, B, V: Eq + Hash + TryFromJson<T, B>> TryFromJson<T, B> for IndexSet<V> {
     fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
             json_syntax::Value::Array(items) => {
-                let mut result = IndexSet::new();
+                let mut result = IndexSet::default();
 
                 for item in items {
                     result.insert(V::try_from_json_in(vocabulary, item)?);

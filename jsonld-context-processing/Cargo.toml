@@ -11,6 +11,10 @@ description = "JSON-LD context processing implementation"
 documentation = "https://docs.rs/jsonld-context-processing"
 readme = "README.md"
 
+[features]
+default = ["fast-hash"]
+fast-hash = ["iri-rs/fast-hash", "jsonld-core/fast-hash", "jsonld-syntax/fast-hash"]
+
 [dependencies]
 contextual = "0.1.6"
 futures = "0.3.32"

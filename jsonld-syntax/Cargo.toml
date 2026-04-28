@@ -12,6 +12,8 @@ documentation = "https://docs.rs/jsonld-syntax"
 readme = "README.md"
 
 [features]
+default = ["fast-hash"]
+fast-hash = ["iri-rs/fast-hash"]
 serde = [
     "dep:serde",
     "iri-rs/serde",
@@ -19,11 +21,15 @@ serde = [
     "json-syntax/serde",
     "indexmap/serde",
 ]
+ahash = ["dep:ahash"]
+gxhash = ["dep:gxhash"]
 
 [dependencies]
+ahash = { version = "0.8", optional = true }
 contextual = "0.1.6"
 decoded-char = "0.1.1"
 educe = "0.6.0"
+gxhash = { version = "3", optional = true }
 hashbrown = "0.17.0"
 indexmap = "2.14.0"
 iri-rs = "3.3.4"

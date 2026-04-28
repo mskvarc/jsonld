@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use hashbrown::HashMap;
+use crate::HashMap;
 use mime::Mime;
 use reqwest::header::HeaderValue;
 

@@ -39,7 +39,16 @@ jsonld-testing = { path = "jsonld-testing", version = "0.22.0" }
 [profile.release]
 lto = "thin"
 codegen-units = 1
+debug = "line-tables-only"
+strip = false
 
 [profile.bench]
 lto = "thin"
 codegen-units = 1
+debug = "line-tables-only"
+strip = false
+
+[profile.profiling]
+inherits = "release"
+debug = "full"
+strip = false

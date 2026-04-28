@@ -11,6 +11,15 @@ description = "JSON-LD document compaction implementation"
 documentation = "https://docs.rs/jsonld-compaction"
 readme = "README.md"
 
+[features]
+default = ["fast-hash"]
+fast-hash = [
+    "iri-rs/fast-hash",
+    "jsonld-core/fast-hash",
+    "jsonld-syntax/fast-hash",
+    "jsonld-context-processing/fast-hash",
+]
+
 [dependencies]
 contextual = "0.1.6"
 educe = "0.6.0"

@@ -12,6 +12,16 @@ description = "JSON-LD implementation"
 readme = "README.md"
 
 [features]
+default = ["fast-hash"]
+fast-hash = [
+    "iri-rs/fast-hash",
+    "jsonld-core/fast-hash",
+    "jsonld-syntax/fast-hash",
+    "jsonld-context-processing/fast-hash",
+    "jsonld-expansion/fast-hash",
+    "jsonld-compaction/fast-hash",
+    "jsonld-serialization/fast-hash",
+]
 reqwest = ["jsonld-core/reqwest"]
 serde = ["jsonld-syntax/serde", "jsonld-core/serde"]
 ahash = ["jsonld-core/ahash"]
@@ -48,6 +58,10 @@ harness = false
 [[bench]]
 name = "compaction"
 harness = false
+
+[[example]]
+name = "profile"
+path = "examples/profile.rs"
 
 [package.metadata.docs.rs]
 all-features = true

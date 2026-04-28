@@ -4,12 +4,12 @@
 //! # Usage
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
-use indexmap::IndexSet;
 use json_syntax::object::Entry;
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
     Context,
     Indexed,
+    IndexSet,
     Loader,
     ProcessingMode,
     Term,

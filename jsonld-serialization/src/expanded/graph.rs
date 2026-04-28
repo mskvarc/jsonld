@@ -23,7 +23,7 @@ impl<'a, I, V: Vocabulary> SerializeGraph<'a, I, V> {
         Self {
             vocabulary,
             interpretation,
-            result: Graph::new(),
+            result: Graph::default(),
         }
     }
 }

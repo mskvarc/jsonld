@@ -85,7 +85,7 @@ impl<'a, I, V: Vocabulary> SerializeObject<'a, I, V> {
             types: Vec::new(),
             properties: Properties::new(),
             reverse_properties: ReverseProperties::new(),
-            included: Included::new(),
+            included: Included::default(),
             graph: None,
             first: None,
             rest: None,

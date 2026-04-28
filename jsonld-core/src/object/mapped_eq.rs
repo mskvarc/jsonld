@@ -1,5 +1,4 @@
-use crate::{Id, Indexed, ValidId};
-use indexmap::IndexSet;
+use crate::{Id, Indexed, IndexSet, ValidId};
 use std::hash::Hash;
 
 pub trait MappedEq<T: ?Sized = Self> {

@@ -2,7 +2,7 @@
 use crate::{LoadError, LoadingResult, Profile};
 
 use super::{Loader, RemoteDocument};
-use hashbrown::HashSet;
+use crate::HashSet;
 use iri_rs::{Iri, IriBuf};
 use json_syntax::Parse;
 use reqwest::{
