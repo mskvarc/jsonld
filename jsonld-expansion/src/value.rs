@@ -58,7 +58,7 @@ pub type ValueExpansionResult<T, B> = Result<Option<IndexedObject<T, B>>, Invali
 pub(crate) fn expand_value<N, L, W>(
     env: &mut Environment<N, L, W>,
     vocab_policy: Action,
-    input_type: Option<Term<N::Iri, N::BlankId>>,
+    input_type: Option<&Term<N::Iri, N::BlankId>>,
     type_scoped_context: &Context<N::Iri, N::BlankId>,
     expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>>,
     value_entry: &json_syntax::Value,
@@ -69,14 +69,14 @@ where
     N::BlankId: Clone + PartialEq,
     W: WarningHandler<N>,
 {
-    let mut is_json = input_type.as_ref().map(|t| *t == Term::Keyword(Keyword::Json)).unwrap_or(false);
+    let mut is_json = input_type.map(|t| *t == Term::Keyword(Keyword::Json)).unwrap_or(false);
     let mut ty = None;
     let mut index = None;
     let mut language = None;
     let mut direction = None;
 
     for ExpandedEntry(_, expanded_key, value) in expanded_entries {
-        match expanded_key {
+        match expanded_key.as_ref() {
             // If expanded property is @language:
             Term::Keyword(Keyword::Language) => {
                 // If value is not a string, an invalid language-tagged string
@@ -127,13 +127,13 @@ where
                 if let Some(ty_value) = value.as_str() {
                     let expanded_ty = expand_iri(env, type_scoped_context, Nullable::Some(ty_value.into()), true, Some(vocab_policy))?;
 
-                    match expanded_ty {
+                    match expanded_ty.as_deref() {
                         Some(Term::Keyword(Keyword::Json)) => {
                             is_json = true;
                         }
                         Some(Term::Id(Id::Valid(ValidId::Iri(expanded_ty)))) => {
                             is_json = false;
-                            ty = Some(expanded_ty)
+                            ty = Some(expanded_ty.clone())
                         }
                         _ => return Err(InvalidValue::TypedValue),
                     }

@@ -26,7 +26,7 @@ use jsonld_syntax::{
     },
 };
 use rdf_rs::{BlankId, vocabulary::VocabularyMut};
-use std::hash::Hash;
+use std::{hash::Hash, sync::Arc};
 
 fn is_gen_delim(c: char) -> bool {
     matches!(c, ':' | '/' | '?' | '#' | '[' | ']' | '@')
@@ -226,6 +226,7 @@ where
                         .await?;
 
                         if let Some(typ) = typ {
+                            let typ = Arc::try_unwrap(typ).unwrap_or_else(|a| (*a).clone());
                             // If the expanded type is @json or @none, and processing mode is
                             // json-ld-1.0, an invalid type mapping error has been detected and
                             // processing is aborted.
@@ -278,7 +279,7 @@ where
                         )
                         .await?
                         {
-                            Some(Term::Id(mapping)) if mapping.is_valid() => definition.value = Some(Term::Id(mapping)),
+                            Some(arc) if matches!(arc.as_ref(), Term::Id(m) if m.is_valid()) => definition.value = Some(arc),
                             _ => return Err(Error::InvalidIriMapping),
                         }
 
@@ -352,12 +353,12 @@ where
                                     )
                                     .await?
                                     {
-                                        Some(Term::Keyword(Keyword::Context)) => {
+                                        Some(arc) if arc.as_ref() == &Term::Keyword(Keyword::Context) => {
                                             // if it equals `@context`, an invalid keyword alias error has
                                             // been detected and processing is aborted.
                                             return Err(Error::InvalidKeywordAlias);
                                         }
-                                        Some(Term::Id(prop)) if !prop.is_valid() => {
+                                        Some(arc) if matches!(arc.as_ref(), Term::Id(p) if !p.is_valid()) => {
                                             // If the resulting IRI mapping is neither a keyword,
                                             // nor an IRI, nor a blank node identifier, an
                                             // invalid IRI mapping error has been detected and processing
@@ -395,7 +396,7 @@ where
                                             options,
                                         )
                                         .await?;
-                                        if definition.value != expanded_term {
+                                        if definition.value.as_deref() != expanded_term.as_deref() {
                                             return Err(Error::InvalidIriMapping);
                                         }
                                     }
@@ -418,7 +419,7 @@ where
                         Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => {
                             // Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
                             // `@type`.
-                            definition.value = Some(Term::Keyword(Keyword::Type))
+                            definition.value = Some(Arc::new(Term::Keyword(Keyword::Type)))
                         }
                         _ => {
                             // Otherwise if the `term` contains a colon (:) anywhere after the first
@@ -461,7 +462,7 @@ where
                                         result.push_str(compact_iri.suffix());
 
                                         if let Ok(iri) = Iri::parse(result.as_str()) {
-                                            definition.value = Some(Term::Id(Id::iri(env.vocabulary.insert(iri))))
+                                            definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
                                         } else {
                                             return Err(Error::InvalidIriMapping);
                                         }
@@ -471,10 +472,10 @@ where
                                 // not a compact IRI
                                 if definition.value.is_none() {
                                     if let Ok(blank_id) = BlankId::new(term.as_str()) {
-                                        definition.value = Some(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id))))
+                                        definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
                                     } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
                                         match Iri::try_from(iri_ref) {
-                                            Ok(iri) => definition.value = Some(Term::Id(Id::iri(env.vocabulary.insert(iri)))),
+                                            Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
                                             Err(_) => {
                                                 if iri_ref.as_str().contains('/') {
                                                     // Term is a relative IRI reference.
@@ -487,7 +488,7 @@ where
                                                         false,
                                                         Some(options.vocab),
                                                     )? {
-                                                        Some(Term::Id(Id::Valid(ValidId::Iri(id)))) => definition.value = Some(id.into()),
+                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => definition.value = Some(arc),
                                                         // If the resulting IRI mapping is not an IRI, an invalid IRI mapping
                                                         // error has been detected and processing is aborted.
                                                         _ => return Err(Error::InvalidIriMapping),
@@ -509,7 +510,7 @@ where
                                                 let mut result = env.vocabulary.iri(vocabulary_iri).unwrap().to_string();
                                                 result.push_str(key.as_str());
                                                 if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                    definition.value = Some(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri)))
+                                                    definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
                                                 } else {
                                                     return Err(Error::InvalidIriMapping);
                                                 }
@@ -596,7 +597,7 @@ where
                             Nullable::Some(index_value.as_str().into()),
                             false,
                             Some(options.vocab),
-                        )? {
+                        )?.as_deref() {
                             Some(Term::Id(Id::Valid(ValidId::Iri(_)))) => (),
                             _ => return Err(Error::InvalidTermDefinition),
                         }

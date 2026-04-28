@@ -15,7 +15,7 @@ use crate::{
 };
 use contextual::WithContext;
 use json_syntax::object::Entry;
-use jsonld_context_processing::{Options as ProcessingOptions, Process};
+use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
 use jsonld_core::{
     Container,
     Context,
@@ -38,11 +38,12 @@ use jsonld_core::{
 use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
 use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
-use std::hash::Hash;
+use std::{hash::Hash, sync::Arc};
 
 /// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
-pub(crate) fn node_id_of_term<T, B>(term: Term<T, B>) -> Option<Id<T, B>> {
+pub(crate) fn node_id_of_term<T: Clone, B: Clone>(term: Arc<Term<T, B>>) -> Option<Id<T, B>> {
+    let term = Arc::try_unwrap(term).unwrap_or_else(|a| (*a).clone());
     match term {
         Term::Null => None,
         Term::Id(prop) => Some(prop),
@@ -60,6 +61,7 @@ pub(crate) async fn expand_node<'a, N, L, W>(
     expanded_entries: Vec<ExpandedEntry<'a, N::Iri, N::BlankId>>,
     base_url: Option<&'a N::Iri>,
     options: Options,
+    cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> Result<Option<Indexed<Node<N::Iri, N::BlankId>>>, Error>
 where
     N: VocabularyMut,
@@ -82,6 +84,7 @@ where
         expanded_entries,
         base_url,
         options,
+        cache,
     )
     .await?;
 
@@ -138,6 +141,7 @@ async fn expand_node_entries<'a, N, L, W>(
     expanded_entries: Vec<ExpandedEntry<'a, N::Iri, N::BlankId>>,
     base_url: Option<&'a N::Iri>,
     options: Options,
+    cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> NodeEntriesExpensionResult<N::Iri, N::BlankId>
 where
     N: VocabularyMut,
@@ -149,6 +153,7 @@ where
     // For each `key` and `value` in `element`, ordered lexicographically by key
     // if `ordered` is `true`:
     for ExpandedEntry(key, expanded_key, value) in expanded_entries {
+        let expanded_key = Arc::try_unwrap(expanded_key).unwrap_or_else(|a| (*a).clone());
         match expanded_key {
             Term::Null => (),
 
@@ -203,7 +208,8 @@ where
                         // context, and true for document relative.
                         for ty in value {
                             if let Some(str_ty) = ty.as_str() {
-                                if let Some(ty) = expand_iri(&mut env, type_scoped_context, Nullable::Some(str_ty.into()), true, Some(options.policy.vocab))? {
+                                if let Some(ty_arc) = expand_iri(&mut env, type_scoped_context, Nullable::Some(str_ty.into()), true, Some(options.policy.vocab))? {
+                                    let ty = Arc::try_unwrap(ty_arc).unwrap_or_else(|a| (*a).clone());
                                     if let Ok(ty) = ty.try_into() {
                                         if let Id::Invalid(_) = &ty {
                                             match options.policy.invalid {
@@ -244,6 +250,7 @@ where
                             base_url,
                             options,
                             false,
+                            cache,
                         ))
                         .await?;
 
@@ -273,6 +280,7 @@ where
                             base_url,
                             options,
                             false,
+                            cache,
                         ))
                         .await?;
                         let mut expanded_nodes = Vec::new();
@@ -321,13 +329,16 @@ where
                                 value: reverse_value,
                             } in reverse_entries
                             {
-                                match expand_iri(
+                                let reverse_expanded_arc = expand_iri(
                                     &mut env,
                                     active_context,
                                     Nullable::Some(reverse_key.as_str().into()),
                                     false,
                                     Some(options.policy.vocab),
-                                )? {
+                                )?;
+                                let reverse_expanded = reverse_expanded_arc
+                                    .map(|arc| Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()));
+                                match reverse_expanded {
                                     Some(Term::Keyword(_)) => {
                                         return Err(Error::InvalidReversePropertyMap);
                                     }
@@ -354,6 +365,7 @@ where
                                             base_url,
                                             options,
                                             false,
+                                            cache,
                                         ))
                                         .await?;
 
@@ -422,12 +434,25 @@ where
                             let active_context = match property_scoped_context {
                                 Some(property_scoped_context) => {
                                     let options: ProcessingOptions = options.into();
-                                    Mown::Owned(
-                                        property_scoped_context
+                                    let processed = match cache {
+                                        Some(cache) => property_scoped_context
+                                            .process_full_with_cache(
+                                                env.vocabulary,
+                                                active_context,
+                                                env.loader,
+                                                property_scoped_base_url,
+                                                options.with_override(),
+                                                jsonld_core::warning::Print,
+                                                cache,
+                                            )
+                                            .await?
+                                            .into_processed(),
+                                        None => property_scoped_context
                                             .process_with(env.vocabulary, active_context, env.loader, property_scoped_base_url, options.with_override())
                                             .await?
                                             .into_processed(),
-                                    )
+                                    };
+                                    Mown::Owned(processed)
                                 }
                                 None => Mown::Borrowed(active_context),
                             };
@@ -473,6 +498,7 @@ where
                                     nested_expanded_entries,
                                     base_url,
                                     options,
+                                    cache,
                                 ))
                                 .await?;
 
@@ -573,7 +599,7 @@ where
                                                 Nullable::Some(language.as_str().into()),
                                                 false,
                                                 Some(options.policy.vocab),
-                                            )? == Some(Term::Keyword(Keyword::None))
+                                            )?.as_deref() == Some(&Term::Keyword(Keyword::None))
                                             {
                                                 None
                                             } else {
@@ -671,12 +697,25 @@ where
                                     if let Some(index_definition) = map_context.get(index.as_str()) {
                                         if let Some(local_context) = index_definition.context() {
                                             let base_url = index_definition.base_url().cloned();
-                                            map_context = Mown::Owned(
-                                                local_context
+                                            let processed = match cache {
+                                                Some(cache) => local_context
+                                                    .process_full_with_cache(
+                                                        env.vocabulary,
+                                                        map_context.as_ref(),
+                                                        env.loader,
+                                                        base_url,
+                                                        options.into(),
+                                                        jsonld_core::warning::Print,
+                                                        cache,
+                                                    )
+                                                    .await?
+                                                    .into_processed(),
+                                                None => local_context
                                                     .process_with(env.vocabulary, map_context.as_ref(), env.loader, base_url, options.into())
                                                     .await?
                                                     .into_processed(),
-                                            )
+                                            };
+                                            map_context = Mown::Owned(processed)
                                         }
                                     }
                                 }
@@ -693,8 +732,8 @@ where
                                     false,
                                     Some(options.policy.vocab),
                                 )? {
-                                    Some(Term::Null) | Some(Term::Keyword(Keyword::None)) => None,
-                                    key => key,
+                                    Some(arc) if matches!(arc.as_ref(), Term::Null | Term::Keyword(Keyword::None)) => None,
+                                    key => key.map(|arc| Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone())),
                                 };
 
                                 // If index value is not an array set index value to
@@ -719,6 +758,7 @@ where
                                     base_url,
                                     options,
                                     true,
+                                    cache,
                                 ))
                                 .await?;
                                 // For each item in index value:
@@ -767,7 +807,10 @@ where
                                                 false,
                                                 Some(options.policy.vocab),
                                             )? {
-                                                Some(Term::Id(prop)) => prop,
+                                                Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => match Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()) {
+                                                    Term::Id(prop) => prop,
+                                                    _ => unreachable!(),
+                                                },
                                                 _ => continue,
                                             };
 
@@ -840,6 +883,7 @@ where
                                 base_url,
                                 options,
                                 false,
+                                cache,
                             ))
                             .await?
                         }

@@ -29,7 +29,7 @@ pub fn parse_remote_doc(doc: &str) -> RemoteDocument {
 
 pub fn parse_syntax_context(ctx: &str) -> SyntaxContext {
     let value = Value::parse_str(ctx).expect("ctx parse").0;
-    SyntaxContext::try_from_json(value).expect("ctx try_from_json")
+    SyntaxContext::try_from_json(&value).expect("ctx try_from_json")
 }
 
 pub async fn pre_expand(remote: &RemoteDocument) -> ExpandedDocument<IriBuf, BlankIdBuf> {

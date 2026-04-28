@@ -378,7 +378,10 @@ where
                             // NOTE: The use of blank node identifiers to value for @vocab is
                             // obsolete, and may be removed in a future version of JSON-LD.
                             match expand_iri_simple(&mut env, &result, Nullable::Some(value.into()), true, Some(options.vocab))? {
-                                Some(Term::Id(vocab)) => result.set_vocabulary(Some(Term::Id(vocab))),
+                                Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
+                                    let term = std::sync::Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone());
+                                    result.set_vocabulary(Some(term));
+                                }
                                 _ => return Err(Error::InvalidVocabMapping),
                             }
                         }

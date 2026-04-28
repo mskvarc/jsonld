@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{hash::Hash, sync::Arc};
 
 use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
@@ -21,7 +21,7 @@ impl From<MalformedIri> for Warning {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult<T, B> = Result<Option<Term<T, B>>, Error>;
+pub type ExpandIriResult<T, B> = Result<Option<Arc<Term<T, B>>>, Error>;
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 #[allow(clippy::too_many_arguments)]
@@ -44,11 +44,11 @@ where
     W: WarningHandler<N>,
 {
     match value {
-        Nullable::Null => Ok(Some(Term::Null)),
-        Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Some(Term::Keyword(k))),
+        Nullable::Null => Ok(Some(Arc::new(Term::Null))),
+        Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Some(Arc::new(Term::Keyword(k)))),
         Nullable::Some(ExpandableRef::String(value)) => {
             if is_keyword_like(value) {
-                return Ok(Some(Term::Null));
+                return Ok(Some(Arc::new(Term::Null)));
             }
 
             // If `local_context` is not null, it contains an entry with a key that equals value, and the
@@ -76,29 +76,29 @@ where
             if let Some(term_definition) = active_context.get(value) {
                 // If active context has a term definition for value, and the associated IRI mapping
                 // is a keyword, return that keyword.
-                if let Some(value) = term_definition.value() {
-                    if value.is_keyword() {
-                        return Ok(Some(value.clone()));
+                if let Some(arc) = term_definition.value_arc() {
+                    if arc.is_keyword() {
+                        return Ok(Some(Arc::clone(arc)));
                     }
                 }
 
                 // If vocab is true and the active context has a term definition for value, return the
                 // associated IRI mapping.
                 if vocab.is_some() {
-                    return match term_definition.value() {
-                        Some(value) => Ok(Some(value.clone())),
-                        None => Ok(Some(Term::Null)),
+                    return match term_definition.value_arc() {
+                        Some(arc) => Ok(Some(Arc::clone(arc))),
+                        None => Ok(Some(Arc::new(Term::Null))),
                     };
                 }
             }
 
             if value.find(':').map(|i| i > 0).unwrap_or(false) {
                 if let Ok(blank_id) = BlankId::new(value) {
-                    return Ok(Some(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))));
+                    return Ok(Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id))))));
                 }
 
                 if value == "_:" {
-                    return Ok(Some(Term::Id(Id::Invalid("_:".to_string()))));
+                    return Ok(Some(Arc::new(Term::Id(Id::Invalid("_:".to_string())))));
                 }
 
                 if let Ok(compact_iri) = CompactIri::new(value) {
@@ -127,21 +127,21 @@ where
                     // If active context contains a term definition for prefix having a non-null IRI
                     // mapping and the prefix flag of the term definition is true, return the result
                     // of concatenating the IRI mapping associated with prefix and suffix.
-                    let prefix_key = Key::from(compact_iri.prefix().to_string());
+                    let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key) {
                         if term_definition.prefix {
-                            if let Some(mapping) = &term_definition.value {
+                            if let Some(mapping) = term_definition.value() {
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(compact_iri.suffix());
 
-                                return Ok(Some(Term::Id(Id::from_string_in(env.vocabulary, result))));
+                                return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
                             }
                         }
                     }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
-                    return Ok(Some(Term::Id(Id::iri(env.vocabulary.insert(iri)))));
+                    return Ok(Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))));
                 }
             }
 
@@ -155,13 +155,13 @@ where
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(value);
 
-                                Ok(Some(Term::Id(Id::from_string_in(env.vocabulary, result))))
+                                Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))))
                             }
                             Action::Drop => Ok(None),
                             Action::Reject => Err(Error::ForbiddenVocab),
                         };
                     }
-                    Some(_) => return Ok(Some(invalid_iri(&mut env, value.to_string()))),
+                    Some(_) => return Ok(Some(Arc::new(invalid_iri(&mut env, value.to_string())))),
                     None => (),
                 }
             }
@@ -175,13 +175,13 @@ where
             if document_relative {
                 if let Ok(iri_ref) = IriRef::parse(value) {
                     if let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
-                        return Ok(Some(Term::from(iri)));
+                        return Ok(Some(Arc::new(Term::from(iri))));
                     }
                 }
             }
 
             // Return value as is.
-            Ok(Some(invalid_iri(&mut env, value.to_string())))
+            Ok(Some(Arc::new(invalid_iri(&mut env, value.to_string()))))
         }
     }
 }
@@ -211,7 +211,7 @@ impl Action {
 #[derive(Debug)]
 pub struct RejectVocab;
 
-pub type IriExpansionResult<N> = Result<Option<Term<<N as IriVocabulary>::Iri, <N as BlankIdVocabulary>::BlankId>>, RejectVocab>;
+pub type IriExpansionResult<N> = Result<Option<Arc<Term<<N as IriVocabulary>::Iri, <N as BlankIdVocabulary>::BlankId>>>, RejectVocab>;
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 pub fn expand_iri_simple<W, N, L, H>(
@@ -229,60 +229,60 @@ where
     H: warning::Handler<N, W>,
 {
     match value {
-        Nullable::Null => Ok(Some(Term::Null)),
-        Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Some(Term::Keyword(k))),
+        Nullable::Null => Ok(Some(Arc::new(Term::Null))),
+        Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Some(Arc::new(Term::Keyword(k)))),
         Nullable::Some(ExpandableRef::String(value)) => {
             if is_keyword_like(value) {
-                return Ok(Some(Term::Null));
+                return Ok(Some(Arc::new(Term::Null)));
             }
 
             if let Some(term_definition) = active_context.get(value) {
                 // If active context has a term definition for value, and the associated IRI mapping
                 // is a keyword, return that keyword.
-                if let Some(value) = term_definition.value() {
-                    if value.is_keyword() {
-                        return Ok(Some(value.clone()));
+                if let Some(arc) = term_definition.value_arc() {
+                    if arc.is_keyword() {
+                        return Ok(Some(Arc::clone(arc)));
                     }
                 }
 
                 // If vocab is true and the active context has a term definition for value, return the
                 // associated IRI mapping.
                 if vocab.is_some() {
-                    return match term_definition.value() {
-                        Some(value) => Ok(Some(value.clone())),
-                        None => Ok(Some(Term::Null)),
+                    return match term_definition.value_arc() {
+                        Some(arc) => Ok(Some(Arc::clone(arc))),
+                        None => Ok(Some(Arc::new(Term::Null))),
                     };
                 }
             }
 
             if value.find(':').map(|i| i > 0).unwrap_or(false) {
                 if let Ok(blank_id) = BlankId::new(value) {
-                    return Ok(Some(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))));
+                    return Ok(Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id))))));
                 }
 
                 if value == "_:" {
-                    return Ok(Some(Term::Id(Id::Invalid("_:".to_string()))));
+                    return Ok(Some(Arc::new(Term::Id(Id::Invalid("_:".to_string())))));
                 }
 
                 if let Ok(compact_iri) = CompactIri::new(value) {
                     // If active context contains a term definition for prefix having a non-null IRI
                     // mapping and the prefix flag of the term definition is true, return the result
                     // of concatenating the IRI mapping associated with prefix and suffix.
-                    let prefix_key = Key::from(compact_iri.prefix().to_string());
+                    let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key) {
                         if term_definition.prefix {
-                            if let Some(mapping) = &term_definition.value {
+                            if let Some(mapping) = term_definition.value() {
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(compact_iri.suffix());
 
-                                return Ok(Some(Term::Id(Id::from_string_in(env.vocabulary, result))));
+                                return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
                             }
                         }
                     }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
-                    return Ok(Some(Term::Id(Id::iri(env.vocabulary.insert(iri)))));
+                    return Ok(Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))));
                 }
             }
 
@@ -296,13 +296,13 @@ where
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(value);
 
-                                Ok(Some(Term::Id(Id::from_string_in(env.vocabulary, result))))
+                                Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))))
                             }
                             Action::Drop => Ok(None),
                             Action::Reject => Err(RejectVocab),
                         };
                     }
-                    Some(_) => return Ok(Some(invalid_iri_simple(env, value.to_string()))),
+                    Some(_) => return Ok(Some(Arc::new(invalid_iri_simple(env, value.to_string())))),
                     None => (),
                 }
             }
@@ -316,13 +316,13 @@ where
             if document_relative {
                 if let Ok(iri_ref) = IriRef::parse(value) {
                     if let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
-                        return Ok(Some(Term::from(iri)));
+                        return Ok(Some(Arc::new(Term::from(iri))));
                     }
                 }
             }
 
             // Return value as is.
-            Ok(Some(invalid_iri_simple(env, value.to_string())))
+            Ok(Some(Arc::new(invalid_iri_simple(env, value.to_string()))))
         }
     }
 }

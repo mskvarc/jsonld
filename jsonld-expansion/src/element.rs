@@ -14,14 +14,14 @@ use crate::{
     expand_value,
 };
 use json_syntax::{Value, object::Entry};
-use jsonld_context_processing::{Options as ProcessingOptions, Process};
+use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
 use jsonld_core::{Context, Environment, Id, Indexed, Object, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};
 use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
-use std::{borrow::Cow, hash::Hash};
+use std::{borrow::Cow, hash::Hash, sync::Arc};
 
-pub(crate) struct ExpandedEntry<'a, T, B>(pub &'a str, pub Term<T, B>, pub &'a Value);
+pub(crate) struct ExpandedEntry<'a, T, B>(pub &'a str, pub Arc<Term<T, B>>, pub &'a Value);
 
 pub(crate) enum ActiveProperty<'a> {
     Some(&'a str),
@@ -85,6 +85,7 @@ pub(crate) async fn expand_element<'a, N, L, W>(
     base_url: Option<&'a N::Iri>,
     options: Options,
     from_map: bool,
+    cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> ElementExpansionResult<N::Iri, N::BlankId>
 where
     N: VocabularyMut,
@@ -125,6 +126,7 @@ where
                 base_url,
                 options,
                 from_map,
+                cache,
             )
             .await
         }
@@ -140,7 +142,7 @@ where
             let mut has_value_entry = false;
             let mut has_id_entry = false;
             for Entry { key, value: _ } in element.entries() {
-                match expand_iri(&mut env, active_context, Nullable::Some(key.as_str().into()), false, Some(options.policy.vocab))? {
+                match expand_iri(&mut env, active_context, Nullable::Some(key.as_str().into()), false, Some(options.policy.vocab))?.as_deref() {
                     Some(Term::Keyword(Keyword::Value)) => {
                         has_value_entry = true;
                     }
@@ -171,8 +173,20 @@ where
             // `override_protected`.
             if let Some(property_scoped_context) = property_scoped_context {
                 let options: ProcessingOptions = options.into();
-                active_context = Mown::Owned(
-                    property_scoped_context
+                let processed = match cache {
+                    Some(cache) => property_scoped_context
+                        .process_full_with_cache(
+                            env.vocabulary,
+                            active_context.as_ref(),
+                            env.loader,
+                            property_scoped_base_url,
+                            options.with_override(),
+                            jsonld_core::warning::Print,
+                            cache,
+                        )
+                        .await?
+                        .into_processed(),
+                    None => property_scoped_context
                         .process_with(
                             env.vocabulary,
                             active_context.as_ref(),
@@ -181,9 +195,9 @@ where
                             options.with_override(),
                         )
                         .await?
-                        .into_processed(), // .err_at(|| active_property.as_ref().map(Meta::metadata).cloned().unwrap_or_default())?
-                                           // .into_inner(),
-                );
+                        .into_processed(),
+                };
+                active_context = Mown::Owned(processed);
             }
 
             // If `element` contains the entry `@context`, set `active_context` to the result
@@ -191,14 +205,27 @@ where
             // `@context` entry as `local_context` and `base_url`.
             if let Some(local_context) = element.get_unique("@context").map_err(Error::duplicate_key_ref)? {
                 use jsonld_syntax::TryFromJson;
-                let local_context = jsonld_syntax::context::Context::try_from_json(local_context.clone())?;
+                let local_context = jsonld_syntax::context::Context::try_from_json(local_context)?;
 
-                active_context = Mown::Owned(
-                    local_context
+                let processed = match cache {
+                    Some(cache) => local_context
+                        .process_full_with_cache(
+                            env.vocabulary,
+                            active_context.as_ref(),
+                            env.loader,
+                            base_url.cloned(),
+                            options.into(),
+                            jsonld_core::warning::Print,
+                            cache,
+                        )
+                        .await?
+                        .into_processed(),
+                    None => local_context
                         .process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url.cloned(), options.into())
                         .await?
                         .into_processed(),
-                );
+                };
+                active_context = Mown::Owned(processed);
             }
 
             let entries: Cow<[Entry]> = if options.ordered {
@@ -217,7 +244,7 @@ where
                     Some(options.policy.vocab),
                 )?;
 
-                if let Some(Term::Keyword(Keyword::Type)) = expanded_key {
+                if let Some(Term::Keyword(Keyword::Type)) = expanded_key.as_deref() {
                     type_entries.push(entry);
                 }
             }
@@ -257,12 +284,25 @@ where
                             // definition for value in `active_context`, and `false` for `propagate`.
                             let base_url = term_definition.base_url().cloned();
                             let options: ProcessingOptions = options.into();
-                            active_context = Mown::Owned(
-                                local_context
+                            let processed = match cache {
+                                Some(cache) => local_context
+                                    .process_full_with_cache(
+                                        env.vocabulary,
+                                        active_context.as_ref(),
+                                        env.loader,
+                                        base_url,
+                                        options.without_propagation(),
+                                        jsonld_core::warning::Print,
+                                        cache,
+                                    )
+                                    .await?
+                                    .into_processed(),
+                                None => local_context
                                     .process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url, options.without_propagation())
                                     .await?
                                     .into_processed(),
-                            );
+                            };
+                            active_context = Mown::Owned(processed);
                         }
                     }
                 }
@@ -313,7 +353,7 @@ where
                 )?;
 
                 if let Some(expanded_key) = expanded_key {
-                    match &expanded_key {
+                    match expanded_key.as_ref() {
                         Term::Keyword(Keyword::Value) => value_entry = Some(value),
                         Term::Keyword(Keyword::List) => {
                             if active_property.is_some() && active_property != Keyword::Graph {
@@ -335,7 +375,7 @@ where
                 // List objects.
                 let mut index = None;
                 for ExpandedEntry(_, expanded_key, value) in expanded_entries {
-                    match expanded_key {
+                    match expanded_key.as_ref() {
                         Term::Keyword(Keyword::Index) => match value.as_string() {
                             Some(value) => index = Some(value.to_string()),
                             None => return Err(Error::InvalidIndexValue),
@@ -364,6 +404,7 @@ where
                         base_url,
                         options,
                         false,
+                        cache,
                     ))
                     .await?;
                     result.extend(e)
@@ -373,7 +414,7 @@ where
             } else if let Some(set_entry) = set_entry {
                 // Set objects.
                 for ExpandedEntry(_, expanded_key, _) in expanded_entries {
-                    match expanded_key {
+                    match expanded_key.as_ref() {
                         Term::Keyword(Keyword::Index) => {
                             // having an `@index` here is tolerated,
                             // but is ignored.
@@ -394,11 +435,12 @@ where
                     base_url,
                     options,
                     false,
+                    cache,
                 ))
                 .await
             } else if let Some(value_entry) = value_entry {
                 // Value objects.
-                let expanded_value = expand_value(&mut env, options.policy.vocab, input_type, type_scoped_context, expanded_entries, value_entry)?;
+                let expanded_value = expand_value(&mut env, options.policy.vocab, input_type.as_deref(), type_scoped_context, expanded_entries, value_entry)?;
 
                 if let Some(value) = expanded_value {
                     Ok(Expanded::Object(value))
@@ -415,6 +457,7 @@ where
                     expanded_entries,
                     base_url,
                     options,
+                    cache,
                 )
                 .await?;
                 if let Some(result) = e {
@@ -443,10 +486,24 @@ where
                 // FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
                 let base_url = active_property.get_from(active_context).and_then(|definition| definition.base_url().cloned());
 
-                let result = property_scoped_context
-                    .process_with(env.vocabulary, active_context, env.loader, base_url, options.into())
-                    .await?
-                    .into_processed();
+                let result = match cache {
+                    Some(cache) => property_scoped_context
+                        .process_full_with_cache(
+                            env.vocabulary,
+                            active_context,
+                            env.loader,
+                            base_url,
+                            options.into(),
+                            jsonld_core::warning::Print,
+                            cache,
+                        )
+                        .await?
+                        .into_processed(),
+                    None => property_scoped_context
+                        .process_with(env.vocabulary, active_context, env.loader, base_url, options.into())
+                        .await?
+                        .into_processed(),
+                };
                 Mown::Owned(result)
             } else {
                 Mown::Borrowed(active_context)

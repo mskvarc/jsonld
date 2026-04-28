@@ -13,7 +13,7 @@ use rdf_rs::{
     BlankIdBuf,
     vocabulary::{IriVocabulary, Vocabulary},
 };
-use std::{borrow::Borrow, fmt, hash::Hash};
+use std::{borrow::Borrow, fmt, hash::Hash, sync::Arc};
 
 /// Term binding.
 pub enum Binding<T = IriBuf, B = BlankIdBuf> {
@@ -183,7 +183,11 @@ impl<T, B> Definitions<T, B> {
         }
     }
 
-    pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Definitions<U, C> {
+    pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Definitions<U, C>
+    where
+        T: Clone,
+        B: Clone,
+    {
         Definitions {
             normal: self.normal.into_iter().map(|(key, d)| (key, d.map_ids(&mut map_iri, &mut map_id))).collect(),
             type_: self.type_,
@@ -304,7 +308,7 @@ impl<T, B> TermDefinition<T, B> {
     pub fn value(&self) -> Option<&Term<T, B>> {
         match self {
             Self::Type(_) => None,
-            Self::Normal(d) => d.value.as_ref(),
+            Self::Normal(d) => d.value.as_deref(),
         }
     }
 
@@ -404,6 +408,15 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     pub fn value(&self) -> Option<&'a Term<T, B>> {
         match self {
             Self::Type(_) => None,
+            Self::Normal(d) => d.value.as_deref(),
+        }
+    }
+
+    /// Cheap-clonable handle to the IRI mapping, if present and the
+    /// definition is a normal term definition.
+    pub fn value_arc(&self) -> Option<&'a Arc<Term<T, B>>> {
+        match self {
+            Self::Type(_) => None,
             Self::Normal(d) => d.value.as_ref(),
         }
     }
@@ -498,7 +511,12 @@ impl<'a, T, B> Copy for TermDefinitionRef<'a, T, B> {}
 #[derive(PartialEq, Eq, Clone)]
 pub struct NormalTermDefinition<T = IriBuf, B = BlankIdBuf> {
     // IRI mapping.
-    pub value: Option<Term<T, B>>,
+    //
+    // Wrapped in `Arc` so the per-element-per-property hot path in
+    // `expand_iri_simple` returns a refcount bump instead of deep-cloning the
+    // (potentially `IriBuf`-backed) term. External direct field access becomes
+    // a breaking change; use `value()` / `value_arc()` accessors.
+    pub value: Option<Arc<Term<T, B>>>,
 
     // Prefix flag.
     pub prefix: bool,
@@ -543,7 +561,21 @@ impl<T, B> NormalTermDefinition<T, B> {
         self.base_url.as_ref()
     }
 
-    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Nullable<jsonld_syntax::context::TermDefinition> {
+    /// IRI mapping as a `Term` reference, transparent to the `Arc` wrapper.
+    pub fn value(&self) -> Option<&Term<T, B>> {
+        self.value.as_deref()
+    }
+
+    /// Cheap-clonable handle to the IRI mapping.
+    pub fn value_arc(&self) -> Option<&Arc<Term<T, B>>> {
+        self.value.as_ref()
+    }
+
+    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Nullable<jsonld_syntax::context::TermDefinition>
+    where
+        T: Clone,
+        B: Clone,
+    {
         use jsonld_syntax::context::term_definition::{Id, Type as SyntaxType, TypeKeyword};
 
         fn term_into_id<T, B>(vocabulary: &impl Vocabulary<Iri = T, BlankId = B>, term: Term<T, B>) -> Nullable<Id> {
@@ -572,10 +604,14 @@ impl<T, B> NormalTermDefinition<T, B> {
             }
         }
 
+        fn unwrap_term<T: Clone, B: Clone>(arc: Arc<Term<T, B>>) -> Term<T, B> {
+            Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone())
+        }
+
         let (id, reverse) = if self.reverse_property {
-            (None, self.value.map(|t| term_into_key(vocabulary, t)))
+            (None, self.value.map(|t| term_into_key(vocabulary, unwrap_term(t))))
         } else {
-            (self.value.map(|t| term_into_id(vocabulary, t)), None)
+            (self.value.map(|t| term_into_id(vocabulary, unwrap_term(t))), None)
         };
 
         let container = self.container.into_syntax();
@@ -597,9 +633,16 @@ impl<T, B> NormalTermDefinition<T, B> {
         .simplify()
     }
 
-    fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, map_id: impl FnOnce(Id<T, B>) -> Id<U, C>) -> NormalTermDefinition<U, C> {
+    fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, map_id: impl FnOnce(Id<T, B>) -> Id<U, C>) -> NormalTermDefinition<U, C>
+    where
+        T: Clone,
+        B: Clone,
+    {
         NormalTermDefinition {
-            value: self.value.map(|t| t.map_id(map_id)),
+            value: self.value.map(|t| {
+                let term = Arc::try_unwrap(t).unwrap_or_else(|a| (*a).clone());
+                Arc::new(term.map_id(map_id))
+            }),
             prefix: self.prefix,
             protected: self.protected,
             reverse_property: self.reverse_property,

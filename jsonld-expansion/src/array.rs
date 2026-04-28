@@ -1,20 +1,22 @@
 use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler, expand_element};
 use json_syntax::Array;
+use jsonld_context_processing::ProcessingCache;
 use jsonld_core::{Context, Environment, Object, context::TermDefinitionRef, object};
 use jsonld_syntax::ContainerKind;
 use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn expand_array<N, L, W>(
-    env: Environment<'_, N, L, W>,
-    active_context: &Context<N::Iri, N::BlankId>,
-    active_property: ActiveProperty<'_>,
-    active_property_definition: Option<TermDefinitionRef<'_, N::Iri, N::BlankId>>,
-    element: &Array,
-    base_url: Option<&N::Iri>,
+pub(crate) async fn expand_array<'a, N, L, W>(
+    env: Environment<'a, N, L, W>,
+    active_context: &'a Context<N::Iri, N::BlankId>,
+    active_property: ActiveProperty<'a>,
+    active_property_definition: Option<TermDefinitionRef<'a, N::Iri, N::BlankId>>,
+    element: &'a Array,
+    base_url: Option<&'a N::Iri>,
     options: Options,
     from_map: bool,
+    cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> Result<Expanded<N::Iri, N::BlankId>, Error>
 where
     N: VocabularyMut,
@@ -51,6 +53,7 @@ where
             base_url,
             options,
             from_map,
+            cache,
         ))
         .await?;
 

@@ -4,10 +4,10 @@ use std::hash::{BuildHasher, Hash};
 pub struct DeterministicHasherBuilder;
 
 impl BuildHasher for DeterministicHasherBuilder {
-    type Hasher = std::collections::hash_map::DefaultHasher;
+    type Hasher = foldhash::fast::FoldHasher<'static>;
 
     fn build_hasher(&self) -> Self::Hasher {
-        Self::Hasher::new()
+        foldhash::fast::FixedState::default().build_hasher()
     }
 }
 

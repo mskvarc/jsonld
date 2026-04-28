@@ -108,6 +108,10 @@ impl<'a> Iterator for BindingsIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(k, d)| (k, d.as_ref()))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<'a> DoubleEndedIterator for BindingsIter<'a> {

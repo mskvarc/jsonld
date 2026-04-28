@@ -13,14 +13,20 @@ readme = "README.md"
 
 [features]
 default = ["fast-hash"]
-fast-hash = ["iri-rs/fast-hash", "jsonld-core/fast-hash", "jsonld-syntax/fast-hash"]
+fast-hash = [
+    "iri-rs/fast-hash",
+    "jsonld-core/fast-hash",
+    "jsonld-syntax/fast-hash",
+]
 
 [dependencies]
 contextual = "0.1.6"
+foldhash = "0.2.0"
 futures = "0.3.32"
 iri-rs = "3.3.4"
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
 mown = "1.0.0"
+parking_lot = "0.12.5"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 thiserror = "2.0.18"

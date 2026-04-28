@@ -52,9 +52,9 @@ impl From<crate::Unexpected> for InvalidContext {
 impl TryFromJson for TermDefinition {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::Simple(term_definition::Simple(s.to_string()))),
+            json_syntax::Value::String(s) => Ok(Self::Simple(term_definition::Simple(s.as_str().to_owned()))),
             json_syntax::Value::Object(o) => {
                 let mut def = term_definition::Expanded::new();
 
@@ -99,9 +99,9 @@ impl TryFromJson for TermDefinition {
 impl TryFromJson for term_definition::Type {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
             unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
         }
     }
@@ -110,7 +110,7 @@ impl TryFromJson for term_definition::Type {
 impl TryFromJson for definition::TypeContainer {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::String(s) => match Keyword::try_from(s.as_str()) {
                 Ok(Keyword::Set) => Ok(Self::Set),
@@ -124,7 +124,7 @@ impl TryFromJson for definition::TypeContainer {
 impl TryFromJson for definition::Type {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::Object(o) => {
                 let mut container = None;
@@ -159,7 +159,7 @@ impl TryFromJson for definition::Type {
 impl TryFromJson for definition::Version {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::Number(n) => match n.as_str() {
                 "1.1" => Ok(Self::V1_1),
@@ -173,9 +173,9 @@ impl TryFromJson for definition::Version {
 impl TryFromJson for definition::Vocab {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
             unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
         }
     }
@@ -184,9 +184,9 @@ impl TryFromJson for definition::Vocab {
 impl TryFromJson for term_definition::Id {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
             unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
         }
     }
@@ -195,9 +195,9 @@ impl TryFromJson for term_definition::Id {
 impl TryFromJson for definition::Key {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, Self::Error> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
             unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
         }
     }
@@ -206,9 +206,9 @@ impl TryFromJson for definition::Key {
 impl TryFromJson for term_definition::Index {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
             unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
         }
     }
@@ -217,9 +217,9 @@ impl TryFromJson for term_definition::Index {
 impl TryFromJson for term_definition::Nest {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => match Self::try_from(s.into_string()) {
+            json_syntax::Value::String(s) => match Self::try_from(s.as_str().to_owned()) {
                 Ok(nest) => Ok(nest),
                 Err(InvalidNest(s)) => Err(InvalidContext::InvalidNestValue(s)),
             },
@@ -231,7 +231,7 @@ impl TryFromJson for term_definition::Nest {
 impl TryFromJson for Context {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::Array(a) => {
                 let mut many = Vec::with_capacity(a.len());
@@ -250,10 +250,10 @@ impl TryFromJson for Context {
 impl TryFromJson for ContextEntry {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::Null => Ok(Self::Null),
-            json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
+            json_syntax::Value::String(s) => match IriRefBuf::new(s.as_str().to_owned()) {
                 Ok(iri_ref) => Ok(Self::IriRef(iri_ref)),
                 Err(e) => Err(InvalidContext::InvalidIriRef(e.0)),
             },
@@ -277,7 +277,7 @@ impl TryFromJson for ContextEntry {
                                 other => Nullable::Some(TermDefinition::try_from_json(other)?),
                             };
 
-                            if def.bindings.insert_with(key.into(), term_def).is_some() {
+                            if def.bindings.insert_with(key.as_str().to_owned().into(), term_def).is_some() {
                                 return Err(InvalidContext::DuplicateKey);
                             }
                         }

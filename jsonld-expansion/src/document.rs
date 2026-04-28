@@ -24,7 +24,7 @@ where
     L: Loader,
     W: WarningHandler<N>,
 {
-    let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false).await?;
+    let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
     if expanded.len() == 1 {
         let obj = expanded.into_iter().next().unwrap();
         match obj.into_unnamed_graph() {

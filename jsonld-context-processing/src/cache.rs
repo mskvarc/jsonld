@@ -34,11 +34,25 @@
 use crate::Options;
 use jsonld_core::{Context, HashMap};
 use jsonld_syntax::Print;
+use parking_lot::Mutex;
 use std::{
-    cell::RefCell,
-    hash::{DefaultHasher, Hash, Hasher},
+    fmt::Write as _,
+    hash::{BuildHasher, Hash, Hasher},
     sync::Arc,
 };
+
+/// `fmt::Write` adapter that streams written bytes into a [`Hasher`],
+/// avoiding the temporary `String` that `pretty_print().to_string()` would
+/// otherwise allocate.
+struct HashWriter<'a, H: Hasher>(&'a mut H);
+
+impl<'a, H: Hasher> std::fmt::Write for HashWriter<'a, H> {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.0.write(s.as_bytes());
+        Ok(())
+    }
+}
 
 /// Cache of processed contexts.
 ///
@@ -46,34 +60,34 @@ use std::{
 /// context-processing options stay constant) and pass it to
 /// [`Process::process_full_with_cache`][crate::Process::process_full_with_cache].
 pub struct ProcessingCache<T, B> {
-    entries: RefCell<HashMap<u64, Arc<Context<T, B>>>>,
+    entries: Mutex<HashMap<u64, Arc<Context<T, B>>>>,
 }
 
 impl<T, B> ProcessingCache<T, B> {
     pub fn new() -> Self {
         Self {
-            entries: RefCell::new(HashMap::default()),
+            entries: Mutex::new(HashMap::default()),
         }
     }
 
     pub fn clear(&self) {
-        self.entries.borrow_mut().clear();
+        self.entries.lock().clear();
     }
 
     pub fn len(&self) -> usize {
-        self.entries.borrow().len()
+        self.entries.lock().len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.entries.borrow().is_empty()
+        self.entries.lock().is_empty()
     }
 
     pub(crate) fn get(&self, key: u64) -> Option<Arc<Context<T, B>>> {
-        self.entries.borrow().get(&key).map(Arc::clone)
+        self.entries.lock().get(&key).map(Arc::clone)
     }
 
     pub(crate) fn insert(&self, key: u64, context: Arc<Context<T, B>>) {
-        self.entries.borrow_mut().insert(key, context);
+        self.entries.lock().insert(key, context);
     }
 }
 
@@ -92,7 +106,7 @@ where
     T: Hash,
     B: Hash,
 {
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = foldhash::fast::FixedState::default().build_hasher();
 
     // Active context fingerprint: Arc-pointer identity + scalar fields.
     active_context.definitions_arc_ptr().hash(&mut hasher);
@@ -103,8 +117,9 @@ where
     active_context.default_language().hash(&mut hasher);
     active_context.default_base_direction().hash(&mut hasher);
 
-    // Local context content hash via canonical Print output.
-    local_context.pretty_print().to_string().hash(&mut hasher);
+    // Local context content hash: stream Print output into the hasher
+    // instead of materializing it as a `String`.
+    write!(HashWriter(&mut hasher), "{}", local_context.pretty_print()).expect("hashing pretty_print output should not fail");
 
     base_url.hash(&mut hasher);
 

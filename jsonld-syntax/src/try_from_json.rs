@@ -4,15 +4,15 @@ use iri_rs::IriRefBuf;
 pub trait TryFromJson: Sized {
     type Error;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error>;
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, Self::Error>;
 }
 
 impl crate::TryFromJson for bool {
     type Error = crate::Unexpected;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, Self::Error> {
         match value {
-            json_syntax::Value::Boolean(b) => Ok(b),
+            json_syntax::Value::Boolean(b) => Ok(*b),
             unexpected => Err(crate::Unexpected(unexpected.kind(), &[json_syntax::Kind::Boolean])),
         }
     }
@@ -21,9 +21,9 @@ impl crate::TryFromJson for bool {
 impl TryFromJson for IriRefBuf {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
+            json_syntax::Value::String(s) => match IriRefBuf::new(s.as_str().to_owned()) {
                 Ok(iri_ref) => Ok(iri_ref),
                 Err(e) => Err(InvalidContext::InvalidIriRef(e.0)),
             },
@@ -35,10 +35,10 @@ impl TryFromJson for IriRefBuf {
 impl TryFromJson for LenientLangTagBuf {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::String(s) => {
-                let (lang, _) = LenientLangTagBuf::new(s.into_string());
+                let (lang, _) = LenientLangTagBuf::new(s.as_str().to_owned());
                 Ok(lang)
             }
             unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
@@ -49,7 +49,7 @@ impl TryFromJson for LenientLangTagBuf {
 impl TryFromJson for Direction {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::String(s) => match Direction::try_from(s.as_str()) {
                 Ok(d) => Ok(d),
@@ -63,7 +63,7 @@ impl TryFromJson for Direction {
 impl<T: TryFromJson> TryFromJson for Nullable<T> {
     type Error = T::Error;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, Self::Error> {
         match value {
             json_syntax::Value::Null => Ok(Self::Null),
             some => T::try_from_json(some).map(Self::Some),
@@ -74,7 +74,7 @@ impl<T: TryFromJson> TryFromJson for Nullable<T> {
 impl TryFromJson for Container {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::Array(a) => {
                 let mut container = Vec::new();
@@ -93,7 +93,7 @@ impl TryFromJson for Container {
 impl TryFromJson for ContainerKind {
     type Error = InvalidContext;
 
-    fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
         match value {
             json_syntax::Value::String(s) => match ContainerKind::try_from(s.as_str()) {
                 Ok(t) => Ok(t),

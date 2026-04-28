@@ -411,7 +411,7 @@ where
             Some(d) => d,
             None => continue,
         };
-        let Some(iri_mapping) = definition.value.as_ref() else {
+        let Some(iri_mapping) = definition.value() else {
             continue;
         };
         let Some(suffix) = var_str.strip_prefix(iri_mapping.with(vocabulary).as_str()) else {

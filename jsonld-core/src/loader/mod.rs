@@ -496,7 +496,7 @@ impl ExtractContext for json_syntax::Value {
             Self::Object(mut o) => match o.remove_unique("@context").map_err(ExtractContextError::duplicate_context)? {
                 Some(context) => {
                     use jsonld_syntax::TryFromJson;
-                    jsonld_syntax::context::Context::try_from_json(context.value).map_err(ExtractContextError::Syntax)
+                    jsonld_syntax::context::Context::try_from_json(&context.value).map_err(ExtractContextError::Syntax)
                 }
                 None => Err(ExtractContextError::NoContext),
             },
