@@ -27,6 +27,7 @@ impl IndexTerm {
 		Self::Iri(i)
 	}
 
+	#[allow(dead_code)]
 	pub const fn blank(b: BlankIdIndex) -> Self {
 		Self::Blank(b)
 	}
