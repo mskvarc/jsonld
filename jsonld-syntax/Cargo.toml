@@ -21,6 +21,7 @@ serde = [
     "json-syntax/serde",
     "indexmap/serde",
 ]
+serde_json = ["json-syntax/serde_json"]
 ahash = ["dep:ahash"]
 gxhash = ["dep:gxhash"]
 

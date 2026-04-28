@@ -332,3 +332,47 @@ impl<T, B> From<IndexSet<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
         Self(set)
     }
 }
+
+#[cfg(all(test, feature = "serde_json"))]
+mod serde_json_tests {
+    use super::*;
+    use crate::Id;
+    use iri_rs::iri;
+
+    #[test]
+    fn expanded_into_serde_json_with_default_vocab() {
+        let id = Id::iri(IriBuf::from(iri!("https://example.com/x")));
+        let node = Node::<IriBuf, BlankIdBuf>::with_id(id);
+        let doc: ExpandedDocument<IriBuf, BlankIdBuf> = Indexed::new(node, None).into();
+
+        let json = doc.into_serde_json();
+        let arr = json.as_array().expect("expanded document is an array");
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0].get("@id").and_then(|v| v.as_str()), Some("https://example.com/x"));
+    }
+}
+
+#[cfg(feature = "serde_json")]
+impl<T, B> ExpandedDocument<T, B> {
+    /// Converts the expanded document into a [`serde_json::Value`] using the
+    /// given `vocabulary`.
+    pub fn into_serde_json_with<N>(self, vocabulary: &N) -> serde_json::Value
+    where
+        N: Vocabulary<Iri = T, BlankId = B>,
+    {
+        use jsonld_syntax::IntoJsonWithContext;
+        self.0.into_json_with(vocabulary).into_serde_json()
+    }
+}
+
+#[cfg(feature = "serde_json")]
+impl<T, B> ExpandedDocument<T, B>
+where
+    (): Vocabulary<Iri = T, BlankId = B>,
+{
+    /// Converts the expanded document into a [`serde_json::Value`] using the
+    /// default no-vocabulary.
+    pub fn into_serde_json(self) -> serde_json::Value {
+        self.into_serde_json_with(rdf_rs::vocabulary::no_vocabulary())
+    }
+}

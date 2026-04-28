@@ -259,6 +259,62 @@
 //! # }
 //! ```
 //!
+//! ## Interop with `serde_json`
+//!
+//! By default, this crate represents JSON values using
+//! [`json_syntax::Value`]. If you have a [`serde_json::Value`] (for example
+//! deserialized via [`serde`]), enable the `serde_json` feature flag to
+//! convert between the two without manual unpacking.
+//!
+//! ### Input
+//!
+//! [`RemoteDocument::from_serde_json`] consumes a [`serde_json::Value`]
+//! directly. [`RemoteDocument::from_value`] is more general and accepts
+//! anything that implements `Into<json_syntax::Value>`, which includes both
+//! `json_syntax::Value` and `serde_json::Value` (when the feature is on).
+//!
+//! ### Output
+//!
+//! - [`JsonLdProcessor::compact`] and [`JsonLdProcessor::flatten`] return a
+//!   [`json_syntax::Value`] — call its inherent
+//!   [`into_serde_json`](json_syntax::Value::into_serde_json) method.
+//! - [`ExpandedDocument`] gains
+//!   [`into_serde_json_with`](crate::ExpandedDocument::into_serde_json_with)
+//!   (and [`into_serde_json`](crate::ExpandedDocument::into_serde_json) for
+//!   the default no-vocabulary case).
+//!
+//! ### Example
+//!
+//! ```
+//! # #[cfg(feature = "serde_json")]
+//! # {
+//! use iri_rs::{iri, IriBuf};
+//! use jsonld::{JsonLdProcessor, RemoteDocument};
+//!
+//! # async_std::task::block_on(async {
+//! let value = serde_json::json!({
+//!     "@context": {"name": "http://xmlns.com/foaf/0.1/name"},
+//!     "@id": "https://www.rust-lang.org",
+//!     "name": "Rust Programming Language"
+//! });
+//!
+//! let input = RemoteDocument::from_serde_json(
+//!     Some(IriBuf::from(iri!("https://example.com/sample.jsonld"))),
+//!     Some("application/ld+json".parse().unwrap()),
+//!     value,
+//! );
+//!
+//! let mut loader = jsonld::NoLoader;
+//! let expanded = input.expand(&mut loader).await.expect("expansion failed");
+//!
+//! let _: serde_json::Value = expanded.into_serde_json();
+//! # });
+//! # }
+//! ```
+//!
+//! [`serde_json::Value`]: https://docs.rs/serde_json/latest/serde_json/enum.Value.html
+//! [`serde`]: https://docs.rs/serde
+//!
 //! # Fast IRIs and Blank Node Identifiers
 //!
 //! This library gives you the opportunity to use any datatype you want to

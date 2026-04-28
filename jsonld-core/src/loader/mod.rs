@@ -274,6 +274,31 @@ impl<I, T> RemoteDocument<I, T> {
     }
 }
 
+impl<I> RemoteDocument<I, json_syntax::Value> {
+    /// Creates a remote document from any value convertible into a
+    /// [`json_syntax::Value`].
+    ///
+    /// With the `serde_json` feature enabled, this also accepts
+    /// [`serde_json::Value`] thanks to the `From<serde_json::Value>`
+    /// implementation provided by `json-syntax`.
+    pub fn from_value(url: Option<I>, content_type: Option<Mime>, document: impl Into<json_syntax::Value>) -> Self {
+        Self::new(url, content_type, document.into())
+    }
+}
+
+#[cfg(feature = "serde_json")]
+impl<I> RemoteDocument<I, json_syntax::Value> {
+    /// Creates a remote document from a [`serde_json::Value`].
+    pub fn from_serde_json(url: Option<I>, content_type: Option<Mime>, document: serde_json::Value) -> Self {
+        Self::new(url, content_type, json_syntax::Value::from_serde_json(document))
+    }
+
+    /// Consumes the document, returning a `RemoteDocument<I, serde_json::Value>`.
+    pub fn into_serde_json(self) -> RemoteDocument<I, serde_json::Value> {
+        self.map(json_syntax::Value::into_serde_json)
+    }
+}
+
 /// Standard `profile` parameter values defined for the `application/ld+json`.
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
@@ -502,5 +527,83 @@ impl ExtractContext for json_syntax::Value {
             },
             other => Err(ExtractContextError::Unexpected(other.kind())),
         }
+    }
+}
+
+#[cfg(all(test, feature = "serde_json"))]
+mod serde_json_tests {
+    use super::*;
+    use iri_rs::iri;
+
+    #[test]
+    fn from_serde_json_preserves_url_and_content_type() {
+        let url = IriBuf::from(iri!("https://example.com/sample.jsonld"));
+        let mime: Mime = "application/ld+json".parse().unwrap();
+        let value = serde_json::json!({"foo": "bar"});
+
+        let doc = RemoteDocument::from_serde_json(Some(url.clone()), Some(mime.clone()), value);
+
+        assert_eq!(doc.url(), Some(&url));
+        assert_eq!(doc.content_type(), Some(&mime));
+        assert!(doc.context_url().is_none());
+        assert!(doc.profile.is_empty());
+        match doc.document() {
+            json_syntax::Value::Object(o) => {
+                assert_eq!(o.get("foo").next().unwrap().as_str(), Some("bar"));
+            }
+            other => panic!("expected object, got {:?}", other.kind()),
+        }
+    }
+
+    #[test]
+    fn from_serde_json_handles_all_value_kinds() {
+        let value = serde_json::json!({
+            "null": null,
+            "bool": true,
+            "num": 1.5,
+            "str": "x",
+            "arr": [1, 2],
+            "obj": {"k": "v"}
+        });
+        let doc = RemoteDocument::<IriBuf, _>::from_serde_json(None, None, value);
+        let obj = match doc.document() {
+            json_syntax::Value::Object(o) => o,
+            _ => panic!("expected object"),
+        };
+        assert!(matches!(obj.get("null").next().unwrap(), json_syntax::Value::Null));
+        assert!(matches!(obj.get("bool").next().unwrap(), json_syntax::Value::Boolean(true)));
+        assert!(matches!(obj.get("num").next().unwrap(), json_syntax::Value::Number(_)));
+        assert!(matches!(obj.get("str").next().unwrap(), json_syntax::Value::String(_)));
+        assert!(matches!(obj.get("arr").next().unwrap(), json_syntax::Value::Array(_)));
+        assert!(matches!(obj.get("obj").next().unwrap(), json_syntax::Value::Object(_)));
+    }
+
+    #[test]
+    fn into_serde_json_round_trip() {
+        use json_syntax::Parse;
+        let original = json_syntax::Value::parse_str(r#"{"a": [1, 2, 3], "b": "x"}"#).unwrap().0;
+        let doc: RemoteDocument<IriBuf, _> = RemoteDocument::new(None, None, original.clone());
+        let serde_doc = doc.into_serde_json();
+        let round_tripped = json_syntax::Value::from_serde_json(serde_doc.document.clone());
+        assert_eq!(round_tripped, original);
+    }
+
+    #[test]
+    fn from_value_accepts_json_syntax_value() {
+        use json_syntax::Parse;
+        let value = json_syntax::Value::parse_str(r#"{"k": 1}"#).unwrap().0;
+        let doc: RemoteDocument<IriBuf, _> = RemoteDocument::from_value(None, None, value);
+        match doc.document() {
+            json_syntax::Value::Object(_) => {}
+            _ => panic!("expected object"),
+        }
+    }
+
+    #[test]
+    fn from_value_accepts_serde_json_value() {
+        let v = serde_json::json!({"k": 1});
+        let via_value: RemoteDocument<IriBuf, _> = RemoteDocument::from_value(None, None, v.clone());
+        let via_serde: RemoteDocument<IriBuf, _> = RemoteDocument::from_serde_json(None, None, v);
+        assert!(jsonld_syntax::Compare::compare(via_value.document(), via_serde.document()));
     }
 }
