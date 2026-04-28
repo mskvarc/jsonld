@@ -16,7 +16,7 @@ contextual = "0.1.6"
 educe = "0.6.0"
 futures = "0.3.32"
 indexmap = "2.14.0"
-iri-rs = "3.3.3"
+iri-rs = "3.3.4"
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
@@ -29,4 +29,4 @@ thiserror = "2.0.18"
 [dev-dependencies]
 async-std = { version = "1.13.2", features = ["attributes"] }
 jsonld.workspace = true
-iri-rs = { version = "3.3.3", features = ["static"] }
+iri-rs = { version = "3.3.4", features = ["static"] }

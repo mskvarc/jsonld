@@ -5,6 +5,7 @@ use crate::{
 };
 use contextual::WithContext;
 use educe::Educe;
+use hashbrown::DefaultHashBuilder;
 use indexmap::IndexMap;
 use iri_rs::IriBuf;
 use jsonld_syntax::IntoJsonWithContext;
@@ -18,7 +19,7 @@ pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf> = Multiset<IndexedNode
 #[derive(Educe, Debug, Clone)]
 #[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
 pub struct ReverseProperties<T = IriBuf, B = BlankIdBuf>(
-	IndexMap<Id<T, B>, ReversePropertyNodes<T, B>>,
+	IndexMap<Id<T, B>, ReversePropertyNodes<T, B>, DefaultHashBuilder>,
 );
 
 impl<T: Eq + Hash, B: Eq + Hash> Eq for ReverseProperties<T, B> {}
@@ -32,7 +33,7 @@ impl<T, B> Default for ReverseProperties<T, B> {
 impl<T, B> ReverseProperties<T, B> {
 	/// Creates an empty map.
 	pub fn new() -> Self {
-		Self(IndexMap::new())
+		Self(IndexMap::with_hasher(DefaultHashBuilder::default()))
 	}
 
 	/// Returns the number of reverse properties.

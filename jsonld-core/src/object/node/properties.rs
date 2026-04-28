@@ -4,6 +4,7 @@ use crate::{
 	Id, IndexedObject,
 };
 use educe::Educe;
+use hashbrown::DefaultHashBuilder;
 use indexmap::IndexMap;
 use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::{Hash, Hasher};
@@ -13,7 +14,7 @@ pub type PropertyObjects<T, B> = Multiset<IndexedObject<T, B>>;
 /// Properties of a node object, and their associated objects.
 #[derive(Educe, Debug, Clone)]
 #[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
-pub struct Properties<T, B>(IndexMap<Id<T, B>, PropertyObjects<T, B>>);
+pub struct Properties<T, B>(IndexMap<Id<T, B>, PropertyObjects<T, B>, DefaultHashBuilder>);
 
 impl<T: Eq + Hash, B: Eq + Hash> Eq for Properties<T, B> {}
 
@@ -26,7 +27,7 @@ impl<T, B> Default for Properties<T, B> {
 impl<T, B> Properties<T, B> {
 	/// Creates an empty map.
 	pub fn new() -> Self {
-		Self(IndexMap::new())
+		Self(IndexMap::with_hasher(DefaultHashBuilder::default()))
 	}
 
 	/// Returns the number of properties.

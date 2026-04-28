@@ -129,9 +129,9 @@ where
 			// };
 
 			// Preliminary key expansions.
-			let mut preliminary_value_entry = None;
-			let mut preliminary_id_entry = None;
-			for Entry { key, value } in element.entries() {
+			let mut has_value_entry = false;
+			let mut has_id_entry = false;
+			for Entry { key, value: _ } in element.entries() {
 				match expand_iri(
 					&mut env,
 					active_context,
@@ -140,9 +140,9 @@ where
 					Some(options.policy.vocab),
 				)? {
 					Some(Term::Keyword(Keyword::Value)) => {
-						preliminary_value_entry = Some(value.clone())
+						has_value_entry = true;
 					}
-					Some(Term::Keyword(Keyword::Id)) => preliminary_id_entry = Some(value.clone()),
+					Some(Term::Keyword(Keyword::Id)) => has_id_entry = true,
 					_ => (),
 				}
 			}
@@ -158,8 +158,8 @@ where
 				// previous context from active context, as the scope of a term-scoped context
 				// does not apply when processing new Object objects.
 				if !from_map
-					&& preliminary_value_entry.is_none()
-					&& !(element.len() == 1 && preliminary_id_entry.is_some())
+					&& !has_value_entry
+					&& !(element.len() == 1 && has_id_entry)
 				{
 					active_context = Mown::Owned(previous_context.clone())
 				}
@@ -314,9 +314,9 @@ where
 
 			let mut expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>> =
 				Vec::with_capacity(element.len());
-			let mut list_entry = None;
-			let mut set_entry = None;
-			let mut value_entry = None;
+			let mut list_entry: Option<&Value> = None;
+			let mut set_entry: Option<&Value> = None;
+			let mut value_entry: Option<&Value> = None;
 			for Entry { key, value } in entries.iter() {
 				if key.is_empty() {
 					env.warnings.handle(env.vocabulary, Warning::EmptyTerm);
@@ -332,13 +332,13 @@ where
 
 				if let Some(expanded_key) = expanded_key {
 					match &expanded_key {
-						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
+						Term::Keyword(Keyword::Value) => value_entry = Some(value),
 						Term::Keyword(Keyword::List) => {
 							if active_property.is_some() && active_property != Keyword::Graph {
-								list_entry = Some(value.clone())
+								list_entry = Some(value)
 							}
 						}
-						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
+						Term::Keyword(Keyword::Set) => set_entry = Some(value),
 						Term::Id(Id::Valid(ValidId::Blank(id))) => {
 							env.warnings
 								.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));
@@ -369,7 +369,7 @@ where
 				// base URL, and the ordered flags, ensuring that the
 				// result is an array..
 				let mut result = Vec::new();
-				let list_entry = Value::force_as_array(&list_entry);
+				let list_entry = Value::force_as_array(list_entry);
 				for item in list_entry {
 					let e = Box::pin(expand_element(
 						Environment {
@@ -412,7 +412,7 @@ where
 					env,
 					active_context.as_ref(),
 					active_property,
-					&set_entry,
+					set_entry,
 					base_url,
 					options,
 					false,
@@ -426,7 +426,7 @@ where
 					input_type,
 					type_scoped_context,
 					expanded_entries,
-					&value_entry,
+					value_entry,
 				)?;
 
 				if let Some(value) = expanded_value {

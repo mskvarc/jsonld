@@ -1,7 +1,7 @@
 use crate::object::{InvalidExpandedJson, TryFromJson};
 use crate::Term;
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use iri_rs::{Iri, IriBuf};
 use jsonld_syntax::IntoJsonWithContext;
 use rdf_rs::vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut};
@@ -225,8 +225,24 @@ impl<I, B> Id<I, B> {
 		vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>,
 		s: String,
 	) -> Self {
+		thread_local! {
+			static VALIDATED_IRIS: std::cell::RefCell<HashSet<String>> =
+				std::cell::RefCell::new(HashSet::new());
+		}
+
+		let cached = VALIDATED_IRIS.with(|c| c.borrow().contains(&s));
+		if cached {
+			// SAFETY: `s` was validated as an IRI in a prior call; IRI grammar
+			// validity is a pure function of the byte sequence.
+			let iri = unsafe { IriBuf::new_unchecked(s) };
+			return Self::Valid(ValidId::Iri(vocabulary.insert_owned(iri)));
+		}
+
 		match Iri::parse(s.as_str()) {
-			Ok(iri) => Self::Valid(ValidId::Iri(vocabulary.insert(iri))),
+			Ok(iri) => {
+				VALIDATED_IRIS.with(|c| c.borrow_mut().insert(s.clone()));
+				Self::Valid(ValidId::Iri(vocabulary.insert(iri)))
+			}
 			Err(_) => match BlankId::new(s.as_str()) {
 				Ok(blank) => Self::Valid(ValidId::Blank(vocabulary.insert_blank_id(blank))),
 				Err(_) => Self::Invalid(s),

@@ -26,7 +26,7 @@ decoded-char = "0.1.1"
 educe = "0.6.0"
 hashbrown = "0.17.0"
 indexmap = "2.14.0"
-iri-rs = "3.3.3"
+iri-rs = "3.3.4"
 json-syntax = "0.12.5"
 langtag = "1.1.0"
 lasso = { version = "0.7", features = ["multi-threaded"] }

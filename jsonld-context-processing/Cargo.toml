@@ -14,7 +14,7 @@ readme = "README.md"
 [dependencies]
 contextual = "0.1.6"
 futures = "0.3.32"
-iri-rs = "3.3.3"
+iri-rs = "3.3.4"
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
 mown = "1.0.0"

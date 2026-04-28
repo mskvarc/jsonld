@@ -7,6 +7,7 @@ use jsonld_core::{
 };
 use jsonld_syntax::{is_keyword, is_keyword_like};
 use rdf_rs::vocabulary::Vocabulary;
+use smallvec::SmallVec;
 use std::hash::Hash;
 
 pub struct IriConfusedWithPrefix;
@@ -146,7 +147,7 @@ where
 			// Initialize containers to an empty array.
 			// This array will be used to keep track of an ordered list of preferred container
 			// mapping for a term, based on what is compatible with value.
-			let mut containers = Vec::new();
+			let mut containers: SmallVec<[Container; 8]> = SmallVec::new();
 			let mut type_lang_value = None;
 
 			if let Some(value) = value {
