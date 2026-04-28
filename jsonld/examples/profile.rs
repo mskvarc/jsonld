@@ -2,6 +2,9 @@ use std::{env, hint::black_box, process::ExitCode, time::Instant};
 
 use jsonld::{JsonLdProcessor, NoLoader, compaction::Compact};
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[path = "../benches/common.rs"]
 mod common;
 

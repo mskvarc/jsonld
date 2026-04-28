@@ -1,7 +1,5 @@
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
+use foldhash::fast::FixedState;
+use std::hash::{BuildHasher, Hash, Hasher};
 
 /// Hash a set of items.
 ///
@@ -18,11 +16,15 @@ where
     // Elements must be combined with a associative and commutative operation •.
     // (u64, •, 0) must form a commutative monoid.
     // This is satisfied by • = u64::wrapping_add.
-    let mut hash = 0;
+    //
+    // The inner hasher must be deterministic across calls so equal sets
+    // produce equal hashes; foldhash's FixedState gives a fixed-seed builder.
+    let inner = FixedState::default();
+    let mut hash = 0u64;
     for item in set {
-        let mut h = DefaultHasher::new();
+        let mut h = inner.build_hasher();
         item.hash(&mut h);
-        hash = u64::wrapping_add(hash, h.finish());
+        hash = hash.wrapping_add(h.finish());
     }
 
     hasher.write_u64(hash);
@@ -46,15 +48,12 @@ where
 /// Note that this function not particularly strong and does
 /// not protect against DoS attacks.
 pub fn hash_map<'a, K: 'a + Hash, V: 'a + Hash, H: Hasher>(map: impl 'a + IntoIterator<Item = (&'a K, &'a V)>, hasher: &mut H) {
-    // See: https://github.com/rust-lang/rust/pull/48366
-    // Elements must be combined with a associative and commutative operation •.
-    // (u64, •, 0) must form a commutative monoid.
-    // This is satisfied by • = u64::wrapping_add.
-    let mut hash = 0;
+    let inner = FixedState::default();
+    let mut hash = 0u64;
     for entry in map {
-        let mut h = DefaultHasher::new();
+        let mut h = inner.build_hasher();
         entry.hash(&mut h);
-        hash = u64::wrapping_add(hash, h.finish());
+        hash = hash.wrapping_add(h.finish());
     }
 
     hasher.write_u64(hash);

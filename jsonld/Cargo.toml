@@ -48,6 +48,7 @@ criterion = "0.8.2"
 iri-rs = { version = "3.3.4", features = ["static"] }
 jsonld-testing.workspace = true
 log = "0.4.29"
+mimalloc = { version = "0.1", default-features = false }
 n-quads = { git = "ssh://git@github.com/mskvarc/n-quads.git" }
 stacker = "0.1.24"
 

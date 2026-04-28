@@ -32,6 +32,27 @@ pub use inverse::InverseContext;
 /// Cache key for [`Context::compact_iri_cache`]: `(var, vocab, reverse)`.
 pub type CompactIriKey<T, B> = (Term<T, B>, bool, bool);
 
+/// Borrowed view over a [`CompactIriKey`] for cache lookups that don't need
+/// to allocate a fresh `Term`. Hashes byte-for-byte identically to the
+/// owned tuple, so `HashMap::get` finds the same bucket.
+pub struct CompactIriKeyRef<'a, T, B>(pub &'a Term<T, B>, pub bool, pub bool);
+
+impl<'a, T: std::hash::Hash, B: std::hash::Hash> std::hash::Hash for CompactIriKeyRef<'a, T, B> {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+        self.1.hash(state);
+        self.2.hash(state);
+    }
+}
+
+impl<'a, T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> for CompactIriKeyRef<'a, T, B> {
+    #[inline]
+    fn equivalent(&self, key: &CompactIriKey<T, B>) -> bool {
+        self.0 == &key.0 && self.1 == key.1 && self.2 == key.2
+    }
+}
+
 pub struct Context<T = IriBuf, B = BlankIdBuf> {
     original_base_url: Option<T>,
     base_iri: Option<T>,

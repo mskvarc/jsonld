@@ -10,7 +10,7 @@ use jsonld_core::{
     Term,
     Type,
     Value,
-    context::inverse::{LangSelection, Selection, TypeSelection},
+    context::{CompactIriKeyRef, inverse::{LangSelection, Selection, TypeSelection}},
     object,
 };
 use jsonld_syntax::{is_keyword, is_keyword_like};
@@ -58,7 +58,7 @@ where
     let cache = active_context.compact_iri_cache();
     {
         let guard = cache.lock().unwrap();
-        if let Some(hit) = guard.get(&(var.clone(), vocab, reverse)) {
+        if let Some(hit) = guard.get(&CompactIriKeyRef(var, vocab, reverse)) {
             return Ok(hit.clone());
         }
     }
@@ -399,6 +399,11 @@ where
     let mut compact_iri: Option<String> = None;
     let var_str = var.with(vocabulary).as_str();
 
+    // Stack-inline scratch buffer reused across loop iterations. Allocates
+    // only when the candidate exceeds the inline capacity. The accepted
+    // winner is the only allocation paid per accept.
+    let mut buf: SmallVec<[u8; 64]> = SmallVec::new();
+
     // Iterate only term definitions whose `prefix` flag is true (cached on the
     // active context).
     for key in active_context.prefix_term_keys() {
@@ -427,23 +432,27 @@ where
             continue;
         }
 
-        // Materialize once. Used both for the term-definition lookup and as
-        // the new winner if accepted.
-        let mut candidate = String::with_capacity(candidate_len);
-        candidate.push_str(key_str);
-        candidate.push(':');
-        candidate.push_str(suffix);
+        // Build the candidate into the scratch buffer (no heap alloc when
+        // the total fits in the inline capacity).
+        buf.clear();
+        buf.reserve(candidate_len);
+        buf.extend_from_slice(key_str.as_bytes());
+        buf.push(b':');
+        buf.extend_from_slice(suffix.as_bytes());
+        // SAFETY: `key_str` and `suffix` are `&str`, and ':' is ASCII, so
+        // the concatenated bytes are valid UTF-8.
+        let candidate_str: &str = unsafe { std::str::from_utf8_unchecked(&buf) };
 
         // If candidate has a term definition in active context, accept it
         // only when that definition's IRI mapping equals `var` and the
         // caller did not pass a `value`.
-        let candidate_def = active_context.get(candidate.as_str());
+        let candidate_def = active_context.get(candidate_str);
         let definition_ok = match candidate_def {
             None => true,
             Some(def) => def.value() == Some(var) && value.is_none(),
         };
         if definition_ok {
-            compact_iri = Some(candidate);
+            compact_iri = Some(candidate_str.to_owned());
         }
     }
 

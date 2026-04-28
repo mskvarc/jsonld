@@ -3,6 +3,9 @@ use std::hint::black_box;
 use criterion::{Criterion, criterion_group, criterion_main};
 use jsonld::{NoLoader, compaction::Compact};
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod common;
 
 use common::{Scenario, corpus, parse_remote_doc, parse_syntax_context, pre_expand, pre_process_context};
