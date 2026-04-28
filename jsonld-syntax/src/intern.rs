@@ -26,3 +26,11 @@ pub fn intern(s: &str) -> Spur {
 pub fn resolve(spur: Spur) -> &'static str {
     interner().resolve(&spur)
 }
+
+/// Interns the given string and returns the canonical `&'static str` directly.
+#[inline]
+pub fn intern_static(s: &str) -> &'static str {
+    let interner = interner();
+    let spur = interner.get_or_intern(s);
+    interner.resolve(&spur)
+}

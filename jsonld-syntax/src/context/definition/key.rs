@@ -1,58 +1,56 @@
-use crate::{
-    CompactIri,
-    Keyword,
-    intern::{Spur, intern, resolve},
-};
+use crate::{CompactIri, Keyword, intern::intern_static};
 use iri_rs::Iri;
 use rdf_rs::BlankId;
 use std::{borrow::Borrow, cmp::Ordering, fmt, hash::Hash};
 
 /// Context key.
 ///
-/// Internally a [`Spur`] (a 32-bit handle into a process-wide string
-/// interner), so cloning is `Copy`-cheap and comparison is a single integer
-/// equality. The interned string is reachable via [`Key::as_str`].
+/// Stores the canonical `&'static str` returned by the process-wide interner
+/// directly, so [`Key::as_str`] is a single load and equality on equal logical
+/// strings short-circuits via pointer equality (the interner guarantees a
+/// unique allocation per interned string).
 #[derive(Clone, Copy, Debug)]
-pub struct Key(Spur);
+pub struct Key(&'static str);
 
 impl Key {
     pub fn as_iri(&self) -> Option<Iri<&str>> {
-        Iri::parse(self.as_str()).ok()
+        Iri::parse(self.0).ok()
     }
 
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-        CompactIri::new(self.as_str()).ok()
+        CompactIri::new(self.0).ok()
     }
 
     pub fn as_blank_id(&self) -> Option<&BlankId> {
-        BlankId::new(self.as_str()).ok()
+        BlankId::new(self.0).ok()
     }
 
     pub fn as_str(&self) -> &'static str {
-        resolve(self.0)
+        self.0
     }
 
     pub fn len(&self) -> usize {
-        self.as_str().len()
+        self.0.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.as_str().is_empty()
+        self.0.is_empty()
     }
 
     pub fn into_string(self) -> String {
-        self.as_str().to_owned()
+        self.0.to_owned()
     }
 
     pub fn is_keyword_like(&self) -> bool {
-        crate::is_keyword_like(self.as_str())
+        crate::is_keyword_like(self.0)
     }
 }
 
 impl PartialEq for Key {
     fn eq(&self, other: &Self) -> bool {
-        // Equal spurs ⇔ equal strings (the interner never reuses spurs).
-        self.0 == other.0
+        // Interned strings are pointer-unique, so a pointer/length match is
+        // sufficient and faster than byte comparison.
+        std::ptr::eq(self.0.as_ptr(), other.0.as_ptr()) && self.0.len() == other.0.len()
     }
 }
 
@@ -66,11 +64,10 @@ impl PartialOrd for Key {
 
 impl Ord for Key {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Ord must reflect string ordering; spur ordering is allocation order.
-        if self.0 == other.0 {
+        if self == other {
             Ordering::Equal
         } else {
-            self.as_str().cmp(other.as_str())
+            self.0.cmp(other.0)
         }
     }
 }
@@ -86,19 +83,19 @@ impl Hash for Key {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // Hash via the underlying string so that `Borrow<str>` lookups
         // (e.g. `HashMap::get(&"foo")`) stay equivalent.
-        self.as_str().hash(state)
+        self.0.hash(state)
     }
 }
 
 impl From<String> for Key {
     fn from(k: String) -> Self {
-        Self(intern(&k))
+        Self(intern_static(&k))
     }
 }
 
 impl<'a> From<&'a str> for Key {
     fn from(value: &'a str) -> Self {
-        Self(intern(value))
+        Self(intern_static(value))
     }
 }
 
