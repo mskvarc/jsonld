@@ -16,8 +16,8 @@ pub struct NoLoader;
 pub struct CannotLoad;
 
 impl Loader for NoLoader {
-	#[inline(always)]
-	async fn load(&self, url: Iri<&str>) -> LoadingResult {
-		Err(LoadError::new(url.into(), CannotLoad))
-	}
+    #[inline(always)]
+    async fn load(&self, url: Iri<&str>) -> LoadingResult {
+        Err(LoadError::new(url.into(), CannotLoad))
+    }
 }

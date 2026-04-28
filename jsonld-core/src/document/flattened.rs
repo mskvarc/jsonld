@@ -1,5 +1,7 @@
-use rdf_rs::LocalGenerator;
-use rdf_rs::vocabulary::{Vocabulary, VocabularyMut};
+use rdf_rs::{
+    LocalGenerator,
+    vocabulary::{Vocabulary, VocabularyMut},
+};
 
 use crate::{IdentifyAll, IndexedNode, Relabel, ValidId};
 use std::{collections::HashSet, hash::Hash};
@@ -10,37 +12,34 @@ use std::{collections::HashSet, hash::Hash};
 pub type FlattenedDocument<T, B> = Vec<IndexedNode<T, B>>;
 
 impl<T, B> IdentifyAll<T, B> for FlattenedDocument<T, B> {
-	#[inline(always)]
-	fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
-		&mut self,
-		vocabulary: &mut V,
-		generator: &mut G,
-	) where
-		T: Eq + Hash,
-		B: Eq + Hash,
-		V: VocabularyMut,
-	{
-		for node in self {
-			node.identify_all_with(vocabulary, generator)
-		}
-	}
+    #[inline(always)]
+    fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    where
+        T: Eq + Hash,
+        B: Eq + Hash,
+        V: VocabularyMut,
+    {
+        for node in self {
+            node.identify_all_with(vocabulary, generator)
+        }
+    }
 }
 
 impl<T, B> Relabel<T, B> for FlattenedDocument<T, B> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
-		&mut self,
-		vocabulary: &mut N,
-		generator: &mut G,
-		relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
-	) where
-		T: Clone + Eq + Hash,
-		B: Clone + Eq + Hash,
-		N: VocabularyMut,
-	{
-		for node in self {
-			node.relabel_with(vocabulary, generator, relabeling)
-		}
-	}
+    fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut N,
+        generator: &mut G,
+        relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
+    ) where
+        T: Clone + Eq + Hash,
+        B: Clone + Eq + Hash,
+        N: VocabularyMut,
+    {
+        for node in self {
+            node.relabel_with(vocabulary, generator, relabeling)
+        }
+    }
 }
 
 pub type UnorderedFlattenedDocument<T, B> = HashSet<IndexedNode<T, B>>;

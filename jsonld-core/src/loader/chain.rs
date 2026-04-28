@@ -16,26 +16,26 @@ use super::Loader;
 pub struct ChainLoader<L1, L2>(L1, L2);
 
 impl<L1, L2> ChainLoader<L1, L2> {
-	/// Build a new chain loader
-	pub fn new(l1: L1, l2: L2) -> Self {
-		ChainLoader(l1, l2)
-	}
+    /// Build a new chain loader
+    pub fn new(l1: L1, l2: L2) -> Self {
+        ChainLoader(l1, l2)
+    }
 }
 
 impl<L1, L2> Loader for ChainLoader<L1, L2>
 where
-	L1: Loader,
-	L2: Loader,
+    L1: Loader,
+    L2: Loader,
 {
-	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
-		match self.0.load(url).await {
-			Ok(doc) => Ok(doc),
-			Err(LoadError { cause: e1, .. }) => match self.1.load(url).await {
-				Ok(doc) => Ok(doc),
-				Err(LoadError { target, cause: e2 }) => Err(LoadError::new(target, Error(e1, e2))),
-			},
-		}
-	}
+    async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+        match self.0.load(url).await {
+            Ok(doc) => Ok(doc),
+            Err(LoadError { cause: e1, .. }) => match self.1.load(url).await {
+                Ok(doc) => Ok(doc),
+                Err(LoadError { target, cause: e2 }) => Err(LoadError::new(target, Error(e1, e2))),
+            },
+        }
+    }
 }
 
 /// Either-or error.
@@ -43,10 +43,10 @@ where
 pub struct Error(pub LoadErrorCause, pub LoadErrorCause);
 
 impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		let Error(e1, e2) = self;
-		write!(f, "{e1}, then {e2}")
-	}
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Error(e1, e2) = self;
+        write!(f, "{e1}, then {e2}")
+    }
 }
 
 impl std::error::Error for Error {}

@@ -10,19 +10,19 @@ use std::collections::{BTreeMap, HashMap};
 pub struct EntryNotFound;
 
 impl Loader for HashMap<IriBuf, RemoteDocument> {
-	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
-		match self.get(url.as_str()) {
-			Some(document) => Ok(document.clone()),
-			None => Err(LoadError::new(url.into(), EntryNotFound)),
-		}
-	}
+    async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+        match self.get(url.as_str()) {
+            Some(document) => Ok(document.clone()),
+            None => Err(LoadError::new(url.into(), EntryNotFound)),
+        }
+    }
 }
 
 impl Loader for BTreeMap<IriBuf, RemoteDocument> {
-	async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
-		match self.get(url.as_str()) {
-			Some(document) => Ok(document.clone()),
-			None => Err(LoadError::new(url.into(), EntryNotFound)),
-		}
-	}
+    async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+        match self.get(url.as_str()) {
+            Some(document) => Ok(document.clone()),
+            None => Err(LoadError::new(url.into(), EntryNotFound)),
+        }
+    }
 }

@@ -11,18 +11,18 @@ pub use lasso::Spur;
 
 /// Returns the global interner, initializing it on first call.
 pub fn interner() -> &'static ThreadedRodeo {
-	static INTERNER: OnceLock<ThreadedRodeo> = OnceLock::new();
-	INTERNER.get_or_init(ThreadedRodeo::new)
+    static INTERNER: OnceLock<ThreadedRodeo> = OnceLock::new();
+    INTERNER.get_or_init(ThreadedRodeo::new)
 }
 
 /// Interns the given string and returns its [`Spur`].
 #[inline]
 pub fn intern(s: &str) -> Spur {
-	interner().get_or_intern(s)
+    interner().get_or_intern(s)
 }
 
 /// Resolves a [`Spur`] back to its `&'static str`.
 #[inline]
 pub fn resolve(spur: Spur) -> &'static str {
-	interner().resolve(&spur)
+    interner().resolve(&spur)
 }

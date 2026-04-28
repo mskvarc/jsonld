@@ -320,5 +320,4 @@ pub use processor::*;
 pub use iri_rs;
 pub use iri_rs::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
 
-pub use rdf_rs;
-pub use rdf_rs::{BlankId, BlankIdBuf};
+pub use rdf_rs::{self, BlankId, BlankIdBuf};

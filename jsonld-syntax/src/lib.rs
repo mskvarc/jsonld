@@ -25,8 +25,22 @@ pub use error::*;
 pub use expandable::*;
 pub use into_json::*;
 pub use json_syntax::{
-	object, parse, print, BorrowUnordered, Kind, Number, NumberBuf, Object, Parse, Print, String,
-	Unordered, UnorderedEq, UnorderedHash, UnorderedPartialEq, Value,
+    BorrowUnordered,
+    Kind,
+    Number,
+    NumberBuf,
+    Object,
+    Parse,
+    Print,
+    String,
+    Unordered,
+    UnorderedEq,
+    UnorderedHash,
+    UnorderedPartialEq,
+    Value,
+    object,
+    parse,
+    print,
 };
 pub use keyword::*;
 pub use lang::*;

@@ -9,8 +9,10 @@ use std::hash::Hash;
 use json_syntax::Value;
 use jsonld_context_processing::Context;
 use jsonld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
-use rdf_rs::BlankIdBuf;
-use rdf_rs::vocabulary::{self, BlankIdVocabulary, VocabularyMut};
+use rdf_rs::{
+    BlankIdBuf,
+    vocabulary::{self, BlankIdVocabulary, VocabularyMut},
+};
 
 mod array;
 mod document;
@@ -41,15 +43,9 @@ pub type ExpansionResult<T, B> = Result<ExpandedDocument<T, B>, Error>;
 
 /// Handler for the possible warnings emitted during the expansion
 /// of a JSON-LD document.
-pub trait WarningHandler<N: BlankIdVocabulary>:
-	jsonld_core::warning::Handler<N, Warning<N::BlankId>>
-{
-}
+pub trait WarningHandler<N: BlankIdVocabulary>: jsonld_core::warning::Handler<N, Warning<N::BlankId>> {}
 
-impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where
-	H: jsonld_core::warning::Handler<N, Warning<N::BlankId>>
-{
-}
+impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where H: jsonld_core::warning::Handler<N, Warning<N::BlankId>> {}
 
 /// Document expansion.
 ///
@@ -101,120 +97,115 @@ impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where
 /// # }
 /// ```
 pub trait Expand<Iri> {
-	/// Returns the default base URL passed to the expansion algorithm
-	/// and used to initialize the default empty context when calling
-	/// [`Expand::expand`] or [`Expand::expand_with`].
-	fn default_base_url(&self) -> Option<&Iri>;
+    /// Returns the default base URL passed to the expansion algorithm
+    /// and used to initialize the default empty context when calling
+    /// [`Expand::expand`] or [`Expand::expand_with`].
+    fn default_base_url(&self) -> Option<&Iri>;
 
-	/// Expand the document with full options.
-	///
-	/// The `vocabulary` is used to interpret identifiers.
-	/// The `context` is used as initial context.
-	/// The `base_url` is the initial base URL used to resolve relative IRI references.
-	/// The given `loader` is used to load remote documents (such as contexts)
-	/// imported by the input and required during expansion.
-	/// The `options` are used to tweak the expansion algorithm.
-	/// The `warning_handler` is called each time a warning is emitted during expansion.
-	#[allow(async_fn_in_trait)]
-	async fn expand_full<N, L, W>(
-		&self,
-		vocabulary: &mut N,
-		context: Context<Iri, N::BlankId>,
-		base_url: Option<&N::Iri>,
-		loader: &L,
-		options: Options,
-		warnings_handler: W,
-	) -> ExpansionResult<N::Iri, N::BlankId>
-	where
-		N: VocabularyMut<Iri = Iri>,
-		Iri: Clone + Eq + Hash,
-		N::BlankId: Clone + Eq + Hash,
-		L: Loader,
-		W: WarningHandler<N>;
+    /// Expand the document with full options.
+    ///
+    /// The `vocabulary` is used to interpret identifiers.
+    /// The `context` is used as initial context.
+    /// The `base_url` is the initial base URL used to resolve relative IRI references.
+    /// The given `loader` is used to load remote documents (such as contexts)
+    /// imported by the input and required during expansion.
+    /// The `options` are used to tweak the expansion algorithm.
+    /// The `warning_handler` is called each time a warning is emitted during expansion.
+    #[allow(async_fn_in_trait)]
+    async fn expand_full<N, L, W>(
+        &self,
+        vocabulary: &mut N,
+        context: Context<Iri, N::BlankId>,
+        base_url: Option<&N::Iri>,
+        loader: &L,
+        options: Options,
+        warnings_handler: W,
+    ) -> ExpansionResult<N::Iri, N::BlankId>
+    where
+        N: VocabularyMut<Iri = Iri>,
+        Iri: Clone + Eq + Hash,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
+        W: WarningHandler<N>;
 
-	/// Expand the input JSON-LD document with the given `vocabulary`
-	/// to interpret identifiers.
-	///
-	/// The given `loader` is used to load remote documents (such as contexts)
-	/// imported by the input and required during expansion.
-	/// The expansion algorithm is called with an empty initial context with
-	/// a base URL given by [`Expand::default_base_url`].
-	#[allow(async_fn_in_trait)]
-	async fn expand_with<'a, N, L>(
-		&'a self,
-		vocabulary: &'a mut N,
-		loader: &'a L,
-	) -> ExpansionResult<Iri, N::BlankId>
-	where
-		N: VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader,
-	{
-		self.expand_full(
-			vocabulary,
-			Context::<N::Iri, N::BlankId>::new(self.default_base_url().cloned()),
-			self.default_base_url(),
-			loader,
-			Options::default(),
-			(),
-		)
-		.await
-	}
+    /// Expand the input JSON-LD document with the given `vocabulary`
+    /// to interpret identifiers.
+    ///
+    /// The given `loader` is used to load remote documents (such as contexts)
+    /// imported by the input and required during expansion.
+    /// The expansion algorithm is called with an empty initial context with
+    /// a base URL given by [`Expand::default_base_url`].
+    #[allow(async_fn_in_trait)]
+    async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId>
+    where
+        N: VocabularyMut<Iri = Iri>,
+        Iri: 'a + Clone + Eq + Hash,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
+    {
+        self.expand_full(
+            vocabulary,
+            Context::<N::Iri, N::BlankId>::new(self.default_base_url().cloned()),
+            self.default_base_url(),
+            loader,
+            Options::default(),
+            (),
+        )
+        .await
+    }
 
-	/// Expand the input JSON-LD document.
-	///
-	/// The given `loader` is used to load remote documents (such as contexts)
-	/// imported by the input and required during expansion.
-	/// The expansion algorithm is called with an empty initial context with
-	/// a base URL given by [`Expand::default_base_url`].
-	#[allow(async_fn_in_trait)]
-	async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf>
-	where
-		(): VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
-		L: Loader,
-	{
-		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
-			.await
-	}
+    /// Expand the input JSON-LD document.
+    ///
+    /// The given `loader` is used to load remote documents (such as contexts)
+    /// imported by the input and required during expansion.
+    /// The expansion algorithm is called with an empty initial context with
+    /// a base URL given by [`Expand::default_base_url`].
+    #[allow(async_fn_in_trait)]
+    async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf>
+    where
+        (): VocabularyMut<Iri = Iri>,
+        Iri: 'a + Clone + Eq + Hash,
+        L: Loader,
+    {
+        self.expand_with(vocabulary::no_vocabulary_mut(), loader).await
+    }
 }
 
 /// Value expansion without base URL.
 impl<Iri> Expand<Iri> for Value {
-	fn default_base_url(&self) -> Option<&Iri> {
-		None
-	}
+    fn default_base_url(&self) -> Option<&Iri> {
+        None
+    }
 
-	async fn expand_full<N, L, W>(
-		&self,
-		vocabulary: &mut N,
-		context: Context<Iri, N::BlankId>,
-		base_url: Option<&Iri>,
-		loader: &L,
-		options: Options,
-		mut warnings_handler: W,
-	) -> ExpansionResult<Iri, N::BlankId>
-	where
-		N: VocabularyMut<Iri = Iri>,
-		Iri: Clone + Eq + Hash,
-		N::BlankId: Clone + Eq + Hash,
-		L: Loader,
-		W: WarningHandler<N>,
-	{
-		document::expand(
-			Environment {
-				vocabulary,
-				loader,
-				warnings: &mut warnings_handler,
-			},
-			self,
-			context,
-			base_url,
-			options,
-		)
-		.await
-	}
+    async fn expand_full<N, L, W>(
+        &self,
+        vocabulary: &mut N,
+        context: Context<Iri, N::BlankId>,
+        base_url: Option<&Iri>,
+        loader: &L,
+        options: Options,
+        mut warnings_handler: W,
+    ) -> ExpansionResult<Iri, N::BlankId>
+    where
+        N: VocabularyMut<Iri = Iri>,
+        Iri: Clone + Eq + Hash,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
+        W: WarningHandler<N>,
+    {
+        document::expand(
+            Environment {
+                vocabulary,
+                loader,
+                warnings: &mut warnings_handler,
+            },
+            self,
+            context,
+            base_url,
+            options,
+        )
+        .await
+    }
 }
 
 /// Remote document expansion.
@@ -222,35 +213,28 @@ impl<Iri> Expand<Iri> for Value {
 /// The default base URL given to the expansion algorithm is the URL of
 /// the remote document.
 impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
-	fn default_base_url(&self) -> Option<&Iri> {
-		self.url()
-	}
+    fn default_base_url(&self) -> Option<&Iri> {
+        self.url()
+    }
 
-	async fn expand_full<N, L, W>(
-		&self,
-		vocabulary: &mut N,
-		context: Context<Iri, N::BlankId>,
-		base_url: Option<&Iri>,
-		loader: &L,
-		options: Options,
-		warnings_handler: W,
-	) -> ExpansionResult<Iri, N::BlankId>
-	where
-		N: VocabularyMut<Iri = Iri>,
-		Iri: Clone + Eq + Hash,
-		N::BlankId: Clone + Eq + Hash,
-		L: Loader,
-		W: WarningHandler<N>,
-	{
-		self.document()
-			.expand_full(
-				vocabulary,
-				context,
-				base_url,
-				loader,
-				options,
-				warnings_handler,
-			)
-			.await
-	}
+    async fn expand_full<N, L, W>(
+        &self,
+        vocabulary: &mut N,
+        context: Context<Iri, N::BlankId>,
+        base_url: Option<&Iri>,
+        loader: &L,
+        options: Options,
+        warnings_handler: W,
+    ) -> ExpansionResult<Iri, N::BlankId>
+    where
+        N: VocabularyMut<Iri = Iri>,
+        Iri: Clone + Eq + Hash,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
+        W: WarningHandler<N>,
+    {
+        self.document()
+            .expand_full(vocabulary, context, base_url, loader, options, warnings_handler)
+            .await
+    }
 }

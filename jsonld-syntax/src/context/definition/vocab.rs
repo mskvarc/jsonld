@@ -8,35 +8,35 @@ use rdf_rs::BlankId;
 pub struct Vocab(String);
 
 impl Vocab {
-	pub fn as_iri(&self) -> Option<Iri<&str>> {
-		Iri::parse(self.0.as_str()).ok()
-	}
+    pub fn as_iri(&self) -> Option<Iri<&str>> {
+        Iri::parse(self.0.as_str()).ok()
+    }
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
-	}
+    pub fn as_compact_iri(&self) -> Option<&CompactIri> {
+        CompactIri::new(&self.0).ok()
+    }
 
-	pub fn as_blank_id(&self) -> Option<&BlankId> {
-		BlankId::new(&self.0).ok()
-	}
+    pub fn as_blank_id(&self) -> Option<&BlankId> {
+        BlankId::new(&self.0).ok()
+    }
 
-	pub fn as_str(&self) -> &str {
-		&self.0
-	}
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 
-	pub fn into_string(self) -> String {
-		self.0
-	}
+    pub fn into_string(self) -> String {
+        self.0
+    }
 }
 
 impl From<String> for Vocab {
-	fn from(s: String) -> Self {
-		Self(s)
-	}
+    fn from(s: String) -> Self {
+        Self(s)
+    }
 }
 
 impl<'a> From<&'a Vocab> for ExpandableRef<'a> {
-	fn from(v: &'a Vocab) -> Self {
-		ExpandableRef::String(&v.0)
-	}
+    fn from(v: &'a Vocab) -> Self {
+        ExpandableRef::String(&v.0)
+    }
 }

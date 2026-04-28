@@ -1,7 +1,6 @@
 use crate::CompactIri;
 use iri_rs::Iri;
-use std::fmt;
-use std::hash::Hash;
+use std::{fmt, hash::Hash};
 
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -9,47 +8,47 @@ use std::hash::Hash;
 pub struct Index(String);
 
 impl Index {
-	pub fn as_iri(&self) -> Option<Iri<&str>> {
-		Iri::parse(self.0.as_str()).ok()
-	}
+    pub fn as_iri(&self) -> Option<Iri<&str>> {
+        Iri::parse(self.0.as_str()).ok()
+    }
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
-	}
+    pub fn as_compact_iri(&self) -> Option<&CompactIri> {
+        CompactIri::new(&self.0).ok()
+    }
 
-	pub fn as_str(&self) -> &str {
-		&self.0
-	}
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 
-	pub fn into_string(self) -> String {
-		self.0
-	}
+    pub fn into_string(self) -> String {
+        self.0
+    }
 }
 
 impl PartialEq for Index {
-	fn eq(&self, other: &Self) -> bool {
-		self.0 == other.0
-	}
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
 }
 
 impl fmt::Display for Index {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		self.0.fmt(f)
-	}
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 impl Eq for Index {}
 
 impl Hash for Index {
-	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		self.as_str().hash(state)
-	}
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
 }
 
 impl From<String> for Index {
-	fn from(s: String) -> Self {
-		Self(s)
-	}
+    fn from(s: String) -> Self {
+        Self(s)
+    }
 }
 
 // #[derive(Clone, Copy)]

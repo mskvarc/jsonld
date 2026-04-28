@@ -34,9 +34,11 @@
 use crate::Options;
 use jsonld_core::{Context, HashMap};
 use jsonld_syntax::Print;
-use std::cell::RefCell;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::sync::Arc;
+use std::{
+    cell::RefCell,
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::Arc,
+};
 
 /// Cache of processed contexts.
 ///
@@ -44,77 +46,72 @@ use std::sync::Arc;
 /// context-processing options stay constant) and pass it to
 /// [`Process::process_full_with_cache`][crate::Process::process_full_with_cache].
 pub struct ProcessingCache<T, B> {
-	entries: RefCell<HashMap<u64, Arc<Context<T, B>>>>,
+    entries: RefCell<HashMap<u64, Arc<Context<T, B>>>>,
 }
 
 impl<T, B> ProcessingCache<T, B> {
-	pub fn new() -> Self {
-		Self {
-			entries: RefCell::new(HashMap::default()),
-		}
-	}
+    pub fn new() -> Self {
+        Self {
+            entries: RefCell::new(HashMap::default()),
+        }
+    }
 
-	pub fn clear(&self) {
-		self.entries.borrow_mut().clear();
-	}
+    pub fn clear(&self) {
+        self.entries.borrow_mut().clear();
+    }
 
-	pub fn len(&self) -> usize {
-		self.entries.borrow().len()
-	}
+    pub fn len(&self) -> usize {
+        self.entries.borrow().len()
+    }
 
-	pub fn is_empty(&self) -> bool {
-		self.entries.borrow().is_empty()
-	}
+    pub fn is_empty(&self) -> bool {
+        self.entries.borrow().is_empty()
+    }
 
-	pub(crate) fn get(&self, key: u64) -> Option<Arc<Context<T, B>>> {
-		self.entries.borrow().get(&key).map(Arc::clone)
-	}
+    pub(crate) fn get(&self, key: u64) -> Option<Arc<Context<T, B>>> {
+        self.entries.borrow().get(&key).map(Arc::clone)
+    }
 
-	pub(crate) fn insert(&self, key: u64, context: Arc<Context<T, B>>) {
-		self.entries.borrow_mut().insert(key, context);
-	}
+    pub(crate) fn insert(&self, key: u64, context: Arc<Context<T, B>>) {
+        self.entries.borrow_mut().insert(key, context);
+    }
 }
 
 impl<T, B> Default for ProcessingCache<T, B> {
-	fn default() -> Self {
-		Self::new()
-	}
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Computes the lookup key for a `(active, local, base_url, options)` tuple.
 ///
 /// All inputs that influence the algorithm's result must be folded into the
 /// hash for the cache to be sound.
-pub(crate) fn cache_key<T, B>(
-	active_context: &Context<T, B>,
-	local_context: &jsonld_syntax::context::Context,
-	base_url: Option<&T>,
-	options: Options,
-) -> u64
+pub(crate) fn cache_key<T, B>(active_context: &Context<T, B>, local_context: &jsonld_syntax::context::Context, base_url: Option<&T>, options: Options) -> u64
 where
-	T: Hash,
-	B: Hash,
+    T: Hash,
+    B: Hash,
 {
-	let mut hasher = DefaultHasher::new();
+    let mut hasher = DefaultHasher::new();
 
-	// Active context fingerprint: Arc-pointer identity + scalar fields.
-	active_context.definitions_arc_ptr().hash(&mut hasher);
-	active_context.previous_context_arc_ptr().hash(&mut hasher);
-	active_context.original_base_url().hash(&mut hasher);
-	active_context.base_iri().hash(&mut hasher);
-	active_context.vocabulary().hash(&mut hasher);
-	active_context.default_language().hash(&mut hasher);
-	active_context.default_base_direction().hash(&mut hasher);
+    // Active context fingerprint: Arc-pointer identity + scalar fields.
+    active_context.definitions_arc_ptr().hash(&mut hasher);
+    active_context.previous_context_arc_ptr().hash(&mut hasher);
+    active_context.original_base_url().hash(&mut hasher);
+    active_context.base_iri().hash(&mut hasher);
+    active_context.vocabulary().hash(&mut hasher);
+    active_context.default_language().hash(&mut hasher);
+    active_context.default_base_direction().hash(&mut hasher);
 
-	// Local context content hash via canonical Print output.
-	local_context.pretty_print().to_string().hash(&mut hasher);
+    // Local context content hash via canonical Print output.
+    local_context.pretty_print().to_string().hash(&mut hasher);
 
-	base_url.hash(&mut hasher);
+    base_url.hash(&mut hasher);
 
-	options.processing_mode.hash(&mut hasher);
-	options.override_protected.hash(&mut hasher);
-	options.propagate.hash(&mut hasher);
-	options.vocab.hash(&mut hasher);
+    options.processing_mode.hash(&mut hasher);
+    options.override_protected.hash(&mut hasher);
+    options.propagate.hash(&mut hasher);
+    options.vocab.hash(&mut hasher);
 
-	hasher.finish()
+    hasher.finish()
 }
