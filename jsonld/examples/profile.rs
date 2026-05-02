@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use std::{env, hint::black_box, process::ExitCode, time::Instant};
 
 use jsonld::{JsonLdProcessor, NoLoader, compaction::Compact};

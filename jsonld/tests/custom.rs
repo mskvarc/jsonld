@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, RemoteDocument, syntax::Parse};
 

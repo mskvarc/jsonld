@@ -151,24 +151,24 @@ impl<I> Default for Options<I> {
 
 /// Error that can be raised by the [`JsonLdProcessor::expand`] function.
 #[derive(Debug, thiserror::Error)]
-pub enum ExpandError {
+pub enum ExpandError<E = std::convert::Infallible> {
     /// Document expansion failed.
     #[error("Expansion failed: {0}")]
-    Expansion(expansion::Error),
+    Expansion(expansion::Error<E>),
 
     /// Context processing failed.
     #[error("Context processing failed: {0}")]
-    ContextProcessing(context_processing::Error),
+    ContextProcessing(context_processing::Error<E>),
 
     /// Remote document loading failed with the given precise error.
     #[error(transparent)]
-    Loading(#[from] LoadError),
+    Loading(#[from] LoadError<E>),
 
     #[error(transparent)]
-    ContextLoading(ContextLoadError),
+    ContextLoading(ContextLoadError<E>),
 }
 
-impl ExpandError {
+impl<E> ExpandError<E> {
     /// Returns the code of this error.
     pub fn code(&self) -> ErrorCode {
         match self {
@@ -180,36 +180,54 @@ impl ExpandError {
     }
 }
 
+impl<E> From<expansion::Error<E>> for ExpandError<E> {
+    fn from(e: expansion::Error<E>) -> Self {
+        Self::Expansion(e)
+    }
+}
+
+impl<E> From<context_processing::Error<E>> for ExpandError<E> {
+    fn from(e: context_processing::Error<E>) -> Self {
+        Self::ContextProcessing(e)
+    }
+}
+
+impl<E> From<ContextLoadError<E>> for ExpandError<E> {
+    fn from(e: ContextLoadError<E>) -> Self {
+        Self::ContextLoading(e)
+    }
+}
+
 /// Result returned by the [`JsonLdProcessor::expand`] function.
-pub type ExpandResult<I, B> = Result<ExpandedDocument<I, B>, ExpandError>;
+pub type ExpandResult<I, B, E> = Result<ExpandedDocument<I, B>, ExpandError<E>>;
 
 /// Result returned by the [`JsonLdProcessor::into_document`] function.
-pub type IntoDocumentResult<I, B> = Result<Document<I, B>, ExpandError>;
+pub type IntoDocumentResult<I, B, E> = Result<Document<I, B>, ExpandError<E>>;
 
 /// Error that can be raised by the [`JsonLdProcessor::compact`] function.
 #[derive(Debug, thiserror::Error)]
-pub enum CompactError {
+pub enum CompactError<E = std::convert::Infallible> {
     /// Document expansion failed.
     #[error("Expansion failed: {0}")]
-    Expand(ExpandError),
+    Expand(ExpandError<E>),
 
     /// Context processing failed.
     #[error("Context processing failed: {0}")]
-    ContextProcessing(context_processing::Error),
+    ContextProcessing(context_processing::Error<E>),
 
     /// Document compaction failed.
     #[error("Compaction failed: {0}")]
-    Compaction(compaction::Error),
+    Compaction(compaction::Error<E>),
 
     /// Remote document loading failed.
     #[error(transparent)]
-    Loading(#[from] LoadError),
+    Loading(#[from] LoadError<E>),
 
     #[error(transparent)]
-    ContextLoading(ContextLoadError),
+    ContextLoading(ContextLoadError<E>),
 }
 
-impl CompactError {
+impl<E> CompactError<E> {
     /// Returns the code of this error.
     pub fn code(&self) -> ErrorCode {
         match self {
@@ -222,53 +240,108 @@ impl CompactError {
     }
 }
 
+impl<E> From<ExpandError<E>> for CompactError<E> {
+    fn from(e: ExpandError<E>) -> Self {
+        Self::Expand(e)
+    }
+}
+
+impl<E> From<context_processing::Error<E>> for CompactError<E> {
+    fn from(e: context_processing::Error<E>) -> Self {
+        Self::ContextProcessing(e)
+    }
+}
+
+impl<E> From<compaction::Error<E>> for CompactError<E> {
+    fn from(e: compaction::Error<E>) -> Self {
+        Self::Compaction(e)
+    }
+}
+
+impl<E> From<ContextLoadError<E>> for CompactError<E> {
+    fn from(e: ContextLoadError<E>) -> Self {
+        Self::ContextLoading(e)
+    }
+}
+
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<jstrict::Value, CompactError>;
+pub type CompactResult<E> = Result<jstrict::Value, CompactError<E>>;
 
 /// Error that can be raised by the [`JsonLdProcessor::flatten`] function.
 #[derive(Debug, thiserror::Error)]
-pub enum FlattenError<I, B> {
+pub enum FlattenError<I, B, E = std::convert::Infallible> {
     #[error("Expansion failed: {0}")]
-    Expand(ExpandError),
+    Expand(ExpandError<E>),
 
     #[error("Compaction failed: {0}")]
-    Compact(CompactError),
+    Compact(CompactError<E>),
 
     #[error("Conflicting indexes: {0}")]
     ConflictingIndexes(ConflictingIndexes<I, B>),
 
-    #[error(transparent)]
-    Loading(#[from] LoadError),
+    #[error("Generated id failure: {0}")]
+    GeneratedId(jsonld_core::id::GeneratedIdError),
 
     #[error(transparent)]
-    ContextLoading(ContextLoadError),
+    Loading(#[from] LoadError<E>),
+
+    #[error(transparent)]
+    ContextLoading(ContextLoadError<E>),
 }
 
-impl<I, B> FlattenError<I, B> {
+impl<I, B, E> FlattenError<I, B, E> {
     /// Returns the code of this error.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::Expand(e) => e.code(),
             Self::Compact(e) => e.code(),
             Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
+            Self::GeneratedId(_) => ErrorCode::ConflictingIndexes,
             Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
             Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed,
         }
     }
 }
 
+impl<I, B, E> From<ExpandError<E>> for FlattenError<I, B, E> {
+    fn from(e: ExpandError<E>) -> Self {
+        Self::Expand(e)
+    }
+}
+
+impl<I, B, E> From<CompactError<E>> for FlattenError<I, B, E> {
+    fn from(e: CompactError<E>) -> Self {
+        Self::Compact(e)
+    }
+}
+
+impl<I, B, E> From<jsonld_core::flattening::NodeMapError<I, B>> for FlattenError<I, B, E> {
+    fn from(e: jsonld_core::flattening::NodeMapError<I, B>) -> Self {
+        match e {
+            jsonld_core::flattening::NodeMapError::Conflicting(c) => Self::ConflictingIndexes(c),
+            jsonld_core::flattening::NodeMapError::GeneratedId(g) => Self::GeneratedId(g),
+        }
+    }
+}
+
+impl<I, B, E> From<ContextLoadError<E>> for FlattenError<I, B, E> {
+    fn from(e: ContextLoadError<E>) -> Self {
+        Self::ContextLoading(e)
+    }
+}
+
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult<I, B> = Result<jstrict::Value, FlattenError<I, B>>;
+pub type FlattenResult<I, B, E> = Result<jstrict::Value, FlattenError<I, B, E>>;
 
 /// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
 #[derive(Debug, thiserror::Error)]
-pub enum ToRdfError {
+pub enum ToRdfError<E = std::convert::Infallible> {
     /// Document expansion failed.
     #[error("Expansion failed: {0}")]
-    Expand(ExpandError),
+    Expand(ExpandError<E>),
 }
 
-impl ToRdfError {
+impl<E> ToRdfError<E> {
     /// Returns the code of this error.
     pub fn code(&self) -> ErrorCode {
         match self {
@@ -277,11 +350,33 @@ impl ToRdfError {
     }
 }
 
+impl<E> From<ExpandError<E>> for ToRdfError<E> {
+    fn from(e: ExpandError<E>) -> Self {
+        Self::Expand(e)
+    }
+}
+
 /// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
-pub type ToRdfResult<V, G> = Result<ToRdf<V, G>, ToRdfError>;
+pub type ToRdfResult<V, G, E> = Result<ToRdf<V, G>, ToRdfError<E>>;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
-pub type CompareResult = Result<bool, ExpandError>;
+pub type CompareResult<E> = Result<bool, ExpandError<E>>;
+
+/// Umbrella error covering every JSON-LD processing failure.
+#[derive(Debug, thiserror::Error)]
+pub enum JsonLdError<E = std::convert::Infallible> {
+    #[error(transparent)]
+    Expand(#[from] ExpandError<E>),
+
+    #[error(transparent)]
+    Compact(#[from] CompactError<E>),
+
+    #[error(transparent)]
+    Flatten(#[from] FlattenError<iri_rs::IriBuf, rdf_rs::BlankIdBuf, E>),
+
+    #[error(transparent)]
+    ToRdf(#[from] ToRdfError<E>),
+}
 
 /// Application Programming Interface.
 ///
@@ -363,18 +458,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compare_full<N>(
+    async fn compare_full<N, L>(
         &self,
         other: &Self,
         vocabulary: &mut N,
-        loader: &impl Loader,
+        loader: &L,
         options: Options<Iri>,
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-    ) -> CompareResult
+    ) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash;
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash, L: Loader;
 
     /// Compare this document against `other` with a custom vocabulary using the
     /// given `options`.
@@ -410,11 +505,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compare_with_using<'a, N>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a impl Loader, options: Options<Iri>) -> CompareResult
+    async fn compare_with_using<'a, N, L>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.compare_full(other, vocabulary, loader, options, ()).await
     }
@@ -453,11 +548,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compare_with<'a, N>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a impl Loader) -> CompareResult
+    async fn compare_with<'a, N, L>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a L) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.compare_with_using(other, vocabulary, loader, Options::default()).await
     }
@@ -492,10 +587,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compare_using<'a>(&'a self, other: &'a Self, loader: &'a impl Loader, options: Options<Iri>) -> CompareResult
+    async fn compare_using<'a, L>(&'a self, other: &'a Self, loader: &'a L, options: Options<Iri>) -> CompareResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.compare_with_using(other, rdf_rs::vocabulary::no_vocabulary_mut(), loader, options).await
     }
@@ -530,10 +625,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compare<'a>(&'a self, other: &'a Self, loader: &'a impl Loader) -> CompareResult
+    async fn compare<'a, L>(&'a self, other: &'a Self, loader: &'a L) -> CompareResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.compare_with(other, rdf_rs::vocabulary::no_vocabulary_mut(), loader).await
     }
@@ -575,17 +670,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn expand_full<N>(
+    async fn expand_full<N, L>(
         &self,
         vocabulary: &mut N,
-        loader: &impl Loader,
+        loader: &L,
         options: Options<Iri>,
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-    ) -> ExpandResult<Iri, N::BlankId>
+    ) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash;
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash, L: Loader;
 
     /// Expand the document with the given `vocabulary` and `loader`, using
     /// the given `options`.
@@ -624,11 +719,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn expand_with_using<'a, N>(&'a self, vocabulary: &'a mut N, loader: &'a impl Loader, options: Options<Iri>) -> ExpandResult<Iri, N::BlankId>
+    async fn expand_with_using<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.expand_full(vocabulary, loader, options, ()).await
     }
@@ -669,11 +764,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn expand_with<'a, N>(&'a self, vocabulary: &'a mut N, loader: &'a impl Loader) -> ExpandResult<Iri, N::BlankId>
+    async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.expand_with_using(vocabulary, loader, Options::default()).await
     }
@@ -709,10 +804,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn expand_using<'a>(&'a self, loader: &'a impl Loader, options: Options<Iri>) -> ExpandResult<Iri, BlankIdBuf>
+    async fn expand_using<'a, L>(&'a self, loader: &'a L, options: Options<Iri>) -> ExpandResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.expand_with_using(vocabulary::no_vocabulary_mut(), loader, options).await
     }
@@ -746,52 +841,52 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn expand<'a>(&'a self, loader: &'a impl Loader) -> ExpandResult<Iri, BlankIdBuf>
+    async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpandResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.expand_with(vocabulary::no_vocabulary_mut(), loader).await
     }
 
     #[allow(async_fn_in_trait)]
-    async fn into_document_full<'a, N>(
+    async fn into_document_full<'a, N, L>(
         self,
         vocabulary: &'a mut N,
-        loader: &'a impl Loader,
+        loader: &'a L,
         options: Options<Iri>,
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-    ) -> IntoDocumentResult<Iri, N::BlankId>
+    ) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: 'a + Clone + Eq + Hash,
+        Iri: 'a + Clone + Eq + Hash, L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
     #[allow(async_fn_in_trait)]
-    async fn into_document_with_using<'a, N>(self, vocabulary: &'a mut N, loader: &'a impl Loader, options: Options<Iri>) -> IntoDocumentResult<Iri, N::BlankId>
+    async fn into_document_with_using<'a, N, L>(self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: 'a + Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.into_document_full(vocabulary, loader, options, ()).await
     }
 
     #[allow(async_fn_in_trait)]
-    async fn into_document_with<'a, N>(self, vocabulary: &'a mut N, loader: &'a impl Loader) -> IntoDocumentResult<Iri, N::BlankId>
+    async fn into_document_with<'a, N, L>(self, vocabulary: &'a mut N, loader: &'a L) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: 'a + Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.into_document_with_using(vocabulary, loader, Options::default()).await
     }
 
     #[allow(async_fn_in_trait)]
-    async fn into_document<'a>(self, loader: &'a impl Loader) -> IntoDocumentResult<Iri, BlankIdBuf>
+    async fn into_document<'a, L>(self, loader: &'a L) -> IntoDocumentResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: 'a + Clone + Eq + Hash,
+        Iri: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.into_document_with(vocabulary::no_vocabulary_mut(), loader).await
     }
@@ -838,17 +933,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compact_full<'a, N>(
+    async fn compact_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
         context: RemoteContextReference<Iri>,
-        loader: &'a impl Loader,
+        loader: &'a L,
         options: Options<Iri>,
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-    ) -> CompactResult
+    ) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
     /// Compact the document relative to `context` with the given `vocabulary`
@@ -893,17 +988,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compact_with_using<'a, N>(
+    async fn compact_with_using<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
         context: RemoteContextReference<Iri>,
-        loader: &'a impl Loader,
+        loader: &'a L,
         options: Options<Iri>,
-    ) -> CompactResult
+    ) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.compact_full(vocabulary, context, loader, options, ()).await
     }
@@ -950,11 +1045,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compact_with<'a, N>(&'a self, vocabulary: &'a mut N, context: RemoteContextReference<Iri>, loader: &'a impl Loader) -> CompactResult
+    async fn compact_with<'a, N, L>(&'a self, vocabulary: &'a mut N, context: RemoteContextReference<Iri>, loader: &'a L) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.compact_with_using(vocabulary, context, loader, Options::default()).await
     }
@@ -996,10 +1091,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compact_using<'a>(&'a self, context: RemoteContextReference<Iri>, loader: &'a impl Loader, options: Options<Iri>) -> CompactResult
+    async fn compact_using<'a, L>(&'a self, context: RemoteContextReference<Iri>, loader: &'a L, options: Options<Iri>) -> CompactResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.compact_with_using(vocabulary::no_vocabulary_mut(), context, loader, options).await
     }
@@ -1040,10 +1135,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn compact<'a>(&'a self, context: RemoteContextReference<Iri>, loader: &'a impl Loader) -> CompactResult
+    async fn compact<'a, L>(&'a self, context: RemoteContextReference<Iri>, loader: &'a L) -> CompactResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.compact_with(vocabulary::no_vocabulary_mut(), context, loader).await
     }
@@ -1100,18 +1195,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn flatten_full<'a, N>(
+    async fn flatten_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
         generator: &'a mut impl LocalGenerator,
         context: Option<RemoteContextReference<Iri>>,
-        loader: &'a impl Loader,
+        loader: &'a L,
         options: Options<Iri>,
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-    ) -> FlattenResult<Iri, N::BlankId>
+    ) -> FlattenResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
     /// Flatten the document with the given `vocabulary`, `generator`
@@ -1163,17 +1258,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn flatten_with_using<'a, N>(
+    async fn flatten_with_using<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
         generator: &'a mut impl LocalGenerator,
-        loader: &'a impl Loader,
+        loader: &'a L,
         options: Options<Iri>,
-    ) -> FlattenResult<Iri, N::BlankId>
+    ) -> FlattenResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.flatten_full(vocabulary, generator, None, loader, options, ()).await
     }
@@ -1227,16 +1322,16 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn flatten_with<'a, N>(
+    async fn flatten_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
         generator: &'a mut impl LocalGenerator,
-        loader: &'a impl Loader,
-    ) -> FlattenResult<Iri, N::BlankId>
+        loader: &'a L,
+    ) -> FlattenResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
     {
         self.flatten_with_using(vocabulary, generator, loader, Options::default()).await
     }
@@ -1284,15 +1379,15 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn flatten_using<'a>(
+    async fn flatten_using<'a, L>(
         &'a self,
         generator: &'a mut impl LocalGenerator,
-        loader: &'a impl Loader,
+        loader: &'a L,
         options: Options<Iri>,
-    ) -> FlattenResult<Iri, BlankIdBuf>
+    ) -> FlattenResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.flatten_with_using(vocabulary::no_vocabulary_mut(), generator, loader, options).await
     }
@@ -1339,10 +1434,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn flatten<'a>(&'a self, generator: &'a mut impl LocalGenerator, loader: &'a impl Loader) -> FlattenResult<Iri, BlankIdBuf>
+    async fn flatten<'a, L>(&'a self, generator: &'a mut impl LocalGenerator, loader: &'a L) -> FlattenResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
     {
         self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader).await
     }
@@ -1404,18 +1499,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn to_rdf_full<N, G>(
+    async fn to_rdf_full<N, G, L>(
         &self,
         mut vocabulary: N,
         generator: G,
-        loader: &impl Loader,
+        loader: &L,
         options: Options<Iri>,
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-    ) -> ToRdfResult<N, G>
+    ) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash, L: Loader,
         G: LocalGenerator,
     {
         let rdf_direction = options.rdf_direction;
@@ -1483,11 +1578,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn to_rdf_with_using<N, G>(&self, vocabulary: N, generator: G, loader: &impl Loader, options: Options<Iri>) -> ToRdfResult<N, G>
+    async fn to_rdf_with_using<N, G, L>(&self, vocabulary: N, generator: G, loader: &L, options: Options<Iri>) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash, L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_full(vocabulary, generator, loader, options, ()).await
@@ -1549,11 +1644,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn to_rdf_with<N, G>(&self, vocabulary: N, generator: G, loader: &impl Loader) -> ToRdfResult<N, G>
+    async fn to_rdf_with<N, G, L>(&self, vocabulary: N, generator: G, loader: &L) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash, L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_full(vocabulary, generator, loader, Options::default(), ()).await
@@ -1616,10 +1711,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn to_rdf_using<G>(&self, generator: G, loader: &impl Loader, options: Options<Iri>) -> ToRdfResult<(), G>
+    async fn to_rdf_using<G, L>(&self, generator: G, loader: &L, options: Options<Iri>) -> ToRdfResult<(), G, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_with_using((), generator, loader, options).await
@@ -1683,10 +1778,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// # }
     /// ```
     #[allow(async_fn_in_trait)]
-    async fn to_rdf<G>(&self, generator: G, loader: &impl Loader) -> ToRdfResult<(), G>
+    async fn to_rdf<G, L>(&self, generator: G, loader: &L) -> ToRdfResult<(), G, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash,
+        Iri: Clone + Eq + Hash, L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_using(generator, loader, Options::default()).await
@@ -1714,7 +1809,8 @@ impl<V: Vocabulary, G: rdf_rs::LocalGenerator> ToRdf<V, G> {
         V::Iri: Clone + Eq + Hash,
         V::BlankId: Clone + Eq + Hash,
     {
-        doc.relabel_and_canonicalize_with(&mut vocabulary, &mut generator);
+        // SAFETY: stock generators only emit blank ids or IRIs.
+        let _ = doc.relabel_and_canonicalize_with(&mut vocabulary, &mut generator);
         Self {
             vocabulary,
             generator,
@@ -1779,7 +1875,7 @@ async fn compact_expanded_full<'a, T, N, L>(
     loader: &'a L,
     options: Options<N::Iri>,
     warnings: impl context_processing::WarningHandler<N>,
-) -> Result<jstrict::Value, CompactError>
+) -> Result<jstrict::Value, CompactError<L::Error>>
 where
     N: VocabularyMut + jsonld_core::ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,

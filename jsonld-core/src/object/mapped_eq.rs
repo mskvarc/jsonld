@@ -34,7 +34,9 @@ where
 
             'self_items: for item in self {
                 for (i, sel) in selected.iter_mut().enumerate() {
-                    if !*sel && item.mapped_eq(other_vec.get(i).unwrap(), f.clone()) {
+                    // SAFETY: `i < selected.len() == other_vec.len()`.
+                    let other = unsafe { other_vec.get(i).unwrap_unchecked() };
+                    if !*sel && item.mapped_eq(other, f.clone()) {
                         *sel = true;
                         continue 'self_items;
                     }
@@ -230,7 +232,8 @@ impl<T: Eq + Hash, B: Eq + Hash> MappedEq for super::node::Properties<T, B> {
 
             'self_items: for (prop, objects) in self {
                 for (i, sel) in selected.iter_mut().enumerate() {
-                    let (other_prop, other_objects) = other_vec.get(i).unwrap();
+                    // SAFETY: `i < selected.len() == other_vec.len()`.
+                    let (other_prop, other_objects) = unsafe { other_vec.get(i).unwrap_unchecked() };
                     if !*sel && prop.mapped_eq(other_prop, f.clone()) && objects.unordered_mapped_eq(other_objects, f.clone()) {
                         *sel = true;
                         continue 'self_items;
@@ -261,7 +264,8 @@ impl<T: Eq + Hash, B: Eq + Hash> MappedEq for super::node::ReverseProperties<T, 
 
             'self_items: for (prop, nodes) in self {
                 for (i, sel) in selected.iter_mut().enumerate() {
-                    let (other_prop, other_nodes) = other_vec.get(i).unwrap();
+                    // SAFETY: `i < selected.len() == other_vec.len()`.
+                    let (other_prop, other_nodes) = unsafe { other_vec.get(i).unwrap_unchecked() };
                     if !*sel && prop.mapped_eq(other_prop, f.clone()) && nodes.unordered_mapped_eq(other_nodes, f.clone()) {
                         *sel = true;
                         continue 'self_items;

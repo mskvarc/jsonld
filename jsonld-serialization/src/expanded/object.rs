@@ -188,14 +188,17 @@ where
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        if self.first.is_some() && self.rest.is_some() && self.types.is_empty() && self.properties.is_empty() && self.graph.is_none() {
-            #[allow(clippy::unnecessary_unwrap)]
-            let mut items = self.rest.unwrap();
-            #[allow(clippy::unnecessary_unwrap)]
-            items.push(Indexed::none(self.first.unwrap()));
-            items.reverse();
-            Ok(Object::List(List::new(items)))
-        } else {
+        if let (Some(first), Some(mut items)) = (self.first.take(), self.rest.take()) {
+            if self.types.is_empty() && self.properties.is_empty() && self.graph.is_none() {
+                items.push(Indexed::none(first));
+                items.reverse();
+                return Ok(Object::List(List::new(items)));
+            }
+            // restore moved values for the fallthrough path
+            self.first = Some(first);
+            self.rest = Some(items);
+        }
+        {
             if let Some(item) = self.first {
                 let iri = self.vocabulary.insert(RDF_FIRST);
                 self.properties

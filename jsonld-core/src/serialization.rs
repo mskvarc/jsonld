@@ -165,13 +165,14 @@ enum RdfProperty {
 
 fn rdf_property<V: IriVocabulary, I: ReverseIriInterpretation<Iri = V::Iri>>(vocabulary: &V, interpretation: &I, id: &I::Resource) -> Option<RdfProperty> {
     for i in interpretation.iris_of(id) {
-        let iri = vocabulary.iri(i).unwrap();
-        if iri == RDF_TYPE {
-            return Some(RdfProperty::Type);
-        } else if iri == RDF_FIRST {
-            return Some(RdfProperty::First);
-        } else if iri == RDF_REST {
-            return Some(RdfProperty::Rest);
+        if let Some(iri) = vocabulary.iri(i) {
+            if iri == RDF_TYPE {
+                return Some(RdfProperty::Type);
+            } else if iri == RDF_FIRST {
+                return Some(RdfProperty::First);
+            } else if iri == RDF_REST {
+                return Some(RdfProperty::Rest);
+            }
         }
     }
 
@@ -198,9 +199,10 @@ fn rdf_type<'a, V: IriVocabulary, I: ReverseIriInterpretation<Iri = V::Iri>>(
     id: &'a I::Resource,
 ) -> RdfType<&'a I::Resource> {
     for i in interpretation.iris_of(id) {
-        let iri = vocabulary.iri(i).unwrap();
-        if iri == RDF_LIST {
-            return RdfType::List;
+        if let Some(iri) = vocabulary.iri(i) {
+            if iri == RDF_LIST {
+                return RdfType::List;
+            }
         }
     }
 
@@ -276,9 +278,10 @@ impl<I, B> ExpandedDocument<I, B> {
                     rdf_terms.rest = Some(quad.1);
                     if nil.is_none() {
                         for i in ReverseIriInterpretation::iris_of(interpretation, quad.2) {
-                            let iri = vocabulary.iri(i).unwrap();
-                            if iri == RDF_NIL {
-                                nil = Some(quad.2);
+                            if let Some(iri) = vocabulary.iri(i) {
+                                if iri == RDF_NIL {
+                                    nil = Some(quad.2);
+                                }
                             }
                         }
                     }
@@ -313,8 +316,10 @@ impl<I, B> ExpandedDocument<I, B> {
                                 let mut values = Vec::new();
 
                                 loop {
-                                    let first = head.list.first.iter().next().copied().unwrap();
-                                    let parent_id = head.list.reverse_rest.iter().next().copied().unwrap();
+                                    // SAFETY: `head.is_list_node()` implies non-empty
+                                    // `first` and `reverse_rest`.
+                                    let first = unsafe { head.list.first.iter().next().copied().unwrap_unchecked() };
+                                    let parent_id = unsafe { head.list.reverse_rest.iter().next().copied().unwrap_unchecked() };
                                     values.push(first);
 
                                     if is_anonymous(interpretation, parent_id) {
@@ -409,7 +414,9 @@ where
                 let mut types = Vec::with_capacity(resource.types.len());
                 for ty in &resource.types {
                     let ty_resource = match ty {
-                        RdfType::List => rdf_terms.list.unwrap(),
+                        // SAFETY: a `RdfType::List` is only produced when the
+                        // RDF list type was actually observed in the input.
+                        RdfType::List => unsafe { rdf_terms.list.unwrap_unchecked() },
                         RdfType::Other(o) => o,
                     };
 
@@ -439,7 +446,9 @@ where
                 }
 
                 if !resource.list.first.is_empty() {
-                    let rdf_first_id = rdf_terms.first.unwrap();
+                    // SAFETY: `resource.list.first` is non-empty so `rdf_terms.first`
+                    // was set when `rdf:first` was first observed.
+                    let rdf_first_id = unsafe { rdf_terms.first.unwrap_unchecked() };
                     insert_property(
                         vocabulary,
                         interpretation,
@@ -453,7 +462,9 @@ where
                 }
 
                 if !resource.list.rest.is_empty() {
-                    let rdf_rest_id = rdf_terms.rest.unwrap();
+                    // SAFETY: `resource.list.rest` is non-empty so `rdf_terms.rest`
+                    // was set when `rdf:rest` was first observed.
+                    let rdf_rest_id = unsafe { rdf_terms.rest.unwrap_unchecked() };
                     insert_property(
                         vocabulary,
                         interpretation,
@@ -498,7 +509,8 @@ where
             let mut values = values.into_iter();
 
             while values.len() > 1 {
-                let value = values.next().unwrap();
+                // SAFETY: `values.len() > 1` was just checked.
+                let value = unsafe { values.next().unwrap_unchecked() };
                 let v = render_object_or_reference(vocabulary, interpretation, rdf_terms, graph, value, context)?;
                 node.insert(prop.clone(), v);
             }
@@ -594,11 +606,15 @@ where
         Some(id) => Ok(Some(SerTerm::Id(id))),
         None => match rdf_rs::interpretation::ReverseLiteralInterpretation::literals_of(interpretation, resource).next() {
             Some(l) => {
-                let l = vocabulary.literal(l).unwrap();
+                // SAFETY: `l` was returned by `literals_of` of this interpretation,
+                // which sources literals from this vocabulary.
+                let l = unsafe { vocabulary.literal(l).unwrap_unchecked() };
                 let value = match l.type_ {
                     LiteralTypeRef::Any(d) => {
                         let ty = d.as_iri();
-                        let ty_handle = vocabulary.get(ty).expect("literal type IRI not in vocabulary");
+                        // SAFETY: literal types are inserted into the vocabulary as
+                        // part of literal insertion.
+                        let ty_handle = unsafe { vocabulary.get(ty).unwrap_unchecked() };
                         if ty == RDF_JSON {
                             let (json, _) =
                                 jstrict::Value::parse_str(l.value).map_err(|e| SerializationError::InvalidJson(context.into_iris(interpretation), e))?;
@@ -623,8 +639,8 @@ where
                             Value::Literal(Literal::String(l.as_ref().into()), Some(ty_handle))
                         }
                     }
-                    LiteralTypeRef::LangString(tag) => Value::LangString(LangString::new(l.value.into(), Some(tag.to_owned().into()), None).unwrap()),
-                    LiteralTypeRef::DirLangString { tag, .. } => Value::LangString(LangString::new(l.value.into(), Some(tag.to_owned().into()), None).unwrap()),
+                    LiteralTypeRef::LangString(tag) => Value::LangString(LangString::with_language(l.value.into(), tag.to_owned().into())),
+                    LiteralTypeRef::DirLangString { tag, .. } => Value::LangString(LangString::with_language(l.value.into(), tag.to_owned().into())),
                 };
 
                 Ok(Some(SerTerm::Literal(value)))

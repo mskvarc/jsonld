@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use crate::{CompactFragment, iri::IriConfusedWithPrefix};
 
-pub type CompactDocumentResult = Result<jstrict::Value, crate::Error>;
+pub type CompactDocumentResult<E> = Result<jstrict::Value, crate::Error<E>>;
 
 /// Context embeding method.
 ///
@@ -37,7 +37,7 @@ pub trait Compact<I, B> {
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
         options: crate::Options,
-    ) -> CompactDocumentResult
+    ) -> CompactDocumentResult<L::Error>
     where
         N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -52,7 +52,7 @@ pub trait Compact<I, B> {
         vocabulary: &'a mut N,
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
-    ) -> CompactDocumentResult
+    ) -> CompactDocumentResult<L::Error>
     where
         N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -64,7 +64,7 @@ pub trait Compact<I, B> {
 
     /// Compacts the input document.
     #[allow(async_fn_in_trait)]
-    async fn compact<'a, L>(&'a self, context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>, loader: &'a L) -> CompactDocumentResult
+    async fn compact<'a, L>(&'a self, context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>, loader: &'a L) -> CompactDocumentResult<L::Error>
     where
         (): rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
@@ -82,7 +82,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
         options: crate::Options,
-    ) -> CompactDocumentResult
+    ) -> CompactDocumentResult<L::Error>
     where
         N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -107,7 +107,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
         options: crate::Options,
-    ) -> CompactDocumentResult
+    ) -> CompactDocumentResult<L::Error>
     where
         N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,

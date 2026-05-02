@@ -36,13 +36,10 @@ fn is_gen_delim(c: char) -> bool {
 fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri = T, BlankId = B>, t: &Term<T, B>) -> bool {
     match t {
         Term::Id(Id::Valid(ValidId::Blank(_))) => true,
-        Term::Id(Id::Valid(ValidId::Iri(id))) => {
-            if let Some(c) = vocabulary.iri(id).unwrap().as_str().chars().last() {
-                is_gen_delim(c)
-            } else {
-                false
-            }
-        }
+        Term::Id(Id::Valid(ValidId::Iri(id))) => match vocabulary.iri(id).and_then(|i| i.as_str().chars().last()) {
+            Some(c) => is_gen_delim(c),
+            None => false,
+        },
         _ => false,
     }
 }
@@ -50,7 +47,8 @@ fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri = T, BlankId 
 /// Checks if the the given character is included in the given string anywhere but at the first or last position.
 fn contains_between_boundaries(id: &str, c: char) -> bool {
     if let Some(i) = id.find(c) {
-        let j = id.rfind(c).unwrap();
+        // SAFETY: `find` matched, so `rfind` must also match.
+        let j = unsafe { id.rfind(c).unwrap_unchecked() };
         i > 0 && j < id.len() - 1
     } else {
         false
@@ -65,7 +63,7 @@ impl DefinedTerms {
         Self::default()
     }
 
-    pub fn begin(&mut self, key: &KeyOrKeyword) -> Result<bool, Error> {
+    pub fn begin<E>(&mut self, key: &KeyOrKeyword) -> Result<bool, Error<E>> {
         match self.0.get(key) {
             Some(d) => {
                 if d.pending {
@@ -83,7 +81,8 @@ impl DefinedTerms {
     }
 
     pub fn end(&mut self, key: &KeyOrKeyword) {
-        self.0.get_mut(key).unwrap().pending = false
+        // SAFETY: `end` is paired with a successful `begin`.
+        unsafe { self.0.get_mut(key).unwrap_unchecked() }.pending = false
     }
 }
 
@@ -104,7 +103,7 @@ pub async fn define<'a, N, L, W>(
     base_url: Option<N::Iri>,
     protected: bool,
     options: Options,
-) -> Result<(), Error>
+) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
@@ -177,7 +176,9 @@ where
                     active_context.set_type(Some(definition));
                 }
                 EntryValueRef::Definition(d) => {
-                    let key = term.as_key().unwrap();
+                    // SAFETY: at this point `term` is a `KeyOrKeyword::Key`,
+                    // since the `Type` arm above returns early.
+                    let key = unsafe { term.as_key().unwrap_unchecked() };
                     // Initialize `previous_definition` to any existing term definition for `term` in
                     // `active_context`, removing that term definition from active context.
                     let previous_definition = active_context.set_normal(key.clone(), None);
@@ -409,7 +410,7 @@ where
                                     if !key.as_str().contains(':')
                                         && !key.as_str().contains('/')
                                         && simple_term
-                                        && is_gen_delim_or_blank(env.vocabulary, definition.value.as_ref().unwrap())
+                                        && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
                                     {
                                         definition.prefix = true;
                                     }
@@ -455,7 +456,9 @@ where
 
                                         if let Some(prefix_key) = prefix_definition.value() {
                                             if let Some(prefix_iri) = prefix_key.as_iri() {
-                                                result = env.vocabulary.iri(prefix_iri).unwrap().to_string()
+                                                if let Some(iri) = env.vocabulary.iri(prefix_iri) {
+                                                    result = iri.to_string()
+                                                }
                                             }
                                         }
 
@@ -507,7 +510,7 @@ where
                                             // If it does not have a vocabulary mapping, an invalid IRI mapping error
                                             // been detected and processing is aborted.
                                             if let Some(vocabulary_iri) = context_vocabulary.as_iri() {
-                                                let mut result = env.vocabulary.iri(vocabulary_iri).unwrap().to_string();
+                                                let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
                                                 result.push_str(key.as_str());
                                                 if let Ok(iri) = Iri::parse(result.as_str()) {
                                                     definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
@@ -690,7 +693,7 @@ where
                         // If the `prefix` flag of `definition` is set to `true`, and its IRI
                         // mapping is a keyword, an invalid term definition has been detected and
                         // processing is aborted.
-                        if definition.prefix && definition.value.as_ref().unwrap().is_keyword() {
+                        if definition.prefix && definition.value.as_ref().map(|v| v.is_keyword()).unwrap_or(false) {
                             return Err(Error::InvalidTermDefinition);
                         }
                     }

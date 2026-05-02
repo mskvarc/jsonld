@@ -80,13 +80,59 @@ impl FromStr for IriOrPath {
     }
 }
 
+type ReqwestLoaderError = jsonld::loader::reqwest::Error;
+
+#[derive(Debug, thiserror::Error)]
+enum CliError {
+    #[error("logger init failed: {0}")]
+    Logger(#[from] log::SetLoggerError),
+
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("JSON parse error: {0}")]
+    Parse(#[from] jstrict::parse::Error),
+
+    #[error("invalid mime: {0}")]
+    Mime(#[from] mime::FromStrError),
+
+    #[error("invalid blank id prefix: {0}")]
+    BlankPrefix(#[from] rdf_rs::generator::InvalidBlankPrefix),
+
+    #[error("loading failed: {0}")]
+    Loading(#[from] jsonld::LoadError<ReqwestLoaderError>),
+
+    #[error(transparent)]
+    Expand(#[from] jsonld::ExpandError<ReqwestLoaderError>),
+
+    #[error(transparent)]
+    Compact(#[from] jsonld::CompactError<ReqwestLoaderError>),
+
+    #[error(transparent)]
+    Flatten(#[from] jsonld::FlattenError<IriIndex, rdf_rs::vocabulary::BlankIdIndex, ReqwestLoaderError>),
+
+    #[error(transparent)]
+    GeneratedId(#[from] jsonld::id::GeneratedIdError),
+}
+
+fn ld_json_mime() -> Result<mime::Mime, CliError> {
+    "application/ld+json".parse().map_err(CliError::from)
+}
+
 #[tokio::main]
 async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<(), CliError> {
     // Parse options.
     let args = Args::parse();
 
     // Init logger.
-    stderrlog::new().verbosity(args.verbosity as usize).init().unwrap();
+    stderrlog::new().verbosity(args.verbosity as usize).init()?;
 
     let mut vocabulary: rdf_rs::vocabulary::IndexVocabulary = rdf_rs::vocabulary::IndexVocabulary::new();
     let loader = jsonld::loader::ReqwestLoader::new();
@@ -94,17 +140,14 @@ async fn main() {
     match args.command {
         Command::Fetch { url } => {
             let url = vocabulary.insert(url.as_ref());
-            match RemoteDocumentReference::iri(url).load_with(&mut vocabulary, &loader).await {
-                Ok(remote_document) => {
-                    log::info!("document URL: {}", vocabulary.iri(remote_document.url().unwrap()).unwrap());
-
-                    println!("{}", remote_document.document().pretty_print())
-                }
-                Err(e) => {
-                    eprintln!("error: {e}");
-                    std::process::exit(1);
+            let remote_document = RemoteDocumentReference::iri(url).load_with(&mut vocabulary, &loader).await?;
+            if let Some(remote_url) = remote_document.url() {
+                if let Some(iri) = vocabulary.iri(remote_url) {
+                    log::info!("document URL: {iri}");
                 }
             }
+
+            println!("{}", remote_document.document().pretty_print());
         }
         Command::Expand {
             url_or_path,
@@ -114,7 +157,7 @@ async fn main() {
             no_vocab,
             no_undef,
         } => {
-            let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url);
+            let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url)?;
 
             let options = jsonld::Options {
                 expansion_policy: jsonld::expansion::Policy {
@@ -129,89 +172,56 @@ async fn main() {
                 ..Default::default()
             };
 
-            match remote_document.expand_with_using(&mut vocabulary, &loader, options).await {
-                Ok(mut expanded) => {
-                    if relabel {
-                        let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+            let mut expanded = remote_document.expand_with_using(&mut vocabulary, &loader, options).await?;
 
-                        if canonicalize {
-                            expanded.relabel_and_canonicalize_with(&mut vocabulary, &mut generator)
-                        } else {
-                            expanded.relabel_with(&mut vocabulary, &mut generator)
-                        }
-                    } else if canonicalize {
-                        expanded.canonicalize()
-                    }
+            if relabel {
+                let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string())?;
 
-                    println!("{}", expanded.with(&vocabulary).pretty_print())
+                if canonicalize {
+                    expanded.relabel_and_canonicalize_with(&mut vocabulary, &mut generator)?;
+                } else {
+                    expanded.relabel_with(&mut vocabulary, &mut generator)?;
                 }
-                Err(e) => {
-                    eprintln!("error: {e}");
-                    std::process::exit(1);
-                }
+            } else if canonicalize {
+                expanded.canonicalize();
             }
+
+            println!("{}", expanded.with(&vocabulary).pretty_print());
         }
         Command::Flatten { url_or_path, base_url } => {
-            let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url);
+            let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url)?;
 
-            let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+            let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string())?;
 
-            match remote_document.flatten_with(&mut vocabulary, &mut generator, &loader).await {
-                Ok(flattened) => {
-                    println!("{}", flattened.with(&vocabulary).pretty_print())
-                }
-                Err(e) => {
-                    eprintln!("error: {e}");
-                    std::process::exit(1);
-                }
-            }
+            let flattened = remote_document.flatten_with(&mut vocabulary, &mut generator, &loader).await?;
+            println!("{}", flattened.with(&vocabulary).pretty_print());
         }
     }
+
+    Ok(())
 }
 
 fn get_remote_document(
     vocabulary: &mut impl IriVocabularyMut<Iri = IriIndex>,
     url_or_path: Option<IriOrPath>,
     base_url: Option<IriBuf>,
-) -> RemoteDocumentReference<IriIndex> {
+) -> Result<RemoteDocumentReference<IriIndex>, CliError> {
     match url_or_path {
         Some(IriOrPath::Iri(url)) => {
             let url = vocabulary.insert(url.as_ref());
-            RemoteDocumentReference::iri(url)
+            Ok(RemoteDocumentReference::iri(url))
         }
         Some(IriOrPath::Path(path)) => {
             let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
-
-            match std::fs::read_to_string(path) {
-                Ok(content) => match jsonld::syntax::Value::parse_str(&content) {
-                    Ok((document, _)) => RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some("application/ld+json".parse().unwrap()), document)),
-                    Err(e) => {
-                        eprintln!("error: {e}");
-                        std::process::exit(1);
-                    }
-                },
-                Err(e) => {
-                    eprintln!("error: {e}");
-                    std::process::exit(1);
-                }
-            }
+            let content = std::fs::read_to_string(path)?;
+            let (document, _) = jsonld::syntax::Value::parse_str(&content)?;
+            Ok(RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()?), document)))
         }
         None => {
             let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
-
-            match std::io::read_to_string(std::io::stdin()) {
-                Ok(content) => match jsonld::syntax::Value::parse_str(&content) {
-                    Ok((document, _)) => RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some("application/ld+json".parse().unwrap()), document)),
-                    Err(e) => {
-                        eprintln!("error: {e}");
-                        std::process::exit(1);
-                    }
-                },
-                Err(e) => {
-                    eprintln!("error: {e}");
-                    std::process::exit(1);
-                }
-            }
+            let content = std::io::read_to_string(std::io::stdin())?;
+            let (document, _) = jsonld::syntax::Value::parse_str(&content)?;
+            Ok(RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()?), document)))
         }
     }
 }

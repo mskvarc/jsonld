@@ -13,9 +13,9 @@ mod node_map;
 pub use environment::Environment;
 pub use node_map::*;
 
-pub type FlattenResult<I, B> = Result<FlattenedDocument<I, B>, ConflictingIndexes<I, B>>;
+pub type FlattenResult<I, B> = Result<FlattenedDocument<I, B>, NodeMapError<I, B>>;
 
-pub type FlattenUnorderedResult<I, B> = Result<UnorderedFlattenedDocument<I, B>, ConflictingIndexes<I, B>>;
+pub type FlattenUnorderedResult<I, B> = Result<UnorderedFlattenedDocument<I, B>, NodeMapError<I, B>>;
 
 pub trait Flatten<I, B> {
     fn flatten_with<V, G: LocalGenerator>(self, vocabulary: &mut V, generator: G, ordered: bool) -> FlattenResult<I, B>
@@ -100,12 +100,14 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
         };
 
         for (graph_id, graph) in named_graphs {
-            let entry = default_graph.declare_node(graph_id, None).ok().unwrap();
+            // SAFETY: `graph_id` was not previously declared in `default_graph`.
+            let entry = unsafe { default_graph.declare_node(graph_id, None).unwrap_unchecked() };
             let nodes: Vec<_> = if ordered {
                 let mut decorated: Vec<_> = graph
                     .into_nodes()
                     .map(|n| {
-                        let key = n.id.as_ref().unwrap().with(vocabulary).as_str().to_string();
+                        // SAFETY: every node in a node-map graph has an `id`.
+                    let key = unsafe { n.id.as_ref().unwrap_unchecked() }.with(vocabulary).as_str().to_string();
                         (key, n)
                     })
                     .collect();
@@ -122,7 +124,8 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
                 .into_nodes()
                 .filter_map(filter_graph)
                 .map(|n| {
-                    let key = n.id.as_ref().unwrap().with(vocabulary).as_str().to_string();
+                    // SAFETY: every node in a node-map graph has an `id`.
+                    let key = unsafe { n.id.as_ref().unwrap_unchecked() }.with(vocabulary).as_str().to_string();
                     (key, n)
                 })
                 .collect();
@@ -139,7 +142,8 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
         let (mut default_graph, named_graphs) = self.into_parts();
 
         for (graph_id, graph) in named_graphs {
-            let entry = default_graph.declare_node(graph_id, None).ok().unwrap();
+            // SAFETY: `graph_id` was not previously declared in `default_graph`.
+            let entry = unsafe { default_graph.declare_node(graph_id, None).unwrap_unchecked() };
             entry.set_graph_entry(Some(graph.into_nodes().filter_map(filter_sub_graph).collect()));
         }
 

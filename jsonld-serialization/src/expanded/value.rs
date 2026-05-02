@@ -15,13 +15,13 @@ pub fn literal_to_value<V: IriVocabularyMut>(vocabulary: &mut V, lit: RdfLiteral
                     Value::Literal(Literal::String(s.into()), Some(id))
                 }
             }
-            LiteralType::LangString(language) => Value::LangString(LangString::new(s.into(), Some(language.into()), None).unwrap()),
+            LiteralType::LangString(language) => Value::LangString(LangString::with_language(s.into(), language.into())),
             LiteralType::DirLangString { tag, direction } => {
                 let dir = match direction {
                     rdf_rs::Direction::Ltr => Direction::Ltr,
                     rdf_rs::Direction::Rtl => Direction::Rtl,
                 };
-                Value::LangString(LangString::new(s.into(), Some(tag.into()), Some(dir)).unwrap())
+                Value::LangString(LangString::with_language_and_direction(s.into(), tag.into(), dir))
             }
         },
         RdfLiteral::Xsd(xsd) => xsd_to_value(vocabulary, xsd),

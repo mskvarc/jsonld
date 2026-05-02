@@ -67,8 +67,14 @@ impl<I: fmt::Display, B: fmt::Display> fmt::Display for ValidId<I, B> {
 impl<V: IriVocabulary + BlankIdVocabulary> DisplayWithContext<V> for ValidId<V::Iri, V::BlankId> {
     fn fmt_with(&self, vocabulary: &V, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Iri(i) => write!(f, "{}", vocabulary.iri(i).unwrap()),
-            Self::Blank(b) => write!(f, "{}", vocabulary.blank_id(b).unwrap()),
+            Self::Iri(i) => match vocabulary.iri(i) {
+                Some(s) => fmt::Display::fmt(&s, f),
+                None => f.write_str("<unresolved iri>"),
+            },
+            Self::Blank(b) => match vocabulary.blank_id(b) {
+                Some(s) => fmt::Display::fmt(&s, f),
+                None => f.write_str("<unresolved blank>"),
+            },
         }
     }
 }
@@ -320,8 +326,14 @@ impl<I: AsRef<str>, B: AsRef<str>> Id<I, B> {
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> AsRefWithContext<str, N> for Id<T, B> {
     fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
         match self {
-            Id::Valid(ValidId::Iri(id)) => vocabulary.iri(id).unwrap().into_inner(),
-            Id::Valid(ValidId::Blank(id)) => vocabulary.blank_id(id).unwrap().as_str(),
+            Id::Valid(ValidId::Iri(id)) => match vocabulary.iri(id) {
+                Some(iri) => iri.into_inner(),
+                None => "<unresolved iri>",
+            },
+            Id::Valid(ValidId::Blank(id)) => match vocabulary.blank_id(id) {
+                Some(b) => b.as_str(),
+                None => "<unresolved blank>",
+            },
             Id::Invalid(id) => id.as_str(),
         }
     }
@@ -483,10 +495,41 @@ pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
     Invalid(&'a str),
 }
 
+/// Error returned by [`generator_next_id`] when the underlying generator
+/// produced a term that cannot be turned into a [`ValidId`].
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+pub enum GeneratedIdError {
+    #[error("generator yielded unsupported term type")]
+    UnsupportedTerm,
+}
+
 /// Helper used in place of the legacy `generator.next(vocabulary)` API:
 /// produces a [`ValidId`] from the next term yielded by `generator`, inserting
-/// it into `vocabulary`.
-pub fn generator_next_id<V, G>(vocabulary: &mut V, generator: &mut G) -> ValidId<V::Iri, V::BlankId>
+/// it into `vocabulary`. Returns an error if the generator produces a literal
+/// or a triple term.
+pub fn generator_next_id<V, G>(vocabulary: &mut V, generator: &mut G) -> Result<ValidId<V::Iri, V::BlankId>, GeneratedIdError>
+where
+    V: VocabularyMut,
+    G: LocalGenerator,
+{
+    match generator.next_local_term() {
+        LocalTerm::BlankId(b) => Ok(ValidId::Blank(vocabulary.insert_owned_blank_id(b))),
+        LocalTerm::Named(RdfTerm::Iri(iri)) => Ok(ValidId::Iri(vocabulary.insert_owned(iri))),
+        _ => Err(GeneratedIdError::UnsupportedTerm),
+    }
+}
+
+/// Internal infallible variant of [`generator_next_id`] used inside
+/// non-fallible code paths.
+///
+/// # Safety
+///
+/// `generator.next_local_term()` must yield either [`LocalTerm::BlankId`] or
+/// [`LocalTerm::Named`] wrapping an IRI. The two stock generators provided by
+/// `rdf_rs` (the blank-id generator and the UUID-based generator) satisfy this
+/// contract.
+#[inline]
+pub unsafe fn generator_next_id_unchecked<V, G>(vocabulary: &mut V, generator: &mut G) -> ValidId<V::Iri, V::BlankId>
 where
     V: VocabularyMut,
     G: LocalGenerator,
@@ -494,18 +537,19 @@ where
     match generator.next_local_term() {
         LocalTerm::BlankId(b) => ValidId::Blank(vocabulary.insert_owned_blank_id(b)),
         LocalTerm::Named(RdfTerm::Iri(iri)) => ValidId::Iri(vocabulary.insert_owned(iri)),
-        _ => panic!("generator yielded unsupported term type"),
+        // SAFETY: contract above forbids the other variants.
+        _ => unsafe { std::hint::unreachable_unchecked() },
     }
 }
 
 pub trait IdentifyAll<T, B> {
-    fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut N, generator: &mut G)
+    fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut N, generator: &mut G) -> Result<(), GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
         N: VocabularyMut;
 
-    fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
+    fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
@@ -521,12 +565,13 @@ pub trait Relabel<T, B> {
         vocabulary: &mut N,
         generator: &mut G,
         relabeling: &mut HashMap<B, ValidId<T, B>>,
-    ) where
+    ) -> Result<(), GeneratedIdError>
+    where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
         N: VocabularyMut;
 
-    fn relabel<G: LocalGenerator>(&mut self, generator: &mut G, relabeling: &mut HashMap<B, ValidId<T, B>>)
+    fn relabel<G: LocalGenerator>(&mut self, generator: &mut G, relabeling: &mut HashMap<B, ValidId<T, B>>) -> Result<(), GeneratedIdError>
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,

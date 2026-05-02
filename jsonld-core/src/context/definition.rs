@@ -571,7 +571,7 @@ impl<T, B> NormalTermDefinition<T, B> {
         self.value.as_ref()
     }
 
-    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Nullable<jsonld_syntax::context::TermDefinition>
+    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<Nullable<jsonld_syntax::context::TermDefinition>, super::InvalidContextError>
     where
         T: Clone,
         B: Clone,
@@ -586,11 +586,11 @@ impl<T, B> NormalTermDefinition<T, B> {
             }
         }
 
-        fn term_into_key<T, B>(vocabulary: &impl Vocabulary<Iri = T, BlankId = B>, term: Term<T, B>) -> Key {
+        fn term_into_key<T, B>(vocabulary: &impl Vocabulary<Iri = T, BlankId = B>, term: Term<T, B>) -> Result<Key, super::InvalidContextKey> {
             match term {
-                Term::Null => panic!("invalid key"),
-                Term::Keyword(k) => k.to_string().into(),
-                Term::Id(r) => r.with(vocabulary).to_string().into(),
+                Term::Null => Err(super::InvalidContextKey),
+                Term::Keyword(k) => Ok(k.to_string().into()),
+                Term::Id(r) => Ok(r.with(vocabulary).to_string().into()),
             }
         }
 
@@ -600,7 +600,10 @@ impl<T, B> NormalTermDefinition<T, B> {
                 Type::Json => SyntaxType::Keyword(TypeKeyword::Json),
                 Type::None => SyntaxType::Keyword(TypeKeyword::None),
                 Type::Vocab => SyntaxType::Keyword(TypeKeyword::Vocab),
-                Type::Iri(t) => SyntaxType::Term(vocabulary.iri(&t).unwrap().to_string()),
+                Type::Iri(t) => SyntaxType::Term(match vocabulary.iri(&t) {
+                    Some(iri) => iri.to_string(),
+                    None => "<unresolved iri>".to_string(),
+                }),
             }
         }
 
@@ -609,17 +612,23 @@ impl<T, B> NormalTermDefinition<T, B> {
         }
 
         let (id, reverse) = if self.reverse_property {
-            (None, self.value.map(|t| term_into_key(vocabulary, unwrap_term(t))))
+            let reverse = self.value.map(|t| term_into_key(vocabulary, unwrap_term(t))).transpose()?;
+            (None, reverse)
         } else {
             (self.value.map(|t| term_into_id(vocabulary, unwrap_term(t))), None)
         };
 
         let container = self.container.into_syntax();
 
-        jsonld_syntax::context::term_definition::Expanded {
+        let context = match self.context {
+            Some(e) => Some(Box::new(e.into_syntax(vocabulary)?)),
+            None => None,
+        };
+
+        Ok(jsonld_syntax::context::term_definition::Expanded {
             id,
             type_: self.typ.map(|t| Nullable::Some(type_into_syntax(vocabulary, t))),
-            context: self.context.map(|e| Box::new(e.into_syntax(vocabulary))),
+            context,
             reverse,
             index: self.index.clone(),
             language: self.language,
@@ -630,7 +639,7 @@ impl<T, B> NormalTermDefinition<T, B> {
             propagate: None,
             protected: if self.protected { Some(true) } else { None },
         }
-        .simplify()
+        .simplify())
     }
 
     fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, map_id: impl FnOnce(Id<T, B>) -> Id<U, C>) -> NormalTermDefinition<U, C>

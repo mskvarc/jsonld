@@ -20,7 +20,9 @@ impl CompactIri {
     ///
     /// # Safety
     ///
-    /// The input string must be a compact IRI.
+    /// `s` must be a valid compact IRI: it must contain a `:`, the segment
+    /// before `:` must not equal `_`, the segment after `:` must not start with
+    /// `//`, and `s` as a whole must parse as an `IriRef`.
     pub unsafe fn new_unchecked(s: &str) -> &Self {
         unsafe { std::mem::transmute(s) }
     }
@@ -34,17 +36,21 @@ impl CompactIri {
     }
 
     pub fn prefix(&self) -> &str {
-        let i = self.find(':').unwrap();
+        // SAFETY: a `CompactIri` always contains a `:` (enforced by `new` /
+        // `new_unchecked`).
+        let i = unsafe { self.find(':').unwrap_unchecked() };
         &self[0..i]
     }
 
     pub fn suffix(&self) -> &str {
-        let i = self.find(':').unwrap();
+        // SAFETY: see `prefix`.
+        let i = unsafe { self.find(':').unwrap_unchecked() };
         &self[i + 1..]
     }
 
     pub fn as_iri_ref(&self) -> IriRef<&str> {
-        IriRef::parse(self.as_str()).unwrap()
+        // SAFETY: validated as an `IriRef` at construction.
+        unsafe { IriRef::parse(self.as_str()).unwrap_unchecked() }
     }
 }
 
@@ -83,7 +89,7 @@ impl CompactIriBuf {
     ///
     /// # Safety
     ///
-    /// The input string must be a compact IRI.
+    /// `s` must satisfy the contract of [`CompactIri::new_unchecked`].
     pub unsafe fn new_unchecked(s: String) -> Self {
         Self(s)
     }
@@ -93,7 +99,8 @@ impl CompactIriBuf {
     }
 
     pub fn into_iri_ref(self) -> IriRefBuf {
-        IriRefBuf::new(self.0).unwrap()
+        // SAFETY: validated as an `IriRef` at construction.
+        unsafe { IriRefBuf::new(self.0).unwrap_unchecked() }
     }
 
     pub fn into_string(self) -> String {

@@ -18,6 +18,16 @@ pub struct ConflictingIndexes<T, B> {
     pub conflicting_index: String,
 }
 
+/// Error returned by node-map construction.
+#[derive(Debug, thiserror::Error)]
+pub enum NodeMapError<T, B> {
+    #[error(transparent)]
+    Conflicting(#[from] ConflictingIndexes<T, B>),
+
+    #[error(transparent)]
+    GeneratedId(#[from] crate::id::GeneratedIdError),
+}
+
 pub type Parts<T, B> = (NodeMapGraph<T, B>, HashMap<Id<T, B>, NodeMapGraph<T, B>>);
 
 /// Node identifier to node definition map.
@@ -195,7 +205,8 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
                 .insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index.map(ToOwned::to_owned)));
         }
 
-        Ok(self.nodes.get_mut(&id).unwrap())
+        // SAFETY: just inserted above if not present.
+        Ok(unsafe { self.nodes.get_mut(&id).unwrap_unchecked() })
     }
 
     /// Merge this graph with `other`.
@@ -235,7 +246,8 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
                 self.nodes.insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index));
             }
 
-            let flat_node = self.nodes.get_mut(id).unwrap();
+            // SAFETY: just inserted above if not present.
+            let flat_node = unsafe { self.nodes.get_mut(id).unwrap_unchecked() };
 
             if let Some(types) = node.types {
                 flat_node.types_mut_or_default().extend(types);
@@ -286,7 +298,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> ExpandedDocument<T, B> {
         &self,
         vocabulary: &mut V,
         generator: G,
-    ) -> Result<NodeMap<T, B>, ConflictingIndexes<T, B>>
+    ) -> Result<NodeMap<T, B>, NodeMapError<T, B>>
     where
         V: VocabularyMut,
     {
@@ -301,7 +313,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> ExpandedDocument<T, B> {
 
 pub type ExtendNodeMapResult<V> = Result<
     IndexedObject<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>,
-    ConflictingIndexes<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>,
+    NodeMapError<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>,
 >;
 
 /// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
@@ -337,7 +349,7 @@ where
     }
 }
 
-type ExtendNodeMapFromNodeResult<T, B> = Result<Indexed<Node<T, B>>, ConflictingIndexes<T, B>>;
+type ExtendNodeMapFromNodeResult<T, B> = Result<Indexed<Node<T, B>>, NodeMapError<T, B>>;
 
 fn extend_node_map_from_node<N: Vocabulary, G: LocalGenerator>(
     env: &mut Environment<N, G>,
@@ -351,13 +363,16 @@ where
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
 {
-    let id = env.assign_node_id(node.id.as_ref());
+    let id = env.assign_node_id(node.id.as_ref())?;
 
     {
-        let flat_node = node_map.graph_mut(active_graph).unwrap().declare_node(id.clone(), index)?;
+        // SAFETY: `active_graph` is always either `None` (default graph) or a
+        // graph id that was previously declared via `node_map.declare_graph`.
+        let flat_node = unsafe { node_map.graph_mut(active_graph).unwrap_unchecked() }.declare_node(id.clone(), index)?;
 
         if let Some(entry) = node.types.as_deref() {
-            flat_node.types = Some(entry.iter().map(|ty| env.assign_node_id(Some(ty))).collect());
+            let types: Result<Vec<_>, _> = entry.iter().map(|ty| env.assign_node_id(Some(ty))).collect();
+            flat_node.types = Some(types?);
         }
     }
 
@@ -370,7 +385,15 @@ where
             flat_graph.push(flat_object);
         }
 
-        let flat_node = node_map.graph_mut(active_graph).unwrap().get_mut(&id).unwrap();
+        // SAFETY: `id` was just declared above; `active_graph` is `None` or
+        // declared earlier.
+        let flat_node = unsafe {
+            node_map
+                .graph_mut(active_graph)
+                .unwrap_unchecked()
+                .get_mut(&id)
+                .unwrap_unchecked()
+        };
         match flat_node.graph_entry_mut() {
             Some(graph) => graph.extend(flat_graph),
             None => flat_node.set_graph_entry(Some(flat_graph)),
@@ -389,13 +412,16 @@ where
             let flat_object = extend_node_map(env, node_map, object, active_graph)?;
             flat_objects.push(flat_object);
         }
-        node_map
-            .graph_mut(active_graph)
-            .unwrap()
-            .get_mut(&id)
-            .unwrap()
-            .properties_mut()
-            .insert_all_unique(property.clone(), flat_objects)
+        // SAFETY: `id` was declared in this graph above.
+        unsafe {
+            node_map
+                .graph_mut(active_graph)
+                .unwrap_unchecked()
+                .get_mut(&id)
+                .unwrap_unchecked()
+        }
+        .properties_mut()
+        .insert_all_unique(property.clone(), flat_objects)
     }
 
     if let Some(reverse_properties) = node.reverse_properties_entry() {
@@ -403,9 +429,18 @@ where
             for subject in nodes {
                 let flat_subject = extend_node_map_from_node(env, node_map, subject.inner(), subject.index(), active_graph)?;
 
-                let subject_id = flat_subject.id.as_ref().unwrap();
+                // SAFETY: every flat node produced by `extend_node_map_from_node`
+                // has an `id` set.
+                let subject_id = unsafe { flat_subject.id.as_ref().unwrap_unchecked() };
 
-                let flat_subject = node_map.graph_mut(active_graph).unwrap().get_mut(subject_id).unwrap();
+                // SAFETY: subject was just declared in this graph.
+                let flat_subject = unsafe {
+                    node_map
+                        .graph_mut(active_graph)
+                        .unwrap_unchecked()
+                        .get_mut(subject_id)
+                        .unwrap_unchecked()
+                };
 
                 flat_subject
                     .properties_mut()

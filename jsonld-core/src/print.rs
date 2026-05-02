@@ -218,7 +218,7 @@ impl<'a, T, N: IriVocabulary<Iri = T>> PrintWithSizeAndContext<N> for object::va
 impl<'a, T, N: IriVocabulary<Iri = T>> PrecomputeSizeWithContext<N> for object::value::TypeRef<'a, T> {
     fn contextual_pre_compute_size(&self, vocabulary: &N, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
         match self {
-            object::value::TypeRef::Id(id) => Size::Width(printed_string_size(vocabulary.iri(id).unwrap().as_str())),
+            object::value::TypeRef::Id(id) => Size::Width(printed_string_size(vocabulary.iri(id).map(|i| i.into_inner()).unwrap_or("<unresolved iri>"))),
             object::value::TypeRef::Json => Size::Width(printed_string_size("@json")),
         }
     }
@@ -227,7 +227,7 @@ impl<'a, T, N: IriVocabulary<Iri = T>> PrecomputeSizeWithContext<N> for object::
 impl<'a, T, N: IriVocabulary<Iri = T>> PrintWithContext<N> for object::value::TypeRef<'a, T> {
     fn contextual_fmt_with(&self, vocabulary: &N, f: &mut std::fmt::Formatter, _options: &Options, _indent: usize) -> std::fmt::Result {
         match self {
-            object::value::TypeRef::Id(id) => string_literal(vocabulary.iri(id).unwrap().as_str(), f),
+            object::value::TypeRef::Id(id) => string_literal(vocabulary.iri(id).map(|i| i.into_inner()).unwrap_or("<unresolved iri>"), f),
             object::value::TypeRef::Json => string_literal("@json", f),
         }
     }

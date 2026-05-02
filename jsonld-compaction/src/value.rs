@@ -15,7 +15,7 @@ pub async fn compact_indexed_value_with<N, L>(
     active_property: Option<&str>,
     loader: &L,
     options: Options,
-) -> Result<jstrict::Value, Error>
+) -> Result<jstrict::Value, Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,

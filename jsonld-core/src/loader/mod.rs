@@ -19,7 +19,7 @@ pub mod reqwest;
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::ReqwestLoader;
 
-pub type LoadingResult<I = IriBuf> = Result<RemoteDocument<I>, LoadError>;
+pub type LoadingResult<I, E> = Result<RemoteDocument<I>, LoadError<E>>;
 
 pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, jsonld_syntax::Context>;
 
@@ -50,9 +50,10 @@ impl<I> RemoteDocumentReference<I> {
     ///
     /// If the document is already [`Self::Loaded`], simply returns the inner
     /// [`RemoteDocument`].
-    pub async fn load_with<V>(self, vocabulary: &mut V, loader: &impl Loader) -> LoadingResult<I>
+    pub async fn load_with<V, L>(self, vocabulary: &mut V, loader: &L) -> LoadingResult<I, L::Error>
     where
         V: IriVocabularyMut<Iri = I>,
+        L: Loader,
         I: Clone + Eq + Hash,
     {
         match self {
@@ -67,9 +68,10 @@ impl<I> RemoteDocumentReference<I> {
     /// [`Cow::Owned`].
     /// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
     /// with [`Cow::Borrowed`].
-    pub async fn loaded_with<V>(&self, vocabulary: &mut V, loader: &impl Loader) -> Result<Cow<'_, RemoteDocument<V::Iri>>, LoadError>
+    pub async fn loaded_with<V, L>(&self, vocabulary: &mut V, loader: &L) -> Result<Cow<'_, RemoteDocument<V::Iri>>, LoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
+        L: Loader,
         I: Clone + Eq + Hash,
     {
         match self {
@@ -80,9 +82,9 @@ impl<I> RemoteDocumentReference<I> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ContextLoadError {
+pub enum ContextLoadError<E> {
     #[error(transparent)]
-    LoadingDocumentFailed(#[from] LoadError),
+    LoadingDocumentFailed(#[from] LoadError<E>),
 
     #[error("context extraction failed")]
     ContextExtractionFailed(#[from] ExtractContextError),
@@ -93,7 +95,7 @@ impl<I> RemoteContextReference<I> {
     ///
     /// If the context is already [`Self::Loaded`], simply returns the inner
     /// [`RemoteContext`].
-    pub async fn load_context_with<V, L: Loader>(self, vocabulary: &mut V, loader: &L) -> Result<RemoteContext<I>, ContextLoadError>
+    pub async fn load_context_with<V, L: Loader>(self, vocabulary: &mut V, loader: &L) -> Result<RemoteContext<I>, ContextLoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
@@ -110,7 +112,7 @@ impl<I> RemoteContextReference<I> {
     /// [`Cow::Owned`].
     /// For [`Self::Loaded`] returns a reference to the inner [`RemoteContext`]
     /// with [`Cow::Borrowed`].
-    pub async fn loaded_context_with<V, L: Loader>(&self, vocabulary: &mut V, loader: &L) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError>
+    pub async fn loaded_context_with<V, L: Loader>(&self, vocabulary: &mut V, loader: &L) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
@@ -386,10 +388,12 @@ impl<I> Profile<I> {
         }
     }
 
-    pub fn iri_with<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> Iri<&'a str> {
+    /// Returns the [`Iri`] of this profile, if it can be resolved by the given
+    /// `vocabulary`.
+    pub fn iri_with<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> Option<Iri<&'a str>> {
         match self {
-            Self::Standard(s) => s.iri(),
-            Self::Custom(c) => vocabulary.iri(c).unwrap(),
+            Self::Standard(s) => Some(s.iri()),
+            Self::Custom(c) => vocabulary.iri(c),
         }
     }
 
@@ -401,21 +405,28 @@ impl<I> Profile<I> {
     }
 }
 
-pub type LoadErrorCause = Box<dyn std::error::Error + Send + Sync>;
-
-/// Loading error.
+/// Loading error: wraps the loader-specific error with the IRI we tried to
+/// load.
 #[derive(Debug, thiserror::Error)]
-#[error("loading document `{target}` failed: {cause}")]
-pub struct LoadError {
+#[error("loading document `{target}` failed: {source}")]
+pub struct LoadError<E> {
     pub target: IriBuf,
-    pub cause: LoadErrorCause,
+    #[source]
+    pub source: E,
 }
 
-impl LoadError {
-    pub fn new(target: IriBuf, cause: impl 'static + std::error::Error + Send + Sync) -> Self {
-        Self {
-            target,
-            cause: Box::new(cause),
+impl<E> LoadError<E> {
+    pub fn new(target: IriBuf, source: E) -> Self {
+        Self { target, source }
+    }
+
+    pub fn map_source<F, U>(self, f: F) -> LoadError<U>
+    where
+        F: FnOnce(E) -> U,
+    {
+        LoadError {
+            target: self.target,
+            source: f(self.source),
         }
     }
 }
@@ -429,8 +440,8 @@ impl LoadError {
 /// This library provides a few default loader implementations:
 ///   - [`NoLoader`] dummy loader that always fail. Perfect if you are certain
 ///     that the processing will not require any loading.
-///   - Standard [`HashMap`](std::collection::HashMap) and
-///     [`BTreeMap`](std::collection::BTreeMap) mapping IRIs to pre-loaded
+///   - Standard [`HashMap`](std::collections::HashMap) and
+///     [`BTreeMap`](std::collections::BTreeMap) mapping IRIs to pre-loaded
 ///     documents. This way no network calls are performed and the loaded
 ///     content can be trusted.
 ///   - [`FsLoader`] that redirecting registered IRI prefixes to a local
@@ -440,25 +451,33 @@ impl LoadError {
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
 pub trait Loader {
+    /// Loader-specific error type.
+    type Error: std::error::Error + Send + Sync + 'static;
+
     /// Loads the document behind the given IRI, using the given vocabulary.
     #[allow(async_fn_in_trait)]
-    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
+    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
         V::Iri: Clone + Eq + Hash,
     {
-        let lexical_url = vocabulary.iri(&url).unwrap();
+        // SAFETY: `url` was obtained from `vocabulary`, so the lookup must
+        // succeed. Misusing this method by passing an `Iri` from a different
+        // vocabulary is the caller's responsibility.
+        let lexical_url = unsafe { vocabulary.iri(&url).unwrap_unchecked() };
         let document = self.load(lexical_url).await?;
         Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
     }
 
     /// Loads the document behind the given IRI.
     #[allow(async_fn_in_trait)]
-    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError>;
+    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>>;
 }
 
 impl<L: Loader> Loader for &L {
-    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
+    type Error = L::Error;
+
+    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
         V::Iri: Clone + Eq + Hash,
@@ -466,13 +485,15 @@ impl<L: Loader> Loader for &L {
         L::load_with(self, vocabulary, url).await
     }
 
-    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError> {
+    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         L::load(self, url).await
     }
 }
 
 impl<L: Loader> Loader for &mut L {
-    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
+    type Error = L::Error;
+
+    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
         V::Iri: Clone + Eq + Hash,
@@ -480,7 +501,7 @@ impl<L: Loader> Loader for &mut L {
         L::load_with(self, vocabulary, url).await
     }
 
-    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError> {
+    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         L::load(self, url).await
     }
 }
@@ -532,6 +553,7 @@ impl ExtractContext for jstrict::Value {
 
 #[cfg(all(test, feature = "serde_json"))]
 mod serde_json_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use iri_rs::iri;
 

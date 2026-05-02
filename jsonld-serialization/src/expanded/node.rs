@@ -154,13 +154,13 @@ pub(crate) fn into_type_value<I, B>(obj: Indexed<Object<I, B>>) -> Result<jsonld
     match obj.index() {
         Some(_) => Err(obj),
         None => match obj.into_inner() {
-            Object::Node(node) => {
-                if node.is_empty() && node.id.is_some() {
-                    #[allow(clippy::unnecessary_unwrap)]
-                    Ok(node.id.unwrap())
-                } else {
-                    Err(Indexed::none(Object::Node(node)))
+            Object::Node(mut node) => {
+                if node.is_empty() {
+                    if let Some(id) = node.id.take() {
+                        return Ok(id);
+                    }
                 }
+                Err(Indexed::none(Object::Node(node)))
             }
             obj => Err(Indexed::none(obj)),
         },

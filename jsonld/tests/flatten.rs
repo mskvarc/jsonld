@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use contextual::WithContext;
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};

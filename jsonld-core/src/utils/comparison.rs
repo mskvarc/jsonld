@@ -8,7 +8,9 @@ pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
 
             'a_items: for item in a.iter() {
                 for (i, sel) in selected.iter_mut().enumerate() {
-                    if !*sel && simple_json_ld_eq(item, b.get(i).unwrap()) {
+                    // SAFETY: `i < selected.len() == a.len() == b.len()`.
+                    let other = unsafe { b.get(i).unwrap_unchecked() };
+                    if !*sel && simple_json_ld_eq(item, other) {
                         *sel = true;
                         continue 'a_items;
                     }

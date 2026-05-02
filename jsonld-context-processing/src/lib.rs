@@ -44,7 +44,7 @@ impl<N, H> WarningHandler<N> for H where H: jsonld_core::warning::Handler<N, War
 
 /// Errors that can happen during context processing.
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum Error<E = std::convert::Infallible> {
     #[error("Invalid context nullification")]
     InvalidContextNullification,
 
@@ -103,7 +103,7 @@ pub enum Error {
     ProtectedTermRedefinition,
 
     #[error(transparent)]
-    ContextLoadingFailed(#[from] LoadError),
+    ContextLoadingFailed(#[from] LoadError<E>),
 
     #[error("Unable to extract JSON-LD context: {0}")]
     ContextExtractionFailed(ExtractContextError),
@@ -112,13 +112,13 @@ pub enum Error {
     ForbiddenVocab,
 }
 
-impl From<RejectVocab> for Error {
+impl<E> From<RejectVocab> for Error<E> {
     fn from(_value: RejectVocab) -> Self {
         Self::ForbiddenVocab
     }
 }
 
-impl Error {
+impl<E> Error<E> {
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
@@ -148,7 +148,7 @@ impl Error {
 }
 
 /// Result of context processing functions.
-pub type ProcessingResult<'a, T, B> = Result<Processed<'a, T, B>, Error>;
+pub type ProcessingResult<'a, T, B, E> = Result<Processed<'a, T, B>, Error<E>>;
 
 pub trait Process {
     /// Process the local context with specific options.
@@ -161,7 +161,7 @@ pub trait Process {
         base_url: Option<N::Iri>,
         options: Options,
         warnings: W,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -185,7 +185,7 @@ pub trait Process {
         options: Options,
         warnings: W,
         cache: &ProcessingCache<N::Iri, N::BlankId>,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -204,7 +204,7 @@ pub trait Process {
         base_url: Option<N::Iri>,
         options: Options,
         cache: &ProcessingCache<N::Iri, N::BlankId>,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -225,7 +225,7 @@ pub trait Process {
         loader: &L,
         base_url: Option<N::Iri>,
         options: Options,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -238,7 +238,7 @@ pub trait Process {
     /// Process the local context with the given initial active context with the default options:
     /// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
     #[allow(async_fn_in_trait)]
-    async fn process<N, L>(&self, vocabulary: &mut N, loader: &L, base_url: Option<N::Iri>) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    async fn process<N, L>(&self, vocabulary: &mut N, loader: &L, base_url: Option<N::Iri>) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,

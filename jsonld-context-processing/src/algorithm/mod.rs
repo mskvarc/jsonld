@@ -26,7 +26,7 @@ impl Process for syntax::context::Context {
         base_url: Option<N::Iri>,
         options: Options,
         mut warnings: W,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -76,7 +76,7 @@ impl Process for syntax::context::Context {
         options: Options,
         mut warnings: W,
         cache: &ProcessingCache<N::Iri, N::BlankId>,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
+    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -156,7 +156,7 @@ async fn process_context<'l: 'a, 'a, N, L, W>(
     mut remote_contexts: ProcessingStack<N::Iri>,
     base_url: Option<N::Iri>,
     mut options: Options,
-) -> ProcessingResult<'l, N::Iri, N::BlankId>
+) -> ProcessingResult<'l, N::Iri, N::BlankId, L::Error>
 where
     N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,

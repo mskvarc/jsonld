@@ -187,7 +187,8 @@ impl<T> InverseDefinition<T> {
         if !self.contains(container) {
             self.map.insert(*container, insert());
         }
-        self.map.get_mut(container).unwrap()
+        // SAFETY: just inserted above if not present.
+        unsafe { self.map.get_mut(container).unwrap_unchecked() }
     }
 
     pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
@@ -272,7 +273,8 @@ impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
         if !self.contains(term) {
             self.insert(term.clone(), insert());
         }
-        self.map.get_mut(term).unwrap()
+        // SAFETY: just inserted above if not present.
+        unsafe { self.map.get_mut(term).unwrap_unchecked() }
     }
 
     pub fn select(&self, var: &Term<T, B>, containers: &[Container], selection: &Selection<T>) -> Option<&Key>

@@ -1,11 +1,13 @@
 use super::{Loader, RemoteDocument};
-use crate::{LoadError, LoadingResult};
+use crate::LoadError;
 use iri_rs::{Iri, IriBuf};
 use jstrict::Parse;
+use mime::Mime;
 use std::{
     fs::File,
     io::{BufReader, Read},
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 /// Loading error.
@@ -22,6 +24,15 @@ pub enum Error {
     /// Parse error.
     #[error("parse error: {0}")]
     Parse(jstrict::parse::Error),
+}
+
+fn ld_json_mime() -> Mime {
+    static MIME: OnceLock<Mime> = OnceLock::new();
+    MIME.get_or_init(|| {
+        // SAFETY: `application/ld+json` is a valid MIME literal.
+        unsafe { "application/ld+json".parse().unwrap_unchecked() }
+    })
+    .clone()
 }
 
 /// File-system loader.
@@ -71,7 +82,9 @@ impl FsLoader {
 }
 
 impl Loader for FsLoader {
-    async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+    type Error = Error;
+
+    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         match self.filepath(url) {
             Some(filepath) => {
                 let file = File::open(filepath).map_err(|e| LoadError::new(url.into(), Error::IO(e)))?;
@@ -79,7 +92,7 @@ impl Loader for FsLoader {
                 let mut contents = String::new();
                 buf_reader.read_to_string(&mut contents).map_err(|e| LoadError::new(url.into(), Error::IO(e)))?;
                 let (doc, _) = jstrict::Value::parse_str(&contents).map_err(|e| LoadError::new(url.into(), Error::Parse(e)))?;
-                Ok(RemoteDocument::new(Some(url.into()), Some("application/ld+json".parse().unwrap()), doc))
+                Ok(RemoteDocument::new(Some(url.into()), Some(ld_json_mime()), doc))
             }
             None => Err(LoadError::new(url.into(), Error::NoMountPoint)),
         }

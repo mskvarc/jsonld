@@ -36,13 +36,15 @@ impl Compare for Value {
             (Self::Object(a), Self::Object(b)) => {
                 if a.len() == b.len() {
                     for entry in a {
-                        match b.get_unique(&*entry.key).expect("invalid JSON-LD") {
-                            Some(value) => {
+                        // Duplicate keys mean the document isn't valid JSON-LD;
+                        // treat as "not equal".
+                        match b.get_unique(&*entry.key) {
+                            Ok(Some(value)) => {
                                 if !entry.value.compare(value) {
                                     return false;
                                 }
                             }
-                            None => return false,
+                            Ok(None) | Err(_) => return false,
                         }
                     }
 

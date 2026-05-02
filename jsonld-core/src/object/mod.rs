@@ -135,26 +135,31 @@ impl<T, B> Object<T, B> {
     }
 
     /// Assigns an identifier to every node included in this object using the given `generator`.
-    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut V,
+        generator: &mut G,
+    ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
         V: VocabularyMut,
     {
         match self {
-            Object::Node(n) => n.identify_all_with(vocabulary, generator),
+            Object::Node(n) => n.identify_all_with(vocabulary, generator)?,
             Object::List(l) => {
                 for object in l {
-                    object.identify_all_with(vocabulary, generator)
+                    object.identify_all_with(vocabulary, generator)?
                 }
             }
             _ => (),
         }
+        Ok(())
     }
 
     /// Use the given `generator` to assign an identifier to all nodes that
     /// don't have one.
-    pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
+    pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
@@ -430,7 +435,8 @@ impl<T, B> Relabel<T, B> for Object<T, B> {
         vocabulary: &mut N,
         generator: &mut G,
         relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
-    ) where
+    ) -> Result<(), crate::id::GeneratedIdError>
+    where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
         N: VocabularyMut,
@@ -438,7 +444,7 @@ impl<T, B> Relabel<T, B> for Object<T, B> {
         match self {
             Self::Node(n) => n.relabel_with(vocabulary, generator, relabeling),
             Self::List(l) => l.relabel_with(vocabulary, generator, relabeling),
-            Self::Value(_) => (),
+            Self::Value(_) => Ok(()),
         }
     }
 }
@@ -851,6 +857,7 @@ pub enum InvalidExpandedJson {
     InvalidLiteral,
     InvalidLanguage,
     InvalidDirection,
+    InvalidLangString,
     NotExpanded,
     UnexpectedEntry,
     DuplicateKey(jstrict::object::Key),

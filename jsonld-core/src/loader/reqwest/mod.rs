@@ -1,5 +1,5 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
-use crate::{LoadError, LoadingResult, Profile};
+use crate::{LoadError, Profile};
 
 use super::{Loader, RemoteDocument};
 use crate::HashSet;
@@ -141,7 +141,9 @@ pub enum ParseError {
 }
 
 impl Loader for ReqwestLoader {
-    async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+    type Error = Error;
+
+    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         let mut redirection_number = 0;
         let mut url: IriBuf = url.into();
         'next_url: loop {
@@ -152,7 +154,7 @@ impl Loader for ReqwestLoader {
             log::debug!("downloading: {}", url);
             let request = self.options.client.get(url.as_str()).header(ACCEPT, &self.accept_header);
 
-            let response = request.send().await.map_err(|e| LoadError::new(url.clone(), e))?;
+            let response = request.send().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e)))?;
 
             match response.status() {
                 StatusCode::OK => {

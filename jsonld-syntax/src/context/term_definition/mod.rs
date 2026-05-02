@@ -180,11 +180,24 @@ impl Expanded {
 
     pub fn simplify(self) -> Nullable<TermDefinition> {
         if self.is_null() {
-            Nullable::Null
-        } else if self.is_simple_definition() {
-            Nullable::Some(TermDefinition::Simple(Simple(self.id.unwrap().unwrap().into_string())))
-        } else {
-            Nullable::Some(TermDefinition::Expanded(Box::new(self)))
+            return Nullable::Null;
+        }
+        match self {
+            Self {
+                id: Some(Nullable::Some(id)),
+                type_: None,
+                context: None,
+                reverse: None,
+                index: None,
+                language: None,
+                direction: None,
+                container: None,
+                nest: None,
+                prefix: None,
+                propagate: None,
+                protected: None,
+            } => Nullable::Some(TermDefinition::Simple(Simple(id.into_string()))),
+            other => Nullable::Some(TermDefinition::Expanded(Box::new(other))),
         }
     }
 

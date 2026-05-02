@@ -1,9 +1,7 @@
-use core::fmt;
-
-use crate::{LoadError, LoadErrorCause, LoadingResult};
+use crate::LoadError;
 use iri_rs::{Iri, IriBuf};
 
-use super::Loader;
+use super::{Loader, RemoteDocument};
 
 /// * [`ChainLoader`]: loads document from the first loader, otherwise falls back to the second one.
 ///
@@ -27,26 +25,31 @@ where
     L1: Loader,
     L2: Loader,
 {
-    async fn load(&self, url: Iri<&str>) -> LoadingResult<IriBuf> {
+    type Error = ChainError<L1::Error, L2::Error>;
+
+    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         match self.0.load(url).await {
             Ok(doc) => Ok(doc),
-            Err(LoadError { cause: e1, .. }) => match self.1.load(url).await {
+            Err(LoadError { source: e1, .. }) => match self.1.load(url).await {
                 Ok(doc) => Ok(doc),
-                Err(LoadError { target, cause: e2 }) => Err(LoadError::new(target, Error(e1, e2))),
+                Err(LoadError { target, source: e2 }) => Err(LoadError::new(target, ChainError::Both(e1, e2))),
             },
         }
     }
 }
 
-/// Either-or error.
-#[derive(Debug)]
-pub struct Error(pub LoadErrorCause, pub LoadErrorCause);
+/// Combined error from two chained loaders.
+#[derive(Debug, thiserror::Error)]
+pub enum ChainError<A, B> {
+    /// First loader failed; second loader was attempted.
+    #[error("first loader failed: {0}")]
+    First(A),
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Error(e1, e2) = self;
-        write!(f, "{e1}, then {e2}")
-    }
+    /// Second loader failed.
+    #[error("second loader failed: {0}")]
+    Second(B),
+
+    /// Both loaders failed.
+    #[error("both loaders failed: {0}, then {1}")]
+    Both(A, B),
 }
-
-impl std::error::Error for Error {}

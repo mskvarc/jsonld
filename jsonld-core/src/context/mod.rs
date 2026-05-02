@@ -19,6 +19,30 @@ pub use jsonld_syntax::context::{
 pub use definition::*;
 pub use inverse::InverseContext;
 
+/// Error returned when a context vocabulary is set to an invalid value.
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+pub enum InvalidVocab {
+    /// The vocabulary is a JSON-LD keyword.
+    #[error("vocabulary cannot be a keyword")]
+    Keyword,
+}
+
+/// Error returned when a context key cannot be expressed in syntax form.
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("invalid context key")]
+pub struct InvalidContextKey;
+
+/// Error returned by [`Context::into_syntax_definition`] and related
+/// conversions.
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+pub enum InvalidContextError {
+    #[error(transparent)]
+    InvalidVocab(#[from] InvalidVocab),
+
+    #[error(transparent)]
+    InvalidContextKey(#[from] InvalidContextKey),
+}
+
 /// Processed JSON-LD context.
 ///
 /// Represents the result of the [context processing algorithm][1] implemented
@@ -67,13 +91,16 @@ impl KeywordAliases {
         Self { aliases }
     }
 
-    /// Returns the cached alias for one of the 13 supported keywords. Returns
-    /// `None` for any other keyword (e.g. `@base`, `@context`, `@nest`,
-    /// `@prefix`, `@propagate`, `@protected`, `@import`, `@version`,
-    /// `@vocab`) — those are not used as compact output keys.
+    /// Returns the cached alias for the given keyword. For one of the 13
+    /// supported keywords, returns the alias selected during cache
+    /// initialization; for any other keyword returns its literal name
+    /// (e.g. `"@base"`).
     #[inline]
-    pub fn get(&self, k: Keyword) -> Option<&str> {
-        keyword_alias_index(k).map(|i| self.aliases[i].as_ref())
+    pub fn get(&self, k: Keyword) -> &str {
+        match keyword_alias_index(k) {
+            Some(i) => self.aliases[i].as_ref(),
+            None => k.into_str(),
+        }
     }
 }
 
@@ -433,16 +460,25 @@ impl<T, B> Context<T, B> {
     }
 
     /// Converts this context into its syntactic definition.
-    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> jsonld_syntax::context::Definition
+    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Definition, InvalidContextError>
     where
         T: Clone,
         B: Clone,
     {
         let (bindings, type_) = Arc::unwrap_or_clone(self.definitions).into_parts();
 
-        jsonld_syntax::context::Definition {
+        let vocab = match self.vocabulary {
+            Some(Term::Null) => Some(Nullable::Null),
+            Some(Term::Id(r)) => Some(Nullable::Some(r.with(vocabulary).to_string().into())),
+            Some(Term::Keyword(_)) => return Err(InvalidContextError::InvalidVocab(InvalidVocab::Keyword)),
+            None => None,
+        };
+
+        Ok(jsonld_syntax::context::Definition {
             base: self.base_iri.map(|i| {
-                let iri: iri_rs::IriBuf = vocabulary.iri(&i).unwrap().into();
+                // SAFETY: `i` was inserted into `vocabulary` when this context
+                // was built.
+                let iri: iri_rs::IriBuf = unsafe { vocabulary.iri(&i).unwrap_unchecked() }.into();
                 Nullable::Some(iri.into())
             }),
             import: None,
@@ -452,16 +488,12 @@ impl<T, B> Context<T, B> {
             protected: None,
             type_: type_.map(TypeTermDefinition::into_syntax_definition),
             version: None,
-            vocab: self.vocabulary.map(|v| match v {
-                Term::Null => Nullable::Null,
-                Term::Id(r) => Nullable::Some(r.with(vocabulary).to_string().into()),
-                Term::Keyword(_) => panic!("invalid vocab"),
-            }),
+            vocab,
             bindings: bindings
                 .into_iter()
-                .map(|(key, definition)| (key, definition.into_syntax_definition(vocabulary)))
-                .collect(),
-        }
+                .map(|(key, definition)| definition.into_syntax_definition(vocabulary).map(|d| (key, d)))
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Context<U, C>
@@ -496,18 +528,18 @@ impl<T, B> Context<T, B> {
 
 /// Context fragment to syntax method.
 pub trait IntoSyntax<T = IriBuf, B = BlankIdBuf> {
-    fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> jsonld_syntax::context::Context;
+    fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError>;
 }
 
 impl<T, B> IntoSyntax<T, B> for jsonld_syntax::context::Context {
-    fn into_syntax(self, _namespace: &impl Vocabulary<Iri = T, BlankId = B>) -> jsonld_syntax::context::Context {
-        self
+    fn into_syntax(self, _namespace: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError> {
+        Ok(self)
     }
 }
 
 impl<T: Clone, B: Clone> IntoSyntax<T, B> for Context<T, B> {
-    fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> jsonld_syntax::context::Context {
-        jsonld_syntax::context::Context::One(jsonld_syntax::ContextEntry::Definition(self.into_syntax_definition(vocabulary)))
+    fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError> {
+        Ok(jsonld_syntax::context::Context::One(jsonld_syntax::ContextEntry::Definition(self.into_syntax_definition(vocabulary)?)))
     }
 }
 

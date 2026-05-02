@@ -41,7 +41,7 @@ async fn compact_property_list<N, L>(
     active_context: &Context<N::Iri, N::BlankId>,
     loader: &L,
     options: Options,
-) -> Result<(), Error>
+) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -111,7 +111,7 @@ async fn compact_property_graph<N, L>(
     active_context: &Context<N::Iri, N::BlankId>,
     loader: &L,
     options: Options,
-) -> Result<(), Error>
+) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -119,25 +119,22 @@ where
     L: Loader,
 {
     // If expanded item is a graph object
+    // SAFETY: `compact_property_graph` is only invoked when `node.is_graph()`.
+    let graph = unsafe { node.graph().unwrap_unchecked() };
     let mut compacted_item =
-        Box::pin(
-            node.graph()
-                .unwrap()
-                .compact_fragment_full(vocabulary, active_context, active_context, Some(item_active_property), loader, options),
-        )
-        .await?;
+        Box::pin(graph.compact_fragment_full(vocabulary, active_context, active_context, Some(item_active_property), loader, options)).await?;
 
     // If `container` includes @graph and @id:
     if container.contains(ContainerKind::Graph) && container.contains(ContainerKind::Id) {
         // Initialize `map_object` to the value of `item_active_property`
         // in `nest_result`, initializing it to a new empty map,
         // if necessary.
-        if nest_result.get_unique(item_active_property).ok().unwrap().is_none() {
+        if nest_result.get_unique(item_active_property).map(|o| o.is_none()).unwrap_or(false) {
             nest_result.insert(item_active_property.into(), jsonld_syntax::Object::default().into());
         }
 
-        let map_object = nest_result.get_unique_mut(item_active_property).ok().unwrap().unwrap();
-        let map_object = map_object.as_object_mut().unwrap();
+        let map_object = unsafe { nest_result.get_unique_mut(item_active_property).ok().flatten().unwrap_unchecked() };
+        let map_object = unsafe { map_object.as_object_mut().unwrap_unchecked() };
 
         // Initialize `map_key` by IRI compacting the value of @id in
         // `expanded_item` or @none if no such value exists
@@ -148,7 +145,10 @@ where
             None => (Term::Keyword(Keyword::None), true),
         };
 
-        let map_key = compact_iri(vocabulary, active_context, &id_value, vocab, false, options)?.unwrap();
+        let map_key = match compact_iri(vocabulary, active_context, &id_value, vocab, false, options)? {
+            Some(arc) => arc,
+            None => return Err(Error::IriConfusedWithPrefix),
+        };
 
         // Use `add_value` to add `compacted_item` to
         // the `map_key` entry in `map_object` using `as_array`.
@@ -157,12 +157,12 @@ where
         // Initialize `map_object` to the value of `item_active_property`
         // in `nest_result`, initializing it to a new empty map,
         // if necessary.
-        if nest_result.get_unique(item_active_property).ok().unwrap().is_none() {
+        if nest_result.get_unique(item_active_property).map(|o| o.is_none()).unwrap_or(false) {
             nest_result.insert(item_active_property.into(), jsonld_syntax::Object::default().into());
         }
 
-        let map_object = nest_result.get_unique_mut(item_active_property).ok().unwrap().unwrap();
-        let map_object = map_object.as_object_mut().unwrap();
+        let map_object = unsafe { nest_result.get_unique_mut(item_active_property).ok().flatten().unwrap_unchecked() };
+        let map_object = unsafe { map_object.as_object_mut().unwrap_unchecked() };
 
         // Initialize `map_key` the value of @index in `expanded_item`
         // or @none, if no such value exists.
@@ -240,12 +240,12 @@ where
     Ok(())
 }
 
-fn select_nest_result<'a, I, B>(
+fn select_nest_result<'a, I, B, E>(
     result: &'a mut jstrict::Object,
     active_context: &Context<I, B>,
     item_active_property: &str,
     compact_arrays: bool,
-) -> Result<(&'a mut jstrict::Object, Container, bool), Error>
+) -> Result<(&'a mut jstrict::Object, Container, bool), Error<E>>
 where
     I: Clone + Hash + Eq,
     B: Clone + Hash + Eq,
@@ -267,15 +267,16 @@ where
 
                     // If result does not have a nest_term entry,
                     // initialize it to an empty map.
-                    if result.get_unique(nest_term.as_str()).ok().unwrap().is_none() {
+                    if result.get_unique(nest_term.as_str()).map(|o| o.is_none()).unwrap_or(false) {
                         result.insert(nest_term.as_str().into(), jstrict::Object::default().into());
                     }
 
                     // Initialize `nest_result` to the value of `nest_term` in result.
-                    let value = result.get_unique_mut(nest_term.as_str()).ok().unwrap().unwrap();
-                    let sub_object = value.as_object_mut().unwrap();
-                    sub_object
-                    // SubObject::Sub(result.get_mut(nest_term).unwrap().as_object_mut().unwrap())
+                    // SAFETY: just inserted above if not present.
+                    let value = unsafe { result.get_unique_mut(nest_term.as_str()).ok().flatten().unwrap_unchecked() };
+                    // SAFETY: we inserted an `Object` value above.
+                    unsafe { value.as_object_mut().unwrap_unchecked() }
+                    // SubObject::Sub(...)
                 }
                 None => {
                     // Otherwise, initialize `nest_result` to result.
@@ -316,7 +317,7 @@ pub async fn compact_property<'a, N, L, O, T>(
     loader: &L,
     inside_reverse: bool,
     options: Options,
-) -> Result<(), Error>
+) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -393,12 +394,12 @@ where
                         // Initialize `map_object` to the value of
                         // `item_active_property` in `nest_result`,
                         // initializing it to a new empty map, if necessary.
-                        if nest_result.get_unique(&*item_active_property).ok().unwrap().is_none() {
+                        if nest_result.get_unique(&*item_active_property).map(|o| o.is_none()).unwrap_or(false) {
                             nest_result.insert((&*item_active_property).into(), jstrict::Object::default().into());
                         }
 
-                        let map_object = nest_result.get_unique_mut(&*item_active_property).ok().unwrap().unwrap();
-                        let map_object = map_object.as_object_mut().unwrap();
+                        let map_object = unsafe { nest_result.get_unique_mut(&*item_active_property).ok().flatten().unwrap_unchecked() };
+                        let map_object = unsafe { map_object.as_object_mut().unwrap_unchecked() };
 
                         // Initialize container key by IRI compacting either
                         // @language, @index, @id, or @type based on the contents of container.
@@ -442,14 +443,15 @@ where
 
                                     // Reinitialize `container_key` by
                                     // IRI compacting `index_key`.
-                                    container_key = compact_iri(vocabulary, active_context, &Term::Id(Id::Invalid(index_key.to_string())), true, false, options)?
-                                        .expect("compact_iri for Id always yields a key")
-                                        .to_string();
+                                    container_key = match compact_iri(vocabulary, active_context, &Term::Id(Id::Invalid(index_key.to_string())), true, false, options)? {
+                                        Some(arc) => arc.to_string(),
+                                        None => return Err(Error::IriConfusedWithPrefix),
+                                    };
 
                                     // Set `map_key` to the first value of
                                     // `container_key` in `compacted_item`, if any.
                                     let (map_key, remaining_values) = match &mut compacted_item {
-                                        jstrict::Value::Object(map) => match map.remove_unique(container_key.as_str()).ok().unwrap() {
+                                        jstrict::Value::Object(map) => match map.remove_unique(container_key.as_str()).ok().flatten() {
                                             Some(entry) => match entry.value {
                                                 jstrict::Value::String(s) => (Some(s.to_string()), Vec::new()),
                                                 jstrict::Value::Array(values) => {
@@ -498,7 +500,7 @@ where
                                 .and_then(|map| {
                                     map.remove_unique(container_key.as_str())
                                         .ok()
-                                        .unwrap()
+                                        .flatten()
                                         .map(|entry| entry.value.as_str().map(ToOwned::to_owned))
                                 })
                                 .flatten()
@@ -508,7 +510,7 @@ where
                             // Set `map_key` to the first value of `container_key` in
                             // `compacted_item`, if any.
                             let (map_key, remaining_values) = match compacted_item.as_object_mut() {
-                                Some(map) => match map.remove_unique(container_key.as_str()).ok().unwrap() {
+                                Some(map) => match map.remove_unique(container_key.as_str()).ok().flatten() {
                                     Some(entry) => match entry.value {
                                         jstrict::Value::String(s) => (Some((*s).to_string()), Vec::new()),
                                         jstrict::Value::Array(values) => {
@@ -545,8 +547,11 @@ where
                             // `active_property`, and a map composed of the single
                             // entry for @id from `expanded_item` for `element`.
                             if let Some(map) = compacted_item.as_object() {
-                                if map.len() == 1 && map.get_unique("@id").ok().unwrap().is_some() {
-                                    let obj = Object::node(Node::with_id(expanded_item.id().unwrap().clone()));
+                                if map.len() == 1 && map.get_unique("@id").ok().flatten().is_some() {
+                                    // SAFETY: an `@id`-only map implies the expanded
+                                    // item has an `id`.
+                                    let id = unsafe { expanded_item.id().unwrap_unchecked() };
+                                    let obj = Object::node(Node::with_id(id.clone()));
                                     compacted_item = Box::pin(obj.compact_indexed_fragment(
                                         vocabulary,
                                         None,

@@ -30,3 +30,6 @@ mown = "1.0.0"
 parking_lot = "0.12.5"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 thiserror = "2.0.18"
+
+[lints]
+workspace = true

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 #![allow(dead_code)]
 
 use iri_rs::iri;

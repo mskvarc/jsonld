@@ -36,9 +36,10 @@ impl<B, N: BlankIdVocabulary<BlankId = B>> DisplayWithContext<N> for Warning<B> 
         match self {
             Self::MalformedIri(s) => write!(f, "malformed IRI `{s}`"),
             Self::EmptyTerm => write!(f, "empty term"),
-            Self::BlankNodeIdProperty(b) => {
-                write!(f, "blank node identifier `{}` used as property", vocabulary.blank_id(b).unwrap())
-            }
+            Self::BlankNodeIdProperty(b) => match vocabulary.blank_id(b) {
+                Some(s) => write!(f, "blank node identifier `{s}` used as property"),
+                None => f.write_str("blank node identifier `<unresolved blank>` used as property"),
+            },
             Self::MalformedLanguageTag(t, e) => write!(f, "invalid language tag `{t}`: {e}"),
         }
     }

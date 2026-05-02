@@ -144,53 +144,51 @@ impl<T, B> Node<T, B> {
 
     /// Assigns an identifier to this node and every other node included in this
     /// one using the given `generator`.
-    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut V,
+        generator: &mut G,
+    ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
         V: VocabularyMut,
     {
         if self.id.is_none() {
-            self.id = Some(crate::id::generator_next_id(vocabulary, generator).into())
+            self.id = Some(crate::id::generator_next_id(vocabulary, generator)?.into())
         }
 
         if let Some(graph) = self.graph_mut() {
-            *graph = std::mem::take(graph)
-                .into_iter()
-                .map(|mut o| {
-                    o.identify_all_with(vocabulary, generator);
-                    o
-                })
-                .collect();
+            for o in graph.iter_mut() {
+                o.identify_all_with(vocabulary, generator)?;
+            }
         }
 
         if let Some(included) = self.included_mut() {
-            *included = std::mem::take(included)
-                .into_iter()
-                .map(|mut n| {
-                    n.identify_all_with(vocabulary, generator);
-                    n
-                })
-                .collect();
+            for n in included.iter_mut() {
+                n.identify_all_with(vocabulary, generator)?;
+            }
         }
 
         for (_, objects) in self.properties_mut() {
             for object in objects {
-                object.identify_all_with(vocabulary, generator);
+                object.identify_all_with(vocabulary, generator)?;
             }
         }
 
         if let Some(reverse_properties) = self.reverse_properties_mut() {
             for (_, nodes) in reverse_properties.iter_mut() {
                 for node in nodes {
-                    node.identify_all_with(vocabulary, generator);
+                    node.identify_all_with(vocabulary, generator)?;
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-    pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
+    pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
@@ -431,7 +429,12 @@ impl<T, B> Node<T, B> {
     #[allow(clippy::result_large_err)]
     #[inline(always)]
     pub fn into_unnamed_graph(self) -> Result<Graph<T, B>, Self> {
-        if self.is_unnamed_graph() { Ok(self.graph.unwrap()) } else { Err(self) }
+        if self.is_unnamed_graph() {
+            // SAFETY: `is_unnamed_graph()` implies `self.graph` is `Some`.
+            Ok(unsafe { self.graph.unwrap_unchecked() })
+        } else {
+            Err(self)
+        }
     }
 
     pub fn traverse(&self) -> Traverse<'_, T, B> {
@@ -591,21 +594,22 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
         vocabulary: &mut N,
         generator: &mut G,
         relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
-    ) where
+    ) -> Result<(), crate::id::GeneratedIdError>
+    where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
         N: VocabularyMut,
     {
         self.id = match self.id.take() {
             Some(Id::Valid(ValidId::Blank(b))) => {
-                let value = relabeling
-                    .entry(b)
-                    .or_insert_with(|| crate::id::generator_next_id(vocabulary, generator))
-                    .clone();
+                let value = match relabeling.entry(b) {
+                    hashbrown::hash_map::Entry::Occupied(o) => o.get().clone(),
+                    hashbrown::hash_map::Entry::Vacant(v) => v.insert(crate::id::generator_next_id(vocabulary, generator)?).clone(),
+                };
                 Some(value.into())
             }
             None => {
-                let value = crate::id::generator_next_id(vocabulary, generator);
+                let value = crate::id::generator_next_id(vocabulary, generator)?;
                 Some(value.into())
             }
             id => id,
@@ -613,47 +617,41 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
 
         for ty in self.types_mut() {
             if let Some(b) = ty.as_blank().cloned() {
-                *ty = relabeling
-                    .entry(b)
-                    .or_insert_with(|| crate::id::generator_next_id(vocabulary, generator))
-                    .clone()
-                    .into();
+                let value = match relabeling.entry(b) {
+                    hashbrown::hash_map::Entry::Occupied(o) => o.get().clone(),
+                    hashbrown::hash_map::Entry::Vacant(v) => v.insert(crate::id::generator_next_id(vocabulary, generator)?).clone(),
+                };
+                *ty = value.into();
             }
         }
 
         if let Some(graph) = self.graph_mut() {
-            *graph = std::mem::take(graph)
-                .into_iter()
-                .map(|mut o| {
-                    o.relabel_with(vocabulary, generator, relabeling);
-                    o
-                })
-                .collect();
+            for o in graph.iter_mut() {
+                o.relabel_with(vocabulary, generator, relabeling)?;
+            }
         }
 
         if let Some(included) = self.included_mut() {
-            *included = std::mem::take(included)
-                .into_iter()
-                .map(|mut n| {
-                    n.relabel_with(vocabulary, generator, relabeling);
-                    n
-                })
-                .collect();
+            for n in included.iter_mut() {
+                n.relabel_with(vocabulary, generator, relabeling)?;
+            }
         }
 
         for (_, objects) in self.properties_mut() {
             for object in objects {
-                object.relabel_with(vocabulary, generator, relabeling);
+                object.relabel_with(vocabulary, generator, relabeling)?;
             }
         }
 
         if let Some(reverse_properties) = self.reverse_properties_mut() {
             for (_, nodes) in reverse_properties.iter_mut() {
                 for node in nodes {
-                    node.relabel_with(vocabulary, generator, relabeling);
+                    node.relabel_with(vocabulary, generator, relabeling)?;
                 }
             }
         }
+
+        Ok(())
     }
 }
 

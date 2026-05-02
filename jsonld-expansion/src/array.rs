@@ -53,7 +53,7 @@ pub(crate) async fn expand_array<'a, N, L, W>(
     options: Options,
     from_map: bool,
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
-) -> Result<Expanded<N::Iri, N::BlankId>, Error>
+) -> Result<Expanded<N::Iri, N::BlankId>, Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,

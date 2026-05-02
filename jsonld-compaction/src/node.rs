@@ -22,7 +22,7 @@ pub async fn compact_indexed_node_with<N, L>(
     active_property: Option<&str>,
     loader: &L,
     options: Options,
-) -> Result<jstrict::Value, Error>
+) -> Result<jstrict::Value, Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -77,10 +77,10 @@ where
             compacted_types.push(compacted_ty)
         }
 
-        compacted_types.sort_by(|a, b| a.as_ref().unwrap().cmp(b.as_ref().unwrap()));
+        compacted_types.sort_by(|a, b| a.as_deref().cmp(&b.as_deref()));
 
-        for term in &compacted_types {
-            if let Some(term_definition) = type_scoped_context.get(&**term.as_ref().unwrap()) {
+        for term in compacted_types.iter().flatten() {
+            if let Some(term_definition) = type_scoped_context.get(&**term) {
                 if let Some(local_context) = term_definition.context() {
                     let processing_options = ProcessingOptions::from(options).without_propagation();
                     active_context = Mown::Owned(
@@ -328,14 +328,14 @@ where
 }
 
 /// Compact the given list of types into the given `result` compacted object.
-fn compact_types<N>(
+fn compact_types<N, E>(
     vocabulary: &mut N,
     result: &mut jstrict::Object,
     types: Option<&[Id<N::Iri, N::BlankId>]>,
     active_context: &Context<N::Iri, N::BlankId>,
     type_scoped_context: &Context<N::Iri, N::BlankId>,
     options: Options,
-) -> Result<(), Error>
+) -> Result<(), Error<E>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,

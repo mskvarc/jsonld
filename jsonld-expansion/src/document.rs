@@ -16,7 +16,7 @@ pub(crate) async fn expand<'a, N, L, W>(
     active_context: Context<N::Iri, N::BlankId>,
     base_url: Option<&'a N::Iri>,
     options: Options,
-) -> Result<ExpandedDocument<N::Iri, N::BlankId>, Error>
+) -> Result<ExpandedDocument<N::Iri, N::BlankId>, Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
@@ -26,7 +26,10 @@ where
 {
     let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
     if expanded.len() == 1 {
-        let obj = expanded.into_iter().next().unwrap();
+        let obj = match expanded.into_iter().next() {
+            Some(o) => o,
+            None => return Err(Error::EmptyExpansion),
+        };
         match obj.into_unnamed_graph() {
             Ok(graph) => Ok(ExpandedDocument::from(graph)),
             Err(obj) => {

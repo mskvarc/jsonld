@@ -590,7 +590,8 @@ impl<T, N: IriVocabulary<Iri = T>> IntoJsonWithContext<N> for Value<T> {
         let value = match self {
             Self::Literal(lit, ty) => {
                 if let Some(ty) = ty {
-                    obj.insert("@type".into(), vocabulary.iri(&ty).unwrap().as_str().into());
+                    let ty_str = vocabulary.iri(&ty).map(|i| i.into_inner()).unwrap_or("<unresolved iri>");
+                    obj.insert("@type".into(), ty_str.into());
                 }
 
                 lit.into_json()

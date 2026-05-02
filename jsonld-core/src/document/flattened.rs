@@ -13,15 +13,20 @@ pub type FlattenedDocument<T, B> = Vec<IndexedNode<T, B>>;
 
 impl<T, B> IdentifyAll<T, B> for FlattenedDocument<T, B> {
     #[inline(always)]
-    fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut V,
+        generator: &mut G,
+    ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
         V: VocabularyMut,
     {
         for node in self {
-            node.identify_all_with(vocabulary, generator)
+            node.identify_all_with(vocabulary, generator)?
         }
+        Ok(())
     }
 }
 
@@ -31,14 +36,16 @@ impl<T, B> Relabel<T, B> for FlattenedDocument<T, B> {
         vocabulary: &mut N,
         generator: &mut G,
         relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
-    ) where
+    ) -> Result<(), crate::id::GeneratedIdError>
+    where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
         N: VocabularyMut,
     {
         for node in self {
-            node.relabel_with(vocabulary, generator, relabeling)
+            node.relabel_with(vocabulary, generator, relabeling)?
         }
+        Ok(())
     }
 }
 

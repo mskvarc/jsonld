@@ -16,6 +16,7 @@ pub use try_from_json::InvalidContext;
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(clippy::large_enum_variant)]
 pub enum Context {
     One(ContextEntry),
     Many(Vec<ContextEntry>),

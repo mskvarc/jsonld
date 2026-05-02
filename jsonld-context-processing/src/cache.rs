@@ -119,7 +119,8 @@ where
 
     // Local context content hash: stream Print output into the hasher
     // instead of materializing it as a `String`.
-    write!(HashWriter(&mut hasher), "{}", local_context.pretty_print()).expect("hashing pretty_print output should not fail");
+    // SAFETY: `HashWriter`'s `fmt::Write` impl is infallible — it cannot fail.
+    let _ = write!(HashWriter(&mut hasher), "{}", local_context.pretty_print());
 
     base_url.hash(&mut hasher);
 

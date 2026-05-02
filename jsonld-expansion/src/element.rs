@@ -71,7 +71,7 @@ impl<'a> PartialEq<Keyword> for ActiveProperty<'a> {
 }
 
 /// Result of the expansion of a single element in a JSON-LD document.
-pub(crate) type ElementExpansionResult<T, B> = Result<Expanded<T, B>, Error>;
+pub(crate) type ElementExpansionResult<T, B, E> = Result<Expanded<T, B>, Error<E>>;
 
 /// Expand an element.
 ///
@@ -87,7 +87,7 @@ pub(crate) async fn expand_element<'a, N, L, W>(
     options: Options,
     from_map: bool,
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
-) -> ElementExpansionResult<N::Iri, N::BlankId>
+) -> ElementExpansionResult<N::Iri, N::BlankId, L::Error>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
@@ -116,7 +116,8 @@ where
     };
 
     match element {
-        Value::Null => unreachable!(),
+        // Early-returned above; preserve the match exhaustiveness without panic.
+        Value::Null => Ok(Expanded::Null),
         Value::Array(element) => {
             expand_array(
                 env,
@@ -150,8 +151,9 @@ where
                     }
                 }
                 if !has_value_entry && !(element.len() == 1 && has_id_entry) {
-                    let previous_context = active_context.previous_context().unwrap().clone();
-                    active_context = Mown::Owned(previous_context);
+                    if let Some(previous_context) = active_context.previous_context() {
+                        active_context = Mown::Owned(previous_context.clone());
+                    }
                 }
             }
 
@@ -503,7 +505,7 @@ where
                 options.policy.vocab,
                 active_context.as_ref(),
                 active_property,
-                LiteralValue::Given(GivenLiteralValue::new(element)),
+                LiteralValue::Given(GivenLiteralValue::new(element)?),
             )?))
         }
     }

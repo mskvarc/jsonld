@@ -2,12 +2,12 @@ use jsonld_context_processing::algorithm::RejectVocab;
 use jsonld_syntax::ErrorCode;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum Error<E = std::convert::Infallible> {
     #[error("Invalid context: {0}")]
     ContextSyntax(#[from] jsonld_syntax::context::InvalidContext),
 
     #[error("Context processing failed: {0}")]
-    ContextProcessing(jsonld_context_processing::Error),
+    ContextProcessing(jsonld_context_processing::Error<E>),
 
     #[error("Invalid `@index` value")]
     InvalidIndexValue,
@@ -56,15 +56,21 @@ pub enum Error {
 
     #[error("Forbidden use of `@vocab`")]
     ForbiddenVocab,
+
+    #[error("IRI expansion produced no result")]
+    IdExpansionEmpty,
+
+    #[error("Empty expansion result")]
+    EmptyExpansion,
 }
 
-impl From<RejectVocab> for Error {
+impl<E> From<RejectVocab> for Error<E> {
     fn from(_value: RejectVocab) -> Self {
         Self::ForbiddenVocab
     }
 }
 
-impl Error {
+impl<E> Error<E> {
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::ContextSyntax(e) => e.code(),
@@ -85,30 +91,38 @@ impl Error {
             Self::Literal(e) => e.code(),
             Self::Value(e) => e.code(),
             Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
+            Self::IdExpansionEmpty => ErrorCode::InvalidIdValue,
+            Self::EmptyExpansion => ErrorCode::InvalidIdValue,
         }
     }
 }
 
-impl Error {
+impl<E> Error<E> {
     pub fn duplicate_key_ref(jstrict::object::Duplicate(a, _b): jstrict::object::Duplicate<&jstrict::object::Entry>) -> Self {
         Self::DuplicateKey(a.key.clone())
     }
 }
 
-impl From<jsonld_context_processing::Error> for Error {
-    fn from(e: jsonld_context_processing::Error) -> Self {
+impl<E> From<jsonld_context_processing::Error<E>> for Error<E> {
+    fn from(e: jsonld_context_processing::Error<E>) -> Self {
         Self::ContextProcessing(e)
     }
 }
 
-impl From<crate::LiteralExpansionError> for Error {
+impl<E> From<crate::LiteralExpansionError> for Error<E> {
     fn from(e: crate::LiteralExpansionError) -> Self {
         Self::Literal(e)
     }
 }
 
-impl From<crate::InvalidValue> for Error {
+impl<E> From<crate::InvalidValue> for Error<E> {
     fn from(e: crate::InvalidValue) -> Self {
         Self::Value(e)
+    }
+}
+
+impl<E> From<crate::literal::NotALiteral> for Error<E> {
+    fn from(e: crate::literal::NotALiteral) -> Self {
+        Self::Literal(crate::LiteralExpansionError::NotALiteral(e))
     }
 }

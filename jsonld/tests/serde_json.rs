@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 #![cfg(feature = "serde_json")]
 
 use iri_rs::{IriBuf, iri};

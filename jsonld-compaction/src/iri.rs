@@ -19,6 +19,8 @@ use rdf_rs::vocabulary::Vocabulary;
 use smallvec::SmallVec;
 use std::{hash::Hash, sync::Arc};
 
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("IRI confused with prefix")]
 pub struct IriConfusedWithPrefix;
 
 /// Does `key:suffix` beat `current` under the (length, lex) ordering used by
@@ -96,7 +98,7 @@ where
         });
         KeywordAliases::new(arr)
     });
-    aliases.get(k).expect("keyword must be in CACHED_KEYWORDS")
+    aliases.get(k)
 }
 
 /// Compact the given term considering the given value object.
@@ -207,7 +209,7 @@ where
 
                                 if common_type.is_none() {
                                     common_type = Some(item_type)
-                                } else if *common_type.as_ref().unwrap() != item_type {
+                                } else if common_type.as_ref().is_some_and(|t| *t != item_type) {
                                     common_type = Some(None)
                                 }
 
@@ -217,15 +219,8 @@ where
                             }
                         }
 
-                        if common_lang_dir.is_none() {
-                            common_lang_dir = Some(Nullable::Some((None, None)))
-                        }
-                        let common_lang_dir = common_lang_dir.unwrap();
-
-                        if common_type.is_none() {
-                            common_type = Some(None)
-                        }
-                        let common_type = common_type.unwrap();
+                        let common_lang_dir = common_lang_dir.unwrap_or(Nullable::Some((None, None)));
+                        let common_type = common_type.unwrap_or(None);
 
                         if let Some(common_type) = common_type {
                             type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
@@ -342,10 +337,11 @@ where
                                 if type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse {
                                     has_id_type = true;
                                     let mut vocab = false;
-                                    let compacted_iri = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)?.unwrap();
-                                    if let Some(def) = active_context.get(&*compacted_iri) {
-                                        if let Some(iri_mapping) = def.value() {
-                                            vocab = iri_mapping == id;
+                                    if let Some(compacted_iri) = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)? {
+                                        if let Some(def) = active_context.get(&*compacted_iri) {
+                                            if let Some(iri_mapping) = def.value() {
+                                                vocab = iri_mapping == id;
+                                            }
                                         }
                                     }
 
@@ -480,9 +476,10 @@ where
     // and var has no IRI authority (preceded by double-forward-slash (//),
     // an IRI confused with prefix error has been detected, and processing is aborted.
     if let Some(iri) = var.as_iri() {
-        let iri = vocabulary.iri(iri).unwrap();
-        if active_context.contains_term(iri.scheme()) {
-            return Err(IriConfusedWithPrefix);
+        if let Some(iri) = vocabulary.iri(iri) {
+            if active_context.contains_term(iri.scheme()) {
+                return Err(IriConfusedWithPrefix);
+            }
         }
     }
 
@@ -491,8 +488,14 @@ where
     if !vocab {
         if let Some(base_iri) = active_context.base_iri() {
             if let Some(iri) = var.as_iri() {
-                let iri = vocabulary.iri(iri).unwrap();
-                let base = vocabulary.iri(base_iri).unwrap();
+                let iri = match vocabulary.iri(iri) {
+                    Some(i) => i,
+                    None => return Ok(None),
+                };
+                let base = match vocabulary.iri(base_iri) {
+                    Some(b) => b,
+                    None => return Ok(None),
+                };
                 let rel = iri.relative_to(&base);
                 let s = rel.as_str();
                 // RFC 3986 relativization yields "" when target equals base;

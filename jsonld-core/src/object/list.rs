@@ -117,14 +117,16 @@ impl<T, B> Relabel<T, B> for List<T, B> {
         vocabulary: &mut N,
         generator: &mut G,
         relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
-    ) where
+    ) -> Result<(), crate::id::GeneratedIdError>
+    where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
         N: VocabularyMut,
     {
         for object in self {
-            object.relabel_with(vocabulary, generator, relabeling)
+            object.relabel_with(vocabulary, generator, relabeling)?
         }
+        Ok(())
     }
 }
 

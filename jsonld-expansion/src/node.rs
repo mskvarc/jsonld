@@ -63,7 +63,7 @@ pub(crate) async fn expand_node<'a, N, L, W>(
     base_url: Option<&'a N::Iri>,
     options: Options,
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
-) -> Result<Option<Indexed<Node<N::Iri, N::BlankId>>>, Error>
+) -> Result<Option<Indexed<Node<N::Iri, N::BlankId>>>, Error<L::Error>>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
@@ -129,7 +129,7 @@ where
 type ExpandedNode<T, B> = (Indexed<Node<T, B>>, bool);
 
 /// Result of the `expand_node_entries` function.
-type NodeEntriesExpensionResult<T, B> = Result<ExpandedNode<T, B>, Error>;
+type NodeEntriesExpensionResult<T, B, E> = Result<ExpandedNode<T, B>, Error<E>>;
 
 #[allow(clippy::too_many_arguments)]
 async fn expand_node_entries<'a, N, L, W>(
@@ -143,7 +143,7 @@ async fn expand_node_entries<'a, N, L, W>(
     base_url: Option<&'a N::Iri>,
     options: Options,
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
-) -> NodeEntriesExpensionResult<N::Iri, N::BlankId>
+) -> NodeEntriesExpensionResult<N::Iri, N::BlankId, L::Error>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
@@ -806,10 +806,13 @@ where
                                                 false,
                                                 Some(options.policy.vocab),
                                             )? {
-                                                Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => match Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()) {
-                                                    Term::Id(prop) => prop,
-                                                    _ => unreachable!(),
-                                                },
+                                                Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
+                                                    match Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()) {
+                                                        Term::Id(prop) => prop,
+                                                        // Already filtered above; skip just in case.
+                                                        _ => continue,
+                                                    }
+                                                }
                                                 _ => continue,
                                             };
 
@@ -849,12 +852,14 @@ where
                                             // of expanded index followed by any existing
                                             // values of @type in item. Add the key-value
                                             // pair (@type-types) to item.
-                                            if let Ok(typ) = expanded_index.clone().unwrap().try_into() {
-                                                if let Object::Node(ref mut node) = *item {
-                                                    node.types_mut_or_default().insert(0, typ);
+                                            if let Some(ei) = expanded_index.as_ref() {
+                                                if let Ok(typ) = ei.clone().try_into() {
+                                                    if let Object::Node(ref mut node) = *item {
+                                                        node.types_mut_or_default().insert(0, typ);
+                                                    }
+                                                } else {
+                                                    return Err(Error::InvalidTypeValue);
                                                 }
-                                            } else {
-                                                return Err(Error::InvalidTypeValue);
                                             }
                                         }
                                     }

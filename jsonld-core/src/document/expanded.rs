@@ -74,7 +74,11 @@ impl<T, B> ExpandedDocument<T, B> {
     /// Give an identifier (`@id`) to every nodes using the given generator to
     /// generate fresh identifiers for anonymous nodes.
     #[inline(always)]
-    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut V,
+        generator: &mut G,
+    ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
@@ -82,15 +86,16 @@ impl<T, B> ExpandedDocument<T, B> {
     {
         let objects = std::mem::take(&mut self.0);
         for mut object in objects {
-            object.identify_all_with(vocabulary, generator);
+            object.identify_all_with(vocabulary, generator)?;
             self.0.insert(object);
         }
+        Ok(())
     }
 
     /// Give an identifier (`@id`) to every nodes using the given generator to
     /// generate fresh identifiers for anonymous nodes.
     #[inline(always)]
-    pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G)
+    pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
@@ -103,7 +108,11 @@ impl<T, B> ExpandedDocument<T, B> {
     /// literals using the given generator to generate fresh identifiers for
     /// anonymous nodes.
     #[inline(always)]
-    pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut V,
+        generator: &mut G,
+    ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
@@ -113,17 +122,18 @@ impl<T, B> ExpandedDocument<T, B> {
         let mut relabeling = HashMap::new();
         let mut buffer = ryu_js::Buffer::new();
         for mut object in objects {
-            object.relabel_with(vocabulary, generator, &mut relabeling);
+            object.relabel_with(vocabulary, generator, &mut relabeling)?;
             object.canonicalize_with(&mut buffer);
             self.0.insert(object);
         }
+        Ok(())
     }
 
     /// Give an identifier (`@id`) to every nodes and canonicalize every
     /// literals using the given generator to generate fresh identifiers for
     /// anonymous nodes.
     #[inline(always)]
-    pub fn relabel_and_canonicalize<G: LocalGenerator>(&mut self, generator: &mut G)
+    pub fn relabel_and_canonicalize<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
@@ -134,7 +144,11 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Relabels nodes.
     #[inline(always)]
-    pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G)
+    pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut V,
+        generator: &mut G,
+    ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
@@ -143,14 +157,15 @@ impl<T, B> ExpandedDocument<T, B> {
         let objects = std::mem::take(&mut self.0);
         let mut relabeling = HashMap::new();
         for mut object in objects {
-            object.relabel_with(vocabulary, generator, &mut relabeling);
+            object.relabel_with(vocabulary, generator, &mut relabeling)?;
             self.0.insert(object);
         }
+        Ok(())
     }
 
     /// Relabels nodes.
     #[inline(always)]
-    pub fn relabel<G: LocalGenerator>(&mut self, generator: &mut G)
+    pub fn relabel<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,

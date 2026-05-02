@@ -22,7 +22,8 @@ fn static_datatype(iri: iri_rs::Iri<&'static str>) -> rdf_rs::Datatype {
 
 /// Build a [`rdf_rs::Datatype`] from a vocabulary handle.
 fn datatype_of<V: rdf_rs::vocabulary::IriVocabulary>(vocabulary: &V, iri: &V::Iri) -> rdf_rs::Datatype {
-    let buf = IriBuf::from(vocabulary.iri(iri).unwrap());
+    // SAFETY: `iri` was obtained from `vocabulary`.
+    let buf = IriBuf::from(unsafe { vocabulary.iri(iri).unwrap_unchecked() });
     rdf_rs::Datatype::new(buf).unwrap_or_else(|e| unsafe { rdf_rs::Datatype::new_unchecked(e.into_iri()) })
 }
 
@@ -112,7 +113,9 @@ impl<T: Clone> crate::object::Value<T> {
                             })
                         }
                         Some(RdfDirection::CompoundLiteral) => {
-                            let id = crate::id::generator_next_id(vocabulary, generator);
+                            // SAFETY: caller-supplied generators in this codebase only emit
+                            // blank ids or IRIs.
+                            let id = unsafe { crate::id::generator_next_id_unchecked(vocabulary, generator) };
                             Some(CompoundLiteral {
                                 value: Value::from_id(id),
                                 triples: None,
@@ -154,7 +157,7 @@ impl<T: Clone> crate::object::Value<T> {
                     }
                     value::Literal::Null => ("null".to_string(), None),
                     value::Literal::Number(n) => {
-                        if n.is_i64() && !ty.as_ref().map(|t| vocabulary.iri(t).unwrap() == XSD_DOUBLE).unwrap_or(false) {
+                        if n.is_i64() && !ty.as_ref().and_then(|t| vocabulary.iri(t)).map(|i| i == XSD_DOUBLE).unwrap_or(false) {
                             (n.to_string(), Some(static_datatype(XSD_INTEGER)))
                         } else {
                             (pretty_dtoa::dtoa(n.as_f64_lossy(), XSD_CANONICAL_FLOAT), Some(static_datatype(XSD_DOUBLE)))
@@ -212,7 +215,9 @@ impl<T: Clone, B: Clone> Object<T, B> {
                         triples: None,
                     })
                 } else {
-                    let id = crate::id::generator_next_id(vocabulary, generator);
+                    // SAFETY: caller-supplied generators in this codebase only emit
+                    // blank ids or IRIs.
+                    let id = unsafe { crate::id::generator_next_id_unchecked(vocabulary, generator) };
                     Some(CompoundValue {
                         value: Value::from_id(id.clone()),
                         triples: Some(CompoundValueTriples::List(ListTriples::new(list.as_slice(), id))),
@@ -285,13 +290,16 @@ impl<'a, T, B> NestedListTriples<'a, T, B> {
         if let Some(next) = self.iter.next() {
             let id = match self.head_ref.take() {
                 Some(id) => id,
-                None => crate::id::generator_next_id(vocabulary, generator),
+                // SAFETY: caller-supplied generators in this codebase only emit
+                // blank ids or IRIs.
+                None => unsafe { crate::id::generator_next_id_unchecked(vocabulary, generator) },
             };
 
             self.previous = Some(id);
+            // SAFETY: just assigned `Some` above.
             Some(ListNode {
                 object: next,
-                id: self.previous.as_ref().unwrap(),
+                id: unsafe { self.previous.as_ref().unwrap_unchecked() },
             })
         } else {
             None
@@ -479,7 +487,8 @@ fn i18n(language: Option<LangTagBuf>, direction: Direction) -> IriBuf {
         None => format!("https://www.w3.org/ns/i18n#{direction}"),
     };
 
-    IriBuf::new(iri).unwrap()
+    // SAFETY: built from constants and a parsed `LangTag` / `Direction`.
+    unsafe { IriBuf::new(iri).unwrap_unchecked() }
 }
 
 /// RDF object value: either a node identifier or a literal handle.

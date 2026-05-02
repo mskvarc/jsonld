@@ -27,28 +27,28 @@ where
     V::Iri: Clone,
     V::BlankId: Clone + Hash + Eq,
 {
-    pub fn assign(&mut self, blank_id: V::BlankId) -> ValidId<V::Iri, V::BlankId> {
+    pub fn assign(&mut self, blank_id: V::BlankId) -> Result<ValidId<V::Iri, V::BlankId>, crate::id::GeneratedIdError> {
         use std::collections::hash_map::Entry;
         match self.map.entry(blank_id) {
-            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Occupied(entry) => Ok(entry.get().clone()),
             Entry::Vacant(entry) => {
-                let id = crate::id::generator_next_id(self.vocabulary, &mut self.generator);
+                let id = crate::id::generator_next_id(self.vocabulary, &mut self.generator)?;
                 entry.insert(id.clone());
-                id
+                Ok(id)
             }
         }
     }
 
-    pub fn assign_node_id(&mut self, r: Option<&VocabularyId<V>>) -> Id<V::Iri, V::BlankId> {
+    pub fn assign_node_id(&mut self, r: Option<&VocabularyId<V>>) -> Result<Id<V::Iri, V::BlankId>, crate::id::GeneratedIdError> {
         match r {
-            Some(Id::Valid(ValidId::Blank(id))) => self.assign(id.clone()).into(),
-            Some(r) => r.clone(),
-            None => self.next().into(),
+            Some(Id::Valid(ValidId::Blank(id))) => Ok(self.assign(id.clone())?.into()),
+            Some(r) => Ok(r.clone()),
+            None => Ok(self.next()?.into()),
         }
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> ValidId<V::Iri, V::BlankId> {
+    pub fn next(&mut self) -> Result<ValidId<V::Iri, V::BlankId>, crate::id::GeneratedIdError> {
         crate::id::generator_next_id(self.vocabulary, &mut self.generator)
     }
 }

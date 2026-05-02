@@ -31,3 +31,6 @@ jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git", features = [
     "derive",
 ] }
+
+[lints]
+workspace = true

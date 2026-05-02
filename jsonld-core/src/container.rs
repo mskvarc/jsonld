@@ -1,6 +1,8 @@
 pub use jsonld_syntax::ContainerKind;
 use jsonld_syntax::{Nullable, context::definition::TypeContainer};
 
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("invalid container")]
 pub struct InvalidContainer;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

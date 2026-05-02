@@ -1,5 +1,10 @@
 use std::fmt;
 
+/// Error returned by [`Nullable::try_unwrap`] when the value is `null`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("nullable value was null")]
+pub struct NullError;
+
 /// Value that can be null.
 ///
 /// The `Option` type is used in this crate to indicate values that
@@ -29,14 +34,12 @@ impl<T> Nullable<T> {
         matches!(self, Nullable::Some(_))
     }
 
-    /// Unwraps a non-null value.
-    ///
-    /// Panics if the value is `null`.
+    /// Returns the inner value, or [`NullError`] if `null`.
     #[inline(always)]
-    pub fn unwrap(self) -> T {
+    pub fn try_unwrap(self) -> Result<T, NullError> {
         match self {
-            Nullable::Some(t) => t,
-            Nullable::Null => panic!("cannot unwrap null"),
+            Nullable::Some(t) => Ok(t),
+            Nullable::Null => Err(NullError),
         }
     }
 

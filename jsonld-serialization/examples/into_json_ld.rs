@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 use contextual::WithContext;
 use jstrict::Print;
 use jsonld_serialization::serialize;

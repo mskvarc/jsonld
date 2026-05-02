@@ -412,8 +412,8 @@ fn parse_enum_type(
 
 enum Error {
     Parse(syn::Error),
-    Load(LoadError),
-    Expand(jsonld::expansion::Error),
+    Load(LoadError<jsonld::loader::fs::Error>),
+    Expand(jsonld::expansion::Error<jsonld::loader::fs::Error>),
     InvalidIri(String),
     InvalidValue(Type, IndexTerm),
     InvalidTypeField,
@@ -463,7 +463,7 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
     let mut expanded_json_ld: jsonld::ExpandedDocument<IriIndex, BlankIdIndex> = json_ld.expand_with(vocabulary, &loader).await.map_err(Error::Expand)?;
 
     let mut generator = rdf_rs::generator::Blank::new();
-    expanded_json_ld.identify_all_with(vocabulary, &mut generator);
+    let _ = expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
     let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);
     let dataset: IndexedBTreeDataset<IndexTerm> = rdf_quads.map(quad_to_owned).collect();

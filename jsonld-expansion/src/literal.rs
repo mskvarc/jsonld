@@ -11,13 +11,17 @@ pub(crate) enum GivenLiteralValue<'a> {
     String(&'a str),
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("not a literal value")]
+pub struct NotALiteral;
+
 impl<'a> GivenLiteralValue<'a> {
-    pub fn new(value: &'a jstrict::Value) -> Self {
+    pub fn new(value: &'a jstrict::Value) -> Result<Self, NotALiteral> {
         match value {
-            jstrict::Value::Boolean(b) => Self::Boolean(*b),
-            jstrict::Value::Number(n) => Self::Number(n),
-            jstrict::Value::String(s) => Self::String(s),
-            _ => panic!("not a literal value"),
+            jstrict::Value::Boolean(b) => Ok(Self::Boolean(*b)),
+            jstrict::Value::Number(n) => Ok(Self::Number(n)),
+            jstrict::Value::String(s) => Ok(Self::String(s)),
+            _ => Err(NotALiteral),
         }
     }
 
@@ -63,6 +67,12 @@ pub enum LiteralExpansionError {
 
     #[error("Forbidden use of `@vocab`")]
     ForbiddenVocab,
+
+    #[error("IRI expansion produced no result")]
+    IdExpansionEmpty,
+
+    #[error(transparent)]
+    NotALiteral(#[from] NotALiteral),
 }
 
 impl LiteralExpansionError {
@@ -70,6 +80,8 @@ impl LiteralExpansionError {
         match self {
             Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
             Self::ForbiddenVocab => ErrorCode::InvalidTypeValue,
+            Self::IdExpansionEmpty => ErrorCode::InvalidIdValue,
+            Self::NotALiteral(_) => ErrorCode::InvalidValueObject,
         }
     }
 }
@@ -110,14 +122,14 @@ where
         // the value is the result of IRI expanding `value` using `true` for `document_relative` and
         // `false` for vocab.
         Some(Type::Id) if value.is_string() => {
+            // SAFETY: `value.is_string()` was just checked.
+            let s = unsafe { value.as_str().unwrap_unchecked() };
             let mut node = Node::new();
-            let id = node_id_of_term(
-                expand_iri(&mut env, active_context, Nullable::Some(value.as_str().unwrap().into()), true, None)
-                    .unwrap()
-                    .unwrap(),
-            );
-
-            node.id = id;
+            let id_term = match expand_iri(&mut env, active_context, Nullable::Some(s.into()), true, None)? {
+                Some(t) => t,
+                None => return Err(LiteralExpansionError::IdExpansionEmpty),
+            };
+            node.id = node_id_of_term(id_term);
             Ok(Object::node(node).into())
         }
 
@@ -126,15 +138,11 @@ where
         // `@id` and the value is the result of IRI expanding `value` using `true` for
         // document relative.
         Some(Type::Vocab) if value.is_string() => {
+            // SAFETY: `value.is_string()` was just checked.
+            let s = unsafe { value.as_str().unwrap_unchecked() };
             let mut node = Node::new();
 
-            let ty = expand_iri(
-                &mut env,
-                active_context,
-                Nullable::Some(value.as_str().unwrap().into()),
-                true,
-                Some(vocab_policy),
-            )?;
+            let ty = expand_iri(&mut env, active_context, Nullable::Some(s.into()), true, Some(vocab_policy))?;
 
             if let Some(ty) = ty {
                 let id = node_id_of_term(ty);
@@ -196,7 +204,7 @@ where
                         // value `direction`.
                         return match LangString::new(s, language, direction) {
                             Ok(lang_str) => Ok(Object::Value(Value::LangString(lang_str)).into()),
-                            Err(s) => Ok(Object::Value(Value::Literal(Literal::String(s), None)).into()),
+                            Err(jsonld_core::InvalidLangString(s)) => Ok(Object::Value(Value::Literal(Literal::String(s), None)).into()),
                         };
                     }
                 }

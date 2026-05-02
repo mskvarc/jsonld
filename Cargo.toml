@@ -26,6 +26,14 @@ repository = "https://github.com/mskvarc/jsonld/"
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 categories = ["web-programming", "database", "data-structures"]
 
+[workspace.lints.clippy]
+unwrap_used    = "deny"
+expect_used    = "deny"
+panic          = "deny"
+unreachable    = "deny"
+todo           = "deny"
+unimplemented  = "deny"
+
 [workspace.dependencies]
 jsonld = { path = "jsonld", version = "0.22.0" }
 jsonld-compaction = { path = "jsonld-compaction", version = "0.22.0" }

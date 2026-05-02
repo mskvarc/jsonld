@@ -53,7 +53,7 @@ pub(crate) use node::*;
 pub(crate) use value::*;
 
 /// Result of the document expansion.
-pub type ExpansionResult<T, B> = Result<ExpandedDocument<T, B>, Error>;
+pub type ExpansionResult<T, B, E> = Result<ExpandedDocument<T, B>, Error<E>>;
 
 /// Handler for the possible warnings emitted during the expansion
 /// of a JSON-LD document.
@@ -134,7 +134,7 @@ pub trait Expand<Iri> {
         loader: &L,
         options: Options,
         warnings_handler: W,
-    ) -> ExpansionResult<N::Iri, N::BlankId>
+    ) -> ExpansionResult<N::Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
@@ -150,7 +150,7 @@ pub trait Expand<Iri> {
     /// The expansion algorithm is called with an empty initial context with
     /// a base URL given by [`Expand::default_base_url`].
     #[allow(async_fn_in_trait)]
-    async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId>
+    async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: 'a + Clone + Eq + Hash,
@@ -175,7 +175,7 @@ pub trait Expand<Iri> {
     /// The expansion algorithm is called with an empty initial context with
     /// a base URL given by [`Expand::default_base_url`].
     #[allow(async_fn_in_trait)]
-    async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf>
+    async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
         Iri: 'a + Clone + Eq + Hash,
@@ -199,7 +199,7 @@ impl<Iri> Expand<Iri> for Value {
         loader: &L,
         options: Options,
         mut warnings_handler: W,
-    ) -> ExpansionResult<Iri, N::BlankId>
+    ) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
@@ -239,7 +239,7 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
         loader: &L,
         options: Options,
         warnings_handler: W,
-    ) -> ExpansionResult<Iri, N::BlankId>
+    ) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,

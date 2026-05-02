@@ -20,16 +20,56 @@ pub struct LangString {
 }
 
 /// Raised when something tried to build a language string without language tag or direction.
-#[derive(Clone, Copy, Debug)]
-pub struct InvalidLangString;
+///
+/// Carries back the recovered string data so the caller can fall back to a
+/// non-language string.
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("language string requires a language tag or direction")]
+pub struct InvalidLangString(pub jsonld_syntax::String);
+
+/// Raised when a [`LangString`] mutation would leave it without both a language
+/// tag and a direction.
+#[derive(Clone, Copy, Debug, thiserror::Error)]
+#[error("language string requires a language tag or direction")]
+pub struct MissingLangQualifier;
 
 impl LangString {
     /// Create a new language string.
-    pub fn new(data: jsonld_syntax::String, language: Option<LenientLangTagBuf>, direction: Option<Direction>) -> Result<Self, jsonld_syntax::String> {
+    pub fn new(data: jsonld_syntax::String, language: Option<LenientLangTagBuf>, direction: Option<Direction>) -> Result<Self, InvalidLangString> {
         if language.is_some() || direction.is_some() {
             Ok(Self { data, language, direction })
         } else {
-            Err(data)
+            Err(InvalidLangString(data))
+        }
+    }
+
+    /// Total constructor: build a language string with a known language tag.
+    #[inline]
+    pub fn with_language(data: jsonld_syntax::String, language: LenientLangTagBuf) -> Self {
+        Self {
+            data,
+            language: Some(language),
+            direction: None,
+        }
+    }
+
+    /// Total constructor: build a language string with a known direction.
+    #[inline]
+    pub fn with_direction(data: jsonld_syntax::String, direction: Direction) -> Self {
+        Self {
+            data,
+            language: None,
+            direction: Some(direction),
+        }
+    }
+
+    /// Total constructor: build a language string with both a language tag and a direction.
+    #[inline]
+    pub fn with_language_and_direction(data: jsonld_syntax::String, language: LenientLangTagBuf, direction: Direction) -> Self {
+        Self {
+            data,
+            language: Some(language),
+            direction: Some(direction),
         }
     }
 
@@ -56,13 +96,13 @@ impl LangString {
     /// Sets the associated language tag.
     ///
     /// If `None` is given, the direction must be set,
-    /// otherwise this function will fail with an [`InvalidLangString`] error.
-    pub fn set_language(&mut self, language: Option<LenientLangTagBuf>) -> Result<(), InvalidLangString> {
+    /// otherwise this function will fail with a [`MissingLangQualifier`] error.
+    pub fn set_language(&mut self, language: Option<LenientLangTagBuf>) -> Result<(), MissingLangQualifier> {
         if self.direction.is_some() || language.is_some() {
             self.language = language;
             Ok(())
         } else {
-            Err(InvalidLangString)
+            Err(MissingLangQualifier)
         }
     }
 
@@ -75,27 +115,27 @@ impl LangString {
     /// Sets the associated direction.
     ///
     /// If `None` is given, a language tag must be set,
-    /// otherwise this function will fail with an [`InvalidLangString`] error.
-    pub fn set_direction(&mut self, direction: Option<Direction>) -> Result<(), InvalidLangString> {
+    /// otherwise this function will fail with a [`MissingLangQualifier`] error.
+    pub fn set_direction(&mut self, direction: Option<Direction>) -> Result<(), MissingLangQualifier> {
         if direction.is_some() || self.language.is_some() {
             self.direction = direction;
             Ok(())
         } else {
-            Err(InvalidLangString)
+            Err(MissingLangQualifier)
         }
     }
 
     /// Set both the language tag and direction.
     ///
     /// If both `language` and `direction` are `None`,
-    /// this function will fail with an [`InvalidLangString`] error.
-    pub fn set(&mut self, language: Option<LenientLangTagBuf>, direction: Option<Direction>) -> Result<(), InvalidLangString> {
+    /// this function will fail with a [`MissingLangQualifier`] error.
+    pub fn set(&mut self, language: Option<LenientLangTagBuf>, direction: Option<Direction>) -> Result<(), MissingLangQualifier> {
         if direction.is_some() || language.is_some() {
             self.language = language;
             self.direction = direction;
             Ok(())
         } else {
-            Err(InvalidLangString)
+            Err(MissingLangQualifier)
         }
     }
 
@@ -137,9 +177,15 @@ impl LangString {
             None => None,
         };
 
-        match object.into_iter().next() {
-            None => Ok(Self::new(data, language, direction).unwrap()),
-            Some(_) => Err(InvalidExpandedJson::UnexpectedEntry),
+        if object.into_iter().next().is_some() {
+            return Err(InvalidExpandedJson::UnexpectedEntry);
+        }
+
+        match (language, direction) {
+            (Some(lang), Some(dir)) => Ok(Self::with_language_and_direction(data, lang, dir)),
+            (Some(lang), None) => Ok(Self::with_language(data, lang)),
+            (None, Some(dir)) => Ok(Self::with_direction(data, dir)),
+            (None, None) => Err(InvalidExpandedJson::InvalidLangString),
         }
     }
 }
@@ -187,11 +233,11 @@ pub struct LangStr<'a> {
 
 impl<'a> LangStr<'a> {
     /// Create a new language string reference.
-    pub fn new(data: &'a str, language: Option<&'a LenientLangTag>, direction: Option<Direction>) -> Result<Self, InvalidLangString> {
+    pub fn new(data: &'a str, language: Option<&'a LenientLangTag>, direction: Option<Direction>) -> Result<Self, MissingLangQualifier> {
         if language.is_some() || direction.is_some() {
             Ok(Self { data, language, direction })
         } else {
-            Err(InvalidLangString)
+            Err(MissingLangQualifier)
         }
     }
 

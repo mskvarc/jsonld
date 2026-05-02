@@ -36,7 +36,7 @@ use property::*;
 use value::*;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum Error<E = std::convert::Infallible> {
     #[error("IRI confused with prefix")]
     IriConfusedWithPrefix,
 
@@ -44,10 +44,10 @@ pub enum Error {
     InvalidNestValue,
 
     #[error("Context processing failed: {0}")]
-    ContextProcessing(jsonld_context_processing::Error),
+    ContextProcessing(jsonld_context_processing::Error<E>),
 }
 
-impl Error {
+impl<E> Error<E> {
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
@@ -57,19 +57,19 @@ impl Error {
     }
 }
 
-impl From<jsonld_context_processing::Error> for Error {
-    fn from(e: jsonld_context_processing::Error) -> Self {
+impl<E> From<jsonld_context_processing::Error<E>> for Error<E> {
+    fn from(e: jsonld_context_processing::Error<E>) -> Self {
         Self::ContextProcessing(e)
     }
 }
 
-impl From<IriConfusedWithPrefix> for Error {
+impl<E> From<IriConfusedWithPrefix> for Error<E> {
     fn from(_: IriConfusedWithPrefix) -> Self {
         Self::IriConfusedWithPrefix
     }
 }
 
-pub type CompactFragmentResult = Result<jstrict::Value, Error>;
+pub type CompactFragmentResult<E> = Result<jstrict::Value, Error<E>>;
 
 /// Compaction options.
 #[derive(Clone, Copy)]
@@ -144,7 +144,7 @@ pub trait CompactFragment<I, B> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -153,7 +153,7 @@ pub trait CompactFragment<I, B> {
 
     #[allow(async_fn_in_trait)]
     #[inline(always)]
-    async fn compact_fragment_with<'a, N, L>(&'a self, vocabulary: &'a mut N, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult
+    async fn compact_fragment_with<'a, N, L>(&'a self, vocabulary: &'a mut N, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -166,7 +166,7 @@ pub trait CompactFragment<I, B> {
 
     #[allow(async_fn_in_trait)]
     #[inline(always)]
-    async fn compact_fragment<'a, L>(&'a self, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult
+    async fn compact_fragment<'a, L>(&'a self, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
         (): VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
@@ -209,7 +209,7 @@ pub trait CompactIndexedFragment<I, B> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -232,7 +232,7 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -264,7 +264,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -378,7 +378,8 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
             // Pre-arrange the entry shape exactly as the original two-pass code did:
             // wrap an existing scalar into a single-element array, or insert an
             // empty array when `as_array` is set and the entry is absent.
-            match map.get_unique_mut(key).ok().unwrap() {
+            // SAFETY: `add_value` only mutates compaction-built objects, which never have duplicate keys.
+            match unsafe { map.get_unique_mut(key).unwrap_unchecked() } {
                 Some(existing) if !existing.is_array() => {
                     let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new()));
                     if let jstrict::Value::Array(arr) = existing {
@@ -394,9 +395,10 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
                 add_value(map, key, v, false);
             }
         }
-        scalar => match map.get_unique_mut(key).ok().unwrap() {
+        scalar => match unsafe { map.get_unique_mut(key).unwrap_unchecked() } {
             Some(existing) if existing.is_array() => {
-                existing.as_array_mut().unwrap().push(scalar);
+                // SAFETY: `is_array()` guarantees `as_array_mut()` returns Some.
+                unsafe { existing.as_array_mut().unwrap_unchecked() }.push(scalar);
             }
             Some(existing) => {
                 // Existing scalar — wrap into [prev, new] array.
@@ -439,7 +441,7 @@ async fn compact_collection_with<'a, N, L, O, T>(
     active_property: Option<&'a str>,
     loader: &'a L,
     options: Options,
-) -> CompactFragmentResult
+) -> CompactFragmentResult<L::Error>
 where
     N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -478,7 +480,8 @@ where
         return Ok(jstrict::Value::Array(result.into_iter().collect()));
     }
 
-    Ok(result.into_iter().next().unwrap())
+    // SAFETY: `result.len() == 1` after the early return above.
+    Ok(unsafe { result.into_iter().next().unwrap_unchecked() })
 }
 
 impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
@@ -490,7 +493,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -510,7 +513,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -530,7 +533,7 @@ impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T]
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
-    ) -> CompactFragmentResult
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
