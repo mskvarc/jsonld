@@ -27,6 +27,7 @@ use jsonld_core::{
     Loader,
     Node,
     Object,
+    ParallelSafeVocabulary,
     ProcessingMode,
     Term,
     Type,
@@ -64,7 +65,7 @@ pub(crate) async fn expand_node<'a, N, L, W>(
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> Result<Option<Indexed<Node<N::Iri, N::BlankId>>>, Error>
 where
-    N: VocabularyMut,
+    N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
     L: Loader,
@@ -144,7 +145,7 @@ async fn expand_node_entries<'a, N, L, W>(
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> NodeEntriesExpensionResult<N::Iri, N::BlankId>
 where
-    N: VocabularyMut,
+    N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
     L: Loader,

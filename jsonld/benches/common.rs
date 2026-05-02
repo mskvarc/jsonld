@@ -85,8 +85,10 @@ pub fn corpus() -> Vec<Scenario> {
         language_map_large(50),
         array_of_value_objects(500),
         nested_with_repeated_terms(20, 25),
+        ngsi_ld_entity_collection(200),
     ]
 }
+
 
 fn simple_flat() -> Scenario {
     let context = r#"{"name":"http://xmlns.com/foaf/0.1/name","homepage":{"@id":"http://xmlns.com/foaf/0.1/homepage","@type":"@id"}}"#;
@@ -467,6 +469,37 @@ fn array_of_value_objects(n: usize) -> Scenario {
     }
     doc.push_str("]}");
     scenario("array_of_value_objects_500", doc, context.to_string())
+}
+
+/// Representative NGSI-LD-shaped entity collection: a `@graph` of `n` entities,
+/// each with `id`, `type`, `observedAt`, a GeoProperty `location`, and ~10
+/// Property/Relationship attributes. Designed to stress per-entity expansion
+/// work — both the wide-graph (`many_entities`-like) and per-node nesting
+/// dimensions in a single fixture.
+fn ngsi_ld_entity_collection(n: usize) -> Scenario {
+    let context = r#"{"@vocab":"https://uri.etsi.org/ngsi-ld/","Property":"https://uri.etsi.org/ngsi-ld/Property","Relationship":"https://uri.etsi.org/ngsi-ld/Relationship","GeoProperty":"https://uri.etsi.org/ngsi-ld/GeoProperty","value":{"@id":"https://uri.etsi.org/ngsi-ld/hasValue"},"object":{"@id":"https://uri.etsi.org/ngsi-ld/hasObject","@type":"@id"},"observedAt":{"@id":"https://uri.etsi.org/ngsi-ld/observedAt","@type":"https://uri.etsi.org/ngsi-ld/DateTime"},"location":"https://uri.etsi.org/ngsi-ld/location","speed":"https://example.org/vehicle/speed","heading":"https://example.org/vehicle/heading","brakes":"https://example.org/vehicle/brakes","fuelLevel":"https://example.org/vehicle/fuelLevel","operator":"https://example.org/vehicle/operator","carriesGoods":"https://example.org/vehicle/carriesGoods","status":"https://example.org/vehicle/status","tagId":"https://example.org/vehicle/tagId","route":"https://example.org/vehicle/route","battery":"https://example.org/vehicle/battery"}"#;
+    let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);
+    for i in 0..n {
+        if i > 0 {
+            doc.push(',');
+        }
+        doc.push_str(&format!(
+            r#"{{"id":"urn:ngsi-ld:Vehicle:V{i}","type":"Vehicle","observedAt":"2026-04-27T10:0{j}:00Z","location":{{"type":"GeoProperty","value":{{"type":"Point","coordinates":[{lon},{lat}]}}}},"speed":{{"type":"Property","value":{spd}}},"heading":{{"type":"Property","value":{hd}}},"brakes":{{"type":"Property","value":{br}}},"fuelLevel":{{"type":"Property","value":{fl}}},"operator":{{"type":"Relationship","object":"urn:ngsi-ld:Person:P{op}"}},"carriesGoods":{{"type":"Relationship","object":"urn:ngsi-ld:Goods:G{cg}"}},"status":{{"type":"Property","value":"active"}},"tagId":{{"type":"Property","value":"tag-{i}"}},"route":{{"type":"Relationship","object":"urn:ngsi-ld:Route:R{rt}"}},"battery":{{"type":"Property","value":{bt}}}}}"#,
+            j = i % 10,
+            lon = -180.0 + (i as f64 * 0.5),
+            lat = -90.0 + (i as f64 * 0.25),
+            spd = (i % 120) as i32,
+            hd = (i % 360) as i32,
+            br = i % 2 == 0,
+            fl = ((i % 100) as f64) / 100.0,
+            op = i % 50,
+            cg = i % 25,
+            rt = i % 10,
+            bt = ((i % 100) as f64) / 100.0,
+        ));
+    }
+    doc.push_str("]}");
+    scenario("ngsi_ld_entity_collection_200", doc, context.to_string())
 }
 
 fn nested_with_repeated_terms(depth: usize, props: usize) -> Scenario {

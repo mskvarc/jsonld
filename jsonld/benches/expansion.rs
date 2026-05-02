@@ -22,6 +22,10 @@ fn run_expansion(c: &mut Criterion) {
     let mut group = c.benchmark_group("expand");
     group.sample_size(20);
     for (scenario, remote) in &scenarios {
+        // Bench id stays as `<scenario>` so `--baseline new` keeps comparing
+        // against the saved baseline. Differentiate runs across feature combos
+        // by passing `--save-baseline <name>` (or by reading the criterion
+        // estimates.json directly from `target/criterion/expand/<scenario>/new/`).
         group.bench_function(scenario.name, |b| {
             b.iter(|| {
                 async_std::task::block_on(async {

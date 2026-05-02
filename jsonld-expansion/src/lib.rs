@@ -6,9 +6,9 @@
 //! The expansion algorithm is provided by the [`Expand`] trait.
 use std::hash::Hash;
 
-use jstrict::Value;
 use jsonld_context_processing::Context;
 use jsonld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
+use jstrict::Value;
 use rdf_rs::{
     BlankIdBuf,
     vocabulary::{self, BlankIdVocabulary, VocabularyMut},
@@ -24,6 +24,20 @@ mod node;
 mod options;
 mod value;
 mod warning;
+
+/// Sibling-count window for the `parallel` parallel branch in
+/// [`array::expand_array`].
+///
+/// Below `PAR_LO` the per-task overhead of `FuturesOrdered` dominates the
+/// useful work, so the sequential branch wins. Above `PAR_HI` cumulative
+/// overhead (Box::pin allocations, queue maintenance, cache pressure)
+/// outweighs the (apparent) parallel benefit observed for moderate widths.
+/// Window tuned empirically against the bench corpus — see PR / bench
+/// notes for the data.
+#[cfg(feature = "parallel")]
+pub(crate) const PAR_LO: usize = 32;
+#[cfg(feature = "parallel")]
+pub(crate) const PAR_HI: usize = 512;
 
 pub use error::*;
 pub use expanded::*;
@@ -122,7 +136,7 @@ pub trait Expand<Iri> {
         warnings_handler: W,
     ) -> ExpansionResult<N::Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -138,7 +152,7 @@ pub trait Expand<Iri> {
     #[allow(async_fn_in_trait)]
     async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -187,7 +201,7 @@ impl<Iri> Expand<Iri> for Value {
         mut warnings_handler: W,
     ) -> ExpansionResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -227,7 +241,7 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
         warnings_handler: W,
     ) -> ExpansionResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,

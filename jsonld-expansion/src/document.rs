@@ -1,7 +1,7 @@
 use super::expand_element;
 use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
 use jstrict::Value;
-use jsonld_core::{Context, Environment, ExpandedDocument, IndexedObject, Object};
+use jsonld_core::{Context, Environment, ExpandedDocument, IndexedObject, Object, ParallelSafeVocabulary};
 use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
@@ -18,7 +18,7 @@ pub(crate) async fn expand<'a, N, L, W>(
     options: Options,
 ) -> Result<ExpandedDocument<N::Iri, N::BlankId>, Error>
 where
-    N: VocabularyMut,
+    N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
     L: Loader,

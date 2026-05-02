@@ -27,6 +27,11 @@ serde = ["jsonld-syntax/serde", "jsonld-core/serde"]
 serde_json = ["jsonld-syntax/serde_json", "jsonld-core/serde_json"]
 ahash = ["jsonld-core/ahash"]
 gxhash = ["jsonld-core/gxhash"]
+parallel = [
+    "jsonld-core/parallel",
+    "jsonld-expansion/parallel",
+    "jsonld-compaction/parallel",
+]
 
 [dependencies]
 contextual = "0.1.6"

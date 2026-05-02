@@ -10,6 +10,7 @@ use jsonld_core::{
     Indexed,
     IndexSet,
     Loader,
+    ParallelSafeVocabulary,
     ProcessingMode,
     Term,
     Value,
@@ -26,6 +27,7 @@ mod iri;
 mod node;
 mod property;
 mod value;
+
 
 pub use document::*;
 pub(crate) use iri::*;
@@ -124,6 +126,15 @@ impl Default for Options {
 }
 
 pub trait CompactFragment<I, B> {
+    /// Heuristic used by the parallel branch in [`compact_collection_with`].
+    /// Returns `true` for items whose compaction is dominated by FuturesOrdered
+    /// scheduling overhead rather than useful work — those should stay on the
+    /// sequential path. Default is `false` (treat as heavy, parallel-eligible).
+    #[inline]
+    fn is_trivial_for_par(&self) -> bool {
+        false
+    }
+
     #[allow(async_fn_in_trait)]
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
@@ -135,7 +146,7 @@ pub trait CompactFragment<I, B> {
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader;
@@ -144,7 +155,7 @@ pub trait CompactFragment<I, B> {
     #[inline(always)]
     async fn compact_fragment_with<'a, N, L>(&'a self, vocabulary: &'a mut N, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -181,6 +192,12 @@ enum TypeLangValue<'a, I> {
 
 /// Type that can be compacted with an index.
 pub trait CompactIndexedFragment<I, B> {
+    /// Same heuristic as [`CompactFragment::is_trivial_for_par`].
+    #[inline]
+    fn is_trivial_for_par(&self) -> bool {
+        false
+    }
+
     #[allow(async_fn_in_trait)]
     #[allow(clippy::too_many_arguments)]
     async fn compact_indexed_fragment<'a, N, L>(
@@ -194,13 +211,19 @@ pub trait CompactIndexedFragment<I, B> {
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader;
 }
 
 impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T> {
+    #[inline]
+    fn is_trivial_for_par(&self) -> bool {
+        // Delegate to the inner type — `Indexed` itself is just a wrapper.
+        self.inner().is_trivial_for_par()
+    }
+
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -211,7 +234,7 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -223,6 +246,15 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
 }
 
 impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
+    #[inline]
+    fn is_trivial_for_par(&self) -> bool {
+        // Value objects compact down to a flat literal — per-item work is
+        // dominated by FuturesOrdered overhead. Node + List items recurse
+        // and have enough work to amortize per-task scheduling cost.
+        use jsonld_core::object::Ref;
+        matches!(self.as_ref(), Ref::Value(_))
+    }
+
     async fn compact_indexed_fragment<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -234,7 +266,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -409,7 +441,7 @@ async fn compact_collection_with<'a, N, L, O, T>(
     options: Options,
 ) -> CompactFragmentResult
 where
-    N: VocabularyMut,
+    N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     T: 'a + CompactFragment<N::Iri, N::BlankId>,
@@ -418,8 +450,16 @@ where
 {
     let mut result = Vec::new();
 
+    // Compaction has no parallel branch: the corpus shows no scenario where
+    // `FuturesOrdered`-style sibling concurrency wins. Per-item compaction
+    // work for typical shapes (~500ns/node, less for value objects) is too
+    // close to the per-task overhead floor. Expansion sees real wins because
+    // its per-item work is heavier; compaction does not. The
+    // [`CompactFragment::is_trivial_for_par`] hook is left in place for
+    // future use should a viable parallel strategy emerge.
     for item in items {
-        let compacted_item = Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
+        let compacted_item =
+            Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
 
         if !compacted_item.is_null() {
             result.push(compacted_item)
@@ -452,7 +492,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -472,7 +512,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -492,7 +532,7 @@ impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T]
         options: Options,
     ) -> CompactFragmentResult
     where
-        N: VocabularyMut<Iri = I, BlankId = B>,
+        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,

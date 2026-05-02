@@ -372,7 +372,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompareResult
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash;
 
@@ -412,7 +412,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn compare_with_using<'a, N>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a impl Loader, options: Options<Iri>) -> CompareResult
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -455,7 +455,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn compare_with<'a, N>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a impl Loader) -> CompareResult
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -583,7 +583,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> ExpandResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash;
 
@@ -626,7 +626,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn expand_with_using<'a, N>(&'a self, vocabulary: &'a mut N, loader: &'a impl Loader, options: Options<Iri>) -> ExpandResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -671,7 +671,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn expand_with<'a, N>(&'a self, vocabulary: &'a mut N, loader: &'a impl Loader) -> ExpandResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -763,14 +763,14 @@ pub trait JsonLdProcessor<Iri>: Sized {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> IntoDocumentResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash;
 
     #[allow(async_fn_in_trait)]
     async fn into_document_with_using<'a, N>(self, vocabulary: &'a mut N, loader: &'a impl Loader, options: Options<Iri>) -> IntoDocumentResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -780,7 +780,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn into_document_with<'a, N>(self, vocabulary: &'a mut N, loader: &'a impl Loader) -> IntoDocumentResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -847,7 +847,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompactResult
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash;
 
@@ -901,7 +901,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         options: Options<Iri>,
     ) -> CompactResult
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -952,7 +952,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn compact_with<'a, N>(&'a self, vocabulary: &'a mut N, context: RemoteContextReference<Iri>, loader: &'a impl Loader) -> CompactResult
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -1110,7 +1110,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> FlattenResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash;
 
@@ -1171,7 +1171,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         options: Options<Iri>,
     ) -> FlattenResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -1234,7 +1234,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         loader: &'a impl Loader,
     ) -> FlattenResult<Iri, N::BlankId>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -1413,7 +1413,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> ToRdfResult<N, G>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         G: LocalGenerator,
@@ -1485,7 +1485,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn to_rdf_with_using<N, G>(&self, vocabulary: N, generator: G, loader: &impl Loader, options: Options<Iri>) -> ToRdfResult<N, G>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         G: LocalGenerator,
@@ -1551,7 +1551,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     #[allow(async_fn_in_trait)]
     async fn to_rdf_with<N, G>(&self, vocabulary: N, generator: G, loader: &impl Loader) -> ToRdfResult<N, G>
     where
-        N: VocabularyMut<Iri = Iri>,
+        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         G: LocalGenerator,
@@ -1781,7 +1781,7 @@ async fn compact_expanded_full<'a, T, N, L>(
     warnings: impl context_processing::WarningHandler<N>,
 ) -> Result<jstrict::Value, CompactError>
 where
-    N: VocabularyMut,
+    N: VocabularyMut + jsonld_core::ParallelSafeVocabulary,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: 'a + Clone + Eq + Hash,
     T: Compact<N::Iri, N::BlankId>,

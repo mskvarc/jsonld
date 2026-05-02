@@ -38,3 +38,28 @@ impl<N, W: DisplayWithContext<N>> Handler<N, W> for PrintWith {
         eprintln!("{}", warning.with(vocabulary))
     }
 }
+
+/// In-memory warning buffer used by parallel sibling tasks.
+///
+/// Each spawned task accumulates warnings into its own buffer; on join the
+/// parent drains them in iteration order so the observable warning order
+/// matches the sequential implementation.
+pub struct WarningBuf<W>(pub Vec<W>);
+
+impl<W> Default for WarningBuf<W> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<W> WarningBuf<W> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<N, W> Handler<N, W> for WarningBuf<W> {
+    fn handle(&mut self, _vocabulary: &N, warning: W) {
+        self.0.push(warning)
+    }
+}

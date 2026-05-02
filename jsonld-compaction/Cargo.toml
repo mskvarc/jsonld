@@ -19,6 +19,7 @@ fast-hash = [
     "jsonld-syntax/fast-hash",
     "jsonld-context-processing/fast-hash",
 ]
+parallel = ["jsonld-core/parallel"]
 
 [dependencies]
 contextual = "0.1.6"

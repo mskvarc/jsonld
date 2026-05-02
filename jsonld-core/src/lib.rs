@@ -44,3 +44,24 @@ pub struct Environment<'a, N, L, W> {
     pub loader: &'a L,
     pub warnings: &'a mut W,
 }
+
+/// Marker trait for vocabularies that may be cloned and shared across
+/// concurrent expansion/compaction tasks.
+///
+/// When `parallel` is off, every type satisfies this trait via a
+/// blanket impl — code that bounds on it still compiles in default builds.
+///
+/// When `parallel` is on, the bound widens to require
+/// `Send + Sync + Clone`. A vocabulary type that does not satisfy these
+/// bounds will produce a compile error rather than silently miscompile.
+#[cfg(not(feature = "parallel"))]
+pub trait ParallelSafeVocabulary {}
+
+#[cfg(not(feature = "parallel"))]
+impl<T: ?Sized> ParallelSafeVocabulary for T {}
+
+#[cfg(feature = "parallel")]
+pub trait ParallelSafeVocabulary: Send + Sync + Clone {}
+
+#[cfg(feature = "parallel")]
+impl<T: Send + Sync + Clone> ParallelSafeVocabulary for T {}

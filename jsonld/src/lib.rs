@@ -372,6 +372,9 @@ pub use expansion::Expand;
 mod processor;
 pub use processor::*;
 
+#[cfg(feature = "parallel")]
+pub mod batch;
+
 #[doc(hidden)]
 pub use iri_rs;
 pub use iri_rs::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};

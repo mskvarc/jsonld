@@ -1,7 +1,7 @@
 use crate::{Error, Options, add_value, compact_iri, compact_property, iri::keyword_alias};
 use contextual::WithContext;
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
-use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, Term, Type};
+use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, ParallelSafeVocabulary, Term, Type};
 use jsonld_syntax::Keyword;
 use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
@@ -24,7 +24,7 @@ pub async fn compact_indexed_node_with<N, L>(
     options: Options,
 ) -> Result<jstrict::Value, Error>
 where
-    N: VocabularyMut,
+    N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
@@ -200,6 +200,17 @@ where
                 }
             }
 
+            // NOTE: Plan's two-phase parallel branch for the `@reverse` property loop is
+            // deferred. The merge step described in the plan (`add_value` per fragment
+            // entry) does not preserve byte-equal output across all W3C test cases —
+            // notably `@nest` sub-objects, `@index`/`@id`/`@type`/`@language` container
+            // maps, and graph fragments where the per-property output is itself an
+            // `Object` that must be deep-merged rather than appended. A correct merge
+            // would require either (a) restructuring `compact_property` to emit a flat
+            // operation log, or (b) inspecting the active_context per key to choose
+            // recurse-vs-`add_value` per top-level entry. Both exceed the prototype
+            // scope; sequential execution preserves correctness for the prototype
+            // baseline. Loops below intentionally retain the sequential implementation.
             let mut reverse_result = jstrict::Object::default();
             for (expanded_property, expanded_value) in reverse_properties.iter() {
                 compact_property(
@@ -326,7 +337,7 @@ fn compact_types<N>(
     options: Options,
 ) -> Result<(), Error>
 where
-    N: VocabularyMut,
+    N: VocabularyMut + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
 {

@@ -35,7 +35,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompareResult
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
     {
@@ -56,7 +56,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> ExpandResult<I, N::BlankId>
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
     {
@@ -121,7 +121,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> IntoDocumentResult<I, N::BlankId>
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -138,7 +138,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompactResult
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -159,7 +159,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> FlattenResult<I, N::BlankId>
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -188,7 +188,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompareResult
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
     {
@@ -205,7 +205,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> ExpandResult<I, N::BlankId>
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
     {
@@ -221,7 +221,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> IntoDocumentResult<I, N::BlankId>
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -238,7 +238,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompactResult
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {
@@ -256,7 +256,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> FlattenResult<I, N::BlankId>
     where
-        N: VocabularyMut<Iri = I>,
+        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
     {

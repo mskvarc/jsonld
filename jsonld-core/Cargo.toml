@@ -23,6 +23,7 @@ serde_json = [
 ]
 ahash = ["dep:ahash", "jsonld-syntax/ahash"]
 gxhash = ["dep:gxhash", "jsonld-syntax/gxhash"]
+parallel = []
 
 [dependencies]
 ahash = { version = "0.8", optional = true }
