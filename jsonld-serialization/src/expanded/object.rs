@@ -174,7 +174,7 @@ where
         T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
     {
         let node = serialize_node_with(self.vocabulary, self.interpretation, value)?;
-        self.included.insert(Indexed::none(node));
+        self.included.push(Indexed::none(node));
         Ok(())
     }
 

@@ -19,6 +19,7 @@ use jsonld_core::{Context, Environment, Id, Indexed, Object, Term, ValidId, obje
 use jsonld_syntax::{Keyword, Nullable};
 use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
+use smallvec::SmallVec;
 use std::{borrow::Cow, hash::Hash, sync::Arc};
 
 pub(crate) struct ExpandedEntry<'a, T, B>(pub &'a str, pub Arc<Term<T, B>>, pub &'a Value);
@@ -257,7 +258,7 @@ where
             // type-scoped contexts to `active_context`.
             for &i in &type_indices {
                 let value = Value::force_as_array(expanded_entries[i].2);
-                let mut sorted_value: Vec<&str> = Vec::with_capacity(value.len());
+                let mut sorted_value: SmallVec<[&str; 4]> = SmallVec::with_capacity(value.len());
                 for term in value {
                     if let Some(s) = term.as_string() {
                         sorted_value.push(s);

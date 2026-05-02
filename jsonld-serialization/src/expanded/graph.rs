@@ -43,7 +43,7 @@ where
         T: ?Sized + LinkedDataResource<I> + ld_core::LinkedDataSubject<I>,
     {
         let object = serialize_object_with(self.vocabulary, self.interpretation, value)?;
-        self.result.insert(Indexed::new(object, None));
+        self.result.push(Indexed::new(object, None));
         Ok(())
     }
 

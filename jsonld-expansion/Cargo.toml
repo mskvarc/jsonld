@@ -33,6 +33,7 @@ jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 langtag = "1.1.0"
 mown = "1.0.0"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+smallvec = "1.15.1"
 thiserror = "2.0.18"
 
 [dev-dependencies]

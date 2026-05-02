@@ -60,6 +60,7 @@ pub struct Quads<'a, T, B> {
 enum QuadsFrame<'a, T, B> {
     NodeMapGraph(Option<&'a Id<T, B>>, crate::flattening::NodeMapGraphNodes<'a, T, B>),
     IndexedObjectSet(Option<&'a Id<T, B>>, indexmap::set::Iter<'a, IndexedObject<T, B>>),
+    #[allow(dead_code)]
     IndexedNodeSet(Option<&'a Id<T, B>>, indexmap::set::Iter<'a, IndexedNode<T, B>>),
     IndexedObjectSlice(Option<&'a Id<T, B>>, std::slice::Iter<'a, IndexedObject<T, B>>),
     IndexedNodeSlice(Option<&'a Id<T, B>>, std::slice::Iter<'a, IndexedNode<T, B>>),
@@ -81,12 +82,12 @@ impl<'a, T, B> Quads<'a, T, B> {
 
     fn push_node(&mut self, graph: Option<&'a Id<T, B>>, node: &'a Node<T, B>) {
         if let Some(id) = &node.id {
-            if let Some(graph) = node.graph_entry() {
-                self.stack.push(QuadsFrame::IndexedObjectSet(Some(id), graph.iter()))
+            if let Some(graph_entry) = node.graph_entry() {
+                self.stack.push(QuadsFrame::IndexedObjectSlice(Some(id), graph_entry.iter()))
             }
 
             if let Some(included) = node.included_entry() {
-                self.stack.push(QuadsFrame::IndexedNodeSet(graph, included.iter()))
+                self.stack.push(QuadsFrame::IndexedNodeSlice(graph, included.iter()))
             }
 
             if let Some(reverse_properties) = node.reverse_properties_entry() {

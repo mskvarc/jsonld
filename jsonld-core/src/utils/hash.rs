@@ -19,12 +19,12 @@ where
     //
     // The inner hasher must be deterministic across calls so equal sets
     // produce equal hashes; foldhash's FixedState gives a fixed-seed builder.
+    // `BuildHasher::hash_one` (stable since 1.71) does the same work without
+    // materializing a fresh hasher per item via `build_hasher()`.
     let inner = FixedState::default();
     let mut hash = 0u64;
     for item in set {
-        let mut h = inner.build_hasher();
-        item.hash(&mut h);
-        hash = hash.wrapping_add(h.finish());
+        hash = hash.wrapping_add(inner.hash_one(item));
     }
 
     hasher.write_u64(hash);
@@ -51,9 +51,7 @@ pub fn hash_map<'a, K: 'a + Hash, V: 'a + Hash, H: Hasher>(map: impl 'a + IntoIt
     let inner = FixedState::default();
     let mut hash = 0u64;
     for entry in map {
-        let mut h = inner.build_hasher();
-        entry.hash(&mut h);
-        hash = hash.wrapping_add(h.finish());
+        hash = hash.wrapping_add(inner.hash_one(entry));
     }
 
     hasher.write_u64(hash);

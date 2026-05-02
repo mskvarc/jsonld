@@ -1,5 +1,5 @@
 use super::Environment;
-use crate::{ExpandedDocument, Id, Indexed, IndexSet, IndexedNode, IndexedObject, Node, Object, object};
+use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, object};
 use educe::Educe;
 use rdf_rs::{
     LocalGenerator,
@@ -364,10 +364,10 @@ where
     if let Some(graph_entry) = node.graph_entry() {
         node_map.declare_graph(id.clone());
 
-        let mut flat_graph = IndexSet::default();
+        let mut flat_graph: Vec<_> = Vec::new();
         for object in graph_entry.iter() {
             let flat_object = extend_node_map(env, node_map, object, Some(&id))?;
-            flat_graph.insert(flat_object);
+            flat_graph.push(flat_object);
         }
 
         let flat_node = node_map.graph_mut(active_graph).unwrap().get_mut(&id).unwrap();

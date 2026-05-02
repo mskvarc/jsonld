@@ -427,7 +427,7 @@ where
 
                     for (id, resource) in &graph.resources {
                         if resource.references != 1 && !resource.is_empty() {
-                            value.insert(render_object(vocabulary, interpretation, rdf_terms, graph, id, resource, context)?);
+                            value.push(render_object(vocabulary, interpretation, rdf_terms, graph, id, resource, context)?);
                         }
                     }
 

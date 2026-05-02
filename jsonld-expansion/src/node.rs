@@ -22,7 +22,6 @@ use jsonld_core::{
     Environment,
     Id,
     Indexed,
-    IndexSet,
     IndexedObject,
     LangString,
     Loader,
@@ -38,6 +37,7 @@ use jsonld_core::{
 use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
 use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
+use smallvec::SmallVec;
 use std::{hash::Hash, sync::Arc};
 
 /// Convert a term to a node id, if possible.
@@ -318,7 +318,7 @@ where
                         // If value is not a map, an invalid @reverse value error
                         // has been detected and processing is aborted.
                         if let Some(value) = value.as_object() {
-                            let mut reverse_entries: Vec<&Entry> = value.iter().collect();
+                            let mut reverse_entries: SmallVec<[&Entry; 8]> = value.iter().collect();
 
                             if options.ordered {
                                 reverse_entries.sort_by_key(|entry| &entry.key)
@@ -459,7 +459,7 @@ where
 
                             // Steps 13 and 14 again.
                             if let Some(nested_value) = nested_value.as_object() {
-                                let mut nested_entries: Vec<&Entry> = Vec::new();
+                                let mut nested_entries: SmallVec<[&Entry; 8]> = SmallVec::new();
 
                                 for entry in nested_value.iter() {
                                     nested_entries.push(entry)
@@ -566,7 +566,7 @@ where
 
                             // For each key-value pair language-language value in
                             // value, ordered lexicographically by language if ordered is true:
-                            let mut language_entries: Vec<&Entry> = Vec::with_capacity(value.len());
+                            let mut language_entries: SmallVec<[&Entry; 8]> = SmallVec::with_capacity(value.len());
                             for language_entry in value.iter() {
                                 language_entries.push(language_entry);
                             }
@@ -661,7 +661,7 @@ where
 
                             // For each key-value pair index-index value in value,
                             // ordered lexicographically by index if ordered is true:
-                            let mut entries: Vec<&Entry> = Vec::with_capacity(value.len());
+                            let mut entries: SmallVec<[&Entry; 8]> = SmallVec::with_capacity(value.len());
                             for entry in value.iter() {
                                 entries.push(entry)
                             }
@@ -770,9 +770,7 @@ where
                                     // represented using an array.
                                     if container_mapping.contains(ContainerKind::Graph) && !item.is_graph() {
                                         let mut node = Node::new();
-                                        let mut graph = IndexSet::default();
-                                        graph.insert(item);
-                                        node.set_graph_entry(Some(graph));
+                                        node.set_graph_entry(Some(vec![item]));
                                         item = Object::node(node).into();
                                     }
 
@@ -913,9 +911,7 @@ where
                             .into_iter()
                             .map(|ev| {
                                 let mut node = Node::new();
-                                let mut graph = IndexSet::default();
-                                graph.insert(ev);
-                                node.set_graph_entry(Some(graph));
+                                node.set_graph_entry(Some(vec![ev]));
                                 Object::node(node).into()
                             })
                             .collect(),

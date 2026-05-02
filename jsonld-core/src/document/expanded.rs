@@ -333,6 +333,12 @@ impl<T, B> From<IndexSet<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
     }
 }
 
+impl<T: Hash + Eq, B: Hash + Eq> From<Vec<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
+    fn from(items: Vec<IndexedObject<T, B>>) -> Self {
+        Self(items.into_iter().collect())
+    }
+}
+
 #[cfg(all(test, feature = "serde_json"))]
 mod serde_json_tests {
     use super::*;

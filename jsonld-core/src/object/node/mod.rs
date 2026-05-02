@@ -1,5 +1,5 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
-use crate::{Id, Indexed, IndexSet, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
+use crate::{Id, Indexed, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use iri_rs::IriBuf;
@@ -22,9 +22,20 @@ pub use multiset::Multiset;
 pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
-pub type Graph<T, B> = IndexSet<IndexedObject<T, B>>;
+/// Type alias for the `@graph` entry of a node.
+///
+/// Switched from `IndexSet` to `Vec` because all writes are insertion-only
+/// and reads only iterate (no `contains`, no hash-based lookup). The original
+/// `IndexSet` paid for `Hash` on each insert — and that hash recursively walked
+/// the entire `IndexedObject` tree (Properties → Multiset → IndexedObject…),
+/// which dominates expansion of nested or repeated-term documents.
+///
+/// JSON-LD does not require dedup of identical sub-objects in `@graph` /
+/// `@included`, so simple `Vec::push` is correct (and the conformance suite
+/// agrees).
+pub type Graph<T, B> = Vec<IndexedObject<T, B>>;
 
-pub type Included<T, B> = IndexSet<IndexedNode<T, B>>;
+pub type Included<T, B> = Vec<IndexedNode<T, B>>;
 
 pub type IndexedNode<T = IriBuf, B = BlankIdBuf> = Indexed<Node<T, B>>;
 
@@ -743,8 +754,8 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
 pub enum EntryValueRef<'a, T, B> {
     Id(&'a Id<T, B>),
     Type(&'a [Id<T, B>]),
-    Graph(&'a IndexSet<IndexedObject<T, B>>),
-    Included(&'a IndexSet<IndexedNode<T, B>>),
+    Graph(&'a Graph<T, B>),
+    Included(&'a Included<T, B>),
     Reverse(&'a ReverseProperties<T, B>),
     Property(&'a [IndexedObject<T, B>]),
 }
@@ -1079,8 +1090,8 @@ pub enum SubFragments<'a, T, B> {
     None,
     Entry(Option<EntryKeyRef<'a, T, B>>, Option<EntryValueRef<'a, T, B>>),
     Type(std::slice::Iter<'a, Id<T, B>>),
-    Graph(indexmap::set::Iter<'a, IndexedObject<T, B>>),
-    Included(indexmap::set::Iter<'a, IndexedNode<T, B>>),
+    Graph(std::slice::Iter<'a, IndexedObject<T, B>>),
+    Included(std::slice::Iter<'a, IndexedNode<T, B>>),
     Reverse(reverse_properties::Iter<'a, T, B>),
     Property(std::slice::Iter<'a, IndexedObject<T, B>>),
 }
@@ -1173,12 +1184,12 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
         };
 
         let graph = match object.remove_unique("@graph").map_err(InvalidExpandedJson::duplicate_key)? {
-            Some(entry) => Some(IndexSet::try_from_json_in(vocabulary, entry.value)?),
+            Some(entry) => Some(Vec::try_from_json_in(vocabulary, entry.value)?),
             None => None,
         };
 
         let included = match object.remove_unique("@included").map_err(InvalidExpandedJson::duplicate_key)? {
-            Some(entry) => Some(IndexSet::try_from_json_in(vocabulary, entry.value)?),
+            Some(entry) => Some(Vec::try_from_json_in(vocabulary, entry.value)?),
             None => None,
         };
 

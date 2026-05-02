@@ -130,7 +130,7 @@ where
     {
         let node = serialize_node_with(self.vocabulary, self.interpretation, value)?;
 
-        self.result.included_mut_or_default().insert(Indexed::none(node));
+        self.result.included_mut_or_default().push(Indexed::none(node));
         Ok(())
     }
 
