@@ -13,7 +13,7 @@ use crate::{
     expand_node,
     expand_value,
 };
-use json_syntax::{Value, object::Entry};
+use jstrict::{Value, object::Entry};
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
 use jsonld_core::{Context, Environment, Id, Indexed, Object, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};

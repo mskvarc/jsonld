@@ -25,12 +25,12 @@ impl Version {
         }
     }
 
-    pub fn into_json_number(self) -> &'static json_syntax::Number {
-        unsafe { json_syntax::Number::new_unchecked(self.into_bytes()) }
+    pub fn into_json_number(self) -> &'static jstrict::Number {
+        unsafe { jstrict::Number::new_unchecked(self.into_bytes()) }
     }
 
-    pub fn into_json_number_buf(self) -> json_syntax::NumberBuf {
-        unsafe { json_syntax::NumberBuf::new_unchecked(self.into_bytes().into()) }
+    pub fn into_json_number_buf(self) -> jstrict::NumberBuf {
+        unsafe { jstrict::NumberBuf::new_unchecked(self.into_bytes().into()) }
     }
 }
 
@@ -48,22 +48,22 @@ impl Hash for Version {
     }
 }
 
-impl From<Version> for &json_syntax::Number {
+impl From<Version> for &jstrict::Number {
     fn from(v: Version) -> Self {
         v.into_json_number()
     }
 }
 
-impl From<Version> for json_syntax::NumberBuf {
+impl From<Version> for jstrict::NumberBuf {
     fn from(v: Version) -> Self {
         v.into_json_number_buf()
     }
 }
 
-impl TryFrom<json_syntax::NumberBuf> for Version {
+impl TryFrom<jstrict::NumberBuf> for Version {
     type Error = UnknownVersion;
 
-    fn try_from(value: json_syntax::NumberBuf) -> Result<Self, Self::Error> {
+    fn try_from(value: jstrict::NumberBuf) -> Result<Self, Self::Error> {
         if value.trimmed().as_str() == "1.1" {
             Ok(Self::V1_1)
         } else {
@@ -120,6 +120,6 @@ impl<'de> serde::Deserialize<'de> for Version {
     where
         D: serde::Deserializer<'de>,
     {
-        json_syntax::NumberBuf::deserialize(deserializer)?.try_into().map_err(serde::de::Error::custom)
+        jstrict::NumberBuf::deserialize(deserializer)?.try_into().map_err(serde::de::Error::custom)
     }
 }

@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn deserialize_null_vocab() {
-        let definition: Definition = json_syntax::from_value(json_syntax::json!({
+        let definition: Definition = jstrict::from_value(jstrict::json!({
             "@vocab": null
         }))
         .unwrap();
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn deserialize_no_vocab() {
-        let definition: Definition = json_syntax::from_value(json_syntax::json!({})).unwrap();
+        let definition: Definition = jstrict::from_value(jstrict::json!({})).unwrap();
         assert_eq!(definition.vocab, None)
     }
 }

@@ -72,8 +72,8 @@ impl Ord for Key {
     }
 }
 
-impl From<json_syntax::object::Key> for Key {
-    fn from(k: json_syntax::object::Key) -> Self {
+impl From<jstrict::object::Key> for Key {
+    fn from(k: jstrict::object::Key) -> Self {
         Self::from(k.into_string())
     }
 }

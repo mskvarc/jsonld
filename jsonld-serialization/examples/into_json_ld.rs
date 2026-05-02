@@ -1,5 +1,5 @@
 use contextual::WithContext;
-use json_syntax::Print;
+use jstrict::Print;
 use jsonld_serialization::serialize;
 
 #[derive(ld_core::Serialize)]

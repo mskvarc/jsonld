@@ -131,8 +131,8 @@ impl<T, B> Relabel<T, B> for List<T, B> {
 impl<T: Eq + Hash, B: Eq + Hash> List<T, B> {
     pub(crate) fn try_from_json_object_in(
         vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-        object: json_syntax::Object,
-        list_entry: json_syntax::object::Entry,
+        object: jstrict::Object,
+        list_entry: jstrict::object::Entry,
     ) -> Result<Self, InvalidExpandedJson> {
         let list = Vec::try_from_json_in(vocabulary, list_entry.value)?;
 
@@ -200,8 +200,8 @@ pub enum FragmentRef<'a, T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for List<T, B> {
-    fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
-        let mut obj = json_syntax::Object::new();
+    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+        let mut obj = jstrict::Object::new();
 
         obj.insert("@list".into(), self.entry.into_with(vocabulary).into_json());
 

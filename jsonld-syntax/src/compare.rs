@@ -1,4 +1,4 @@
-use json_syntax::Value;
+use jstrict::Value;
 
 /// JSON-LD comparison.
 pub trait Compare {

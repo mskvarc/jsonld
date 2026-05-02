@@ -1,5 +1,5 @@
-pub use json_syntax::print::{Options, Print, Printed};
-use json_syntax::print::{
+pub use jstrict::print::{Options, Print, Printed};
+use jstrict::print::{
     PrecomputeSize,
     PrecomputeSizeWithContext,
     PrintWithContext,

@@ -76,7 +76,7 @@ pub(crate) fn compact_key<N>(
     vocab: bool,
     reverse: bool,
     options: Options,
-) -> Result<Option<json_syntax::object::Key>, IriConfusedWithPrefix>
+) -> Result<Option<jstrict::object::Key>, IriConfusedWithPrefix>
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,

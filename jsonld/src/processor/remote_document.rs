@@ -178,7 +178,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
     }
 }
 
-impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
+impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
     async fn compare_full<N>(
         &self,
         other: &Self,

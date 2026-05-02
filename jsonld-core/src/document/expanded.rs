@@ -261,9 +261,9 @@ impl<T: Eq + Hash, B: Eq + Hash> From<Indexed<Node<T, B>>> for ExpandedDocument<
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ExpandedDocument<T, B> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::Array(items) => {
+            jstrict::Value::Array(items) => {
                 let mut result = Self::new();
 
                 for item in items {
@@ -272,7 +272,7 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ExpandedDocument<T, B> {
 
                 Ok(result)
             }
-            other => Err(InvalidExpandedJson::Unexpected(other.kind(), json_syntax::Kind::Array)),
+            other => Err(InvalidExpandedJson::Unexpected(other.kind(), jstrict::Kind::Array)),
         }
     }
 }

@@ -18,10 +18,10 @@ serde = [
     "dep:serde",
     "iri-rs/serde",
     "locspan/serde",
-    "json-syntax/serde",
+    "jstrict/serde",
     "indexmap/serde",
 ]
-serde_json = ["json-syntax/serde_json"]
+serde_json = ["jstrict/serde_json"]
 ahash = ["dep:ahash"]
 gxhash = ["dep:gxhash"]
 
@@ -34,9 +34,13 @@ gxhash = { version = "3", optional = true }
 hashbrown = "0.17.0"
 indexmap = "2.14.0"
 iri-rs = "3.3.4"
-json-syntax = "0.12.5"
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 langtag = "1.1.0"
-lasso = { version = "0.7", features = ["multi-threaded", "inline-more", "ahasher"] }
+lasso = { version = "0.7", features = [
+    "multi-threaded",
+    "inline-more",
+    "ahasher",
+] }
 locspan = "0.8.2"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 serde = { version = "1.0.228", features = ["derive"], optional = true }

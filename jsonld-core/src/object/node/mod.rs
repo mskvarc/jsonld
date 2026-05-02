@@ -1160,7 +1160,7 @@ impl<'a, T, B> Iterator for Nodes<'a, T, B> {
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
     fn try_from_json_object_in(
         vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-        mut object: json_syntax::Object,
+        mut object: jstrict::Object,
     ) -> Result<Self, InvalidExpandedJson> {
         let id = match object.remove_unique("@id").map_err(InvalidExpandedJson::duplicate_key)? {
             Some(entry) => Some(Id::try_from_json_in(vocabulary, entry.value)?),
@@ -1201,8 +1201,8 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<T, B> {
-    fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
-        let mut obj = json_syntax::Object::new();
+    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+        let mut obj = jstrict::Object::new();
 
         if let Some(id) = self.id {
             obj.insert("@id".into(), id.into_with(vocabulary).into_json());

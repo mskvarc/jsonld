@@ -1,7 +1,7 @@
 use crate::{Direction, LangString, LenientLangTag, object};
 use educe::Educe;
 use iri_rs::{Iri, IriBuf};
-use json_syntax::{Number, NumberBuf};
+use jstrict::{Number, NumberBuf};
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
 use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{hash::Hash, marker::PhantomData};
@@ -60,7 +60,7 @@ pub enum Literal {
     Number(NumberBuf),
 
     /// String.
-    String(json_syntax::String),
+    String(jstrict::String),
 }
 
 impl Literal {
@@ -91,12 +91,12 @@ impl Literal {
         }
     }
 
-    pub fn into_json(self) -> json_syntax::Value {
+    pub fn into_json(self) -> jstrict::Value {
         match self {
-            Self::Null => json_syntax::Value::Null,
-            Self::Boolean(b) => json_syntax::Value::Boolean(b),
-            Self::Number(n) => json_syntax::Value::Number(n),
-            Self::String(s) => json_syntax::Value::String(s),
+            Self::Null => jstrict::Value::Null,
+            Self::Boolean(b) => jstrict::Value::Boolean(b),
+            Self::Number(n) => jstrict::Value::Number(n),
+            Self::String(s) => jstrict::Value::String(s),
         }
     }
 
@@ -128,7 +128,7 @@ pub enum Value<T = IriBuf> {
     LangString(LangString),
 
     /// JSON literal value.
-    Json(json_syntax::Value),
+    Json(jstrict::Value),
 }
 
 impl<T> Value<T> {
@@ -259,12 +259,12 @@ impl<T> Value<T> {
 
     pub(crate) fn try_from_json_object_in(
         vocabulary: &mut impl IriVocabularyMut<Iri = T>,
-        mut object: json_syntax::Object,
-        value_entry: json_syntax::object::Entry,
+        mut object: jstrict::Object,
+        value_entry: jstrict::object::Entry,
     ) -> Result<Self, InvalidExpandedJson> {
         match object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
             Some(type_entry) => match type_entry.value {
-                json_syntax::Value::String(ty) => match ty.as_str() {
+                jstrict::Value::String(ty) => match ty.as_str() {
                     "@json" => Ok(Self::Json(value_entry.value)),
                     iri => match Iri::parse(iri) {
                         Ok(iri) => {
@@ -281,11 +281,11 @@ impl<T> Value<T> {
                 let language = object
                     .remove_unique("@language")
                     .map_err(InvalidExpandedJson::duplicate_key)?
-                    .map(json_syntax::object::Entry::into_value);
+                    .map(jstrict::object::Entry::into_value);
                 let direction = object
                     .remove_unique("@direction")
                     .map_err(InvalidExpandedJson::duplicate_key)?
-                    .map(json_syntax::object::Entry::into_value);
+                    .map(jstrict::object::Entry::into_value);
 
                 if language.is_some() || direction.is_some() {
                     Ok(Self::LangString(LangString::try_from_json(object, value_entry.value, language, direction)?))
@@ -325,15 +325,15 @@ impl<T> Value<T> {
     }
 }
 
-impl TryFrom<json_syntax::Value> for Literal {
+impl TryFrom<jstrict::Value> for Literal {
     type Error = InvalidExpandedJson;
 
-    fn try_from(value: json_syntax::Value) -> Result<Self, Self::Error> {
+    fn try_from(value: jstrict::Value) -> Result<Self, Self::Error> {
         match value {
-            json_syntax::Value::Null => Ok(Self::Null),
-            json_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
-            json_syntax::Value::Number(n) => Ok(Self::Number(n)),
-            json_syntax::Value::String(s) => Ok(Self::String(s)),
+            jstrict::Value::Null => Ok(Self::Null),
+            jstrict::Value::Boolean(b) => Ok(Self::Boolean(b)),
+            jstrict::Value::Number(n) => Ok(Self::Number(n)),
+            jstrict::Value::String(s) => Ok(Self::String(s)),
             _ => Err(InvalidExpandedJson::InvalidLiteral),
         }
     }
@@ -399,7 +399,7 @@ pub enum EntryValueRef<'a, T> {
 pub enum ValueEntryRef<'a> {
     Literal(&'a Literal),
     LangString(&'a str),
-    Json(&'a json_syntax::Value),
+    Json(&'a jstrict::Value),
 }
 
 impl<'a> Clone for ValueEntryRef<'a> {
@@ -517,7 +517,7 @@ pub enum FragmentRef<'a, T> {
     Value(EntryValueRef<'a, T>),
 
     /// JSON fragment in a "@json" typed value.
-    JsonFragment(json_syntax::FragmentRef<'a>),
+    JsonFragment(jstrict::FragmentRef<'a>),
 }
 
 impl<'a, T> FragmentRef<'a, T> {
@@ -555,8 +555,8 @@ impl<'a, T> FragmentRef<'a, T> {
         match self {
             Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => match json {
-                json_syntax::Value::Array(a) => SubFragments::JsonFragment(json_syntax::SubFragments::Array(a.iter())),
-                json_syntax::Value::Object(o) => SubFragments::JsonFragment(json_syntax::SubFragments::Object(o.iter())),
+                jstrict::Value::Array(a) => SubFragments::JsonFragment(jstrict::SubFragments::Array(a.iter())),
+                jstrict::Value::Object(o) => SubFragments::JsonFragment(jstrict::SubFragments::Object(o.iter())),
                 _ => SubFragments::None(PhantomData),
             },
             Self::JsonFragment(f) => SubFragments::JsonFragment(f.sub_fragments()),
@@ -568,7 +568,7 @@ impl<'a, T> FragmentRef<'a, T> {
 pub enum SubFragments<'a, T> {
     None(PhantomData<T>),
     Entry(Option<EntryKey>, Option<EntryValueRef<'a, T>>),
-    JsonFragment(json_syntax::SubFragments<'a>),
+    JsonFragment(jstrict::SubFragments<'a>),
 }
 
 impl<'a, T: 'a> Iterator for SubFragments<'a, T> {
@@ -584,8 +584,8 @@ impl<'a, T: 'a> Iterator for SubFragments<'a, T> {
 }
 
 impl<T, N: IriVocabulary<Iri = T>> IntoJsonWithContext<N> for Value<T> {
-    fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
-        let mut obj = json_syntax::Object::new();
+    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+        let mut obj = jstrict::Object::new();
 
         let value = match self {
             Self::Literal(lit, ty) => {

@@ -109,31 +109,31 @@ impl LangString {
     }
 
     pub(crate) fn try_from_json(
-        object: json_syntax::Object,
-        value: json_syntax::Value,
-        language: Option<json_syntax::Value>,
-        direction: Option<json_syntax::Value>,
+        object: jstrict::Object,
+        value: jstrict::Value,
+        language: Option<jstrict::Value>,
+        direction: Option<jstrict::Value>,
     ) -> Result<Self, InvalidExpandedJson> {
         let data = match value {
-            json_syntax::Value::String(s) => s,
-            v => return Err(InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String)),
+            jstrict::Value::String(s) => s,
+            v => return Err(InvalidExpandedJson::Unexpected(v.kind(), jstrict::Kind::String)),
         };
 
         let language = match language {
-            Some(json_syntax::Value::String(value)) => {
+            Some(jstrict::Value::String(value)) => {
                 let (tag, _) = LenientLangTagBuf::new(value.to_string());
                 Some(tag)
             }
-            Some(v) => return Err(InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String)),
+            Some(v) => return Err(InvalidExpandedJson::Unexpected(v.kind(), jstrict::Kind::String)),
             None => None,
         };
 
         let direction = match direction {
-            Some(json_syntax::Value::String(value)) => match Direction::try_from(value.as_str()) {
+            Some(jstrict::Value::String(value)) => match Direction::try_from(value.as_str()) {
                 Ok(direction) => Some(direction),
                 Err(_) => return Err(InvalidExpandedJson::InvalidDirection),
             },
-            Some(v) => return Err(InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String)),
+            Some(v) => return Err(InvalidExpandedJson::Unexpected(v.kind(), jstrict::Kind::String)),
             None => None,
         };
 

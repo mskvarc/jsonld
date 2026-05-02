@@ -3,7 +3,7 @@ use crate::{Id, Indexed, IndexSet, LenientLangTag, Relabel, ValidId};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use iri_rs::IriBuf;
-use json_syntax::Number;
+use jstrict::Number;
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
 use rdf_rs::{
     BlankIdBuf,
@@ -762,7 +762,7 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
 ///
 /// The input JSON value must be in expanded JSON-LD form.
 pub trait TryFromJson<T, B>: Sized {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson>;
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson>;
 }
 
 /// Try to convert from a JSON object directly into an expanded JSON-LD object
@@ -770,13 +770,13 @@ pub trait TryFromJson<T, B>: Sized {
 ///
 /// The input JSON object must be in expanded JSON-LD form.
 pub trait TryFromJsonObject<T, B>: Sized {
-    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: json_syntax::Object) -> Result<Self, InvalidExpandedJson>;
+    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: jstrict::Object) -> Result<Self, InvalidExpandedJson>;
 }
 
 impl<T, B, V: TryFromJson<T, B>> TryFromJson<T, B> for Vec<V> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::Array(items) => {
+            jstrict::Value::Array(items) => {
                 let mut result = Vec::new();
 
                 for item in items {
@@ -791,9 +791,9 @@ impl<T, B, V: TryFromJson<T, B>> TryFromJson<T, B> for Vec<V> {
 }
 
 impl<T, B, V: Eq + Hash + TryFromJson<T, B>> TryFromJson<T, B> for IndexSet<V> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::Array(items) => {
+            jstrict::Value::Array(items) => {
                 let mut result = IndexSet::default();
 
                 for item in items {
@@ -808,9 +808,9 @@ impl<T, B, V: Eq + Hash + TryFromJson<T, B>> TryFromJson<T, B> for IndexSet<V> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Object<T, B> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+            jstrict::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
             _ => Err(InvalidExpandedJson::InvalidObject),
         }
     }
@@ -819,7 +819,7 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Object<T, B> {
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Object<T, B> {
     fn try_from_json_object_in(
         vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-        mut object: json_syntax::Object,
+        mut object: jstrict::Object,
     ) -> Result<Self, InvalidExpandedJson> {
         match object.remove_unique("@context").map_err(InvalidExpandedJson::duplicate_key)? {
             Some(_) => Err(InvalidExpandedJson::NotExpanded),
@@ -853,12 +853,12 @@ pub enum InvalidExpandedJson {
     InvalidDirection,
     NotExpanded,
     UnexpectedEntry,
-    DuplicateKey(json_syntax::object::Key),
-    Unexpected(json_syntax::Kind, json_syntax::Kind),
+    DuplicateKey(jstrict::object::Key),
+    Unexpected(jstrict::Kind, jstrict::Kind),
 }
 
 impl InvalidExpandedJson {
-    pub fn duplicate_key(json_syntax::object::Duplicate(a, _): json_syntax::object::Duplicate<json_syntax::object::Entry>) -> Self {
+    pub fn duplicate_key(jstrict::object::Duplicate(a, _): jstrict::object::Duplicate<jstrict::object::Entry>) -> Self {
         InvalidExpandedJson::DuplicateKey(a.key)
     }
 }
@@ -1096,7 +1096,7 @@ impl<'a, T, B> Iterator for Traverse<'a, T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Object<T, B> {
-    fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
         match self {
             Self::Value(v) => v.into_json_with(vocabulary),
             Self::Node(n) => n.into_json_with(vocabulary),

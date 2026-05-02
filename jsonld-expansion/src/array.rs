@@ -1,5 +1,5 @@
 use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler, expand_element};
-use json_syntax::Array;
+use jstrict::Array;
 use jsonld_context_processing::ProcessingCache;
 use jsonld_core::{Context, Environment, Object, context::TermDefinitionRef, object};
 use jsonld_syntax::ContainerKind;

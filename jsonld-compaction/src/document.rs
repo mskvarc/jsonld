@@ -8,7 +8,7 @@ use crate::{
     iri::{IriConfusedWithPrefix, compact_iri},
 };
 
-pub type CompactDocumentResult = Result<json_syntax::Value, crate::Error>;
+pub type CompactDocumentResult = Result<jstrict::Value, crate::Error>;
 
 /// Context embeding method.
 ///
@@ -127,7 +127,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
     }
 }
 
-impl EmbedContext for json_syntax::Value {
+impl EmbedContext for jstrict::Value {
     fn embed_context<N>(
         &mut self,
         vocabulary: &N,
@@ -142,8 +142,8 @@ impl EmbedContext for json_syntax::Value {
         let value = self.take();
 
         let obj = match value {
-            json_syntax::Value::Array(array) => {
-                let mut obj = json_syntax::Object::new();
+            jstrict::Value::Array(array) => {
+                let mut obj = jstrict::Object::new();
 
                 if !array.is_empty() {
                     let key = compact_iri(vocabulary, context.processed(), &Term::Keyword(Keyword::Graph), true, false, options)?;
@@ -153,7 +153,7 @@ impl EmbedContext for json_syntax::Value {
 
                 Some(obj)
             }
-            json_syntax::Value::Object(obj) => Some(obj),
+            jstrict::Value::Object(obj) => Some(obj),
             _null => None,
         };
 

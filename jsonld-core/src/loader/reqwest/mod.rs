@@ -4,7 +4,7 @@ use crate::{LoadError, LoadingResult, Profile};
 use super::{Loader, RemoteDocument};
 use crate::HashSet;
 use iri_rs::{Iri, IriBuf};
-use json_syntax::Parse;
+use jstrict::Parse;
 use reqwest::{
     StatusCode,
     header::{ACCEPT, CONTENT_TYPE, LINK},
@@ -69,7 +69,7 @@ pub enum Error {
     TooManyRedirections,
 
     #[error("JSON parse error: {0}")]
-    Parse(json_syntax::parse::Error<utf8_decode::Utf8Error>),
+    Parse(jstrict::parse::Error<utf8_decode::Utf8Error>),
 }
 
 /// `reqwest`-based loader.
@@ -191,7 +191,7 @@ impl Loader for ReqwestLoader {
                             let bytes = response.bytes().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e.into())))?;
 
                             let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
-                            let (document, _) = json_syntax::Value::parse_utf8(decoder).map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
+                            let (document, _) = jstrict::Value::parse_utf8(decoder).map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
 
                             break Ok(RemoteDocument::new_full(
                                 Some(url),

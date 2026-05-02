@@ -1,5 +1,5 @@
 use crate::{ActiveProperty, WarningHandler, expand_iri, node_id_of_term};
-use json_syntax::Number;
+use jstrict::Number;
 use jsonld_context_processing::algorithm::{Action, RejectVocab};
 use jsonld_core::{Context, Environment, IndexedObject, LangString, Node, Object, Type, Value, object::value::Literal};
 use jsonld_syntax::{ErrorCode, LenientLangTag, Nullable};
@@ -12,11 +12,11 @@ pub(crate) enum GivenLiteralValue<'a> {
 }
 
 impl<'a> GivenLiteralValue<'a> {
-    pub fn new(value: &'a json_syntax::Value) -> Self {
+    pub fn new(value: &'a jstrict::Value) -> Self {
         match value {
-            json_syntax::Value::Boolean(b) => Self::Boolean(*b),
-            json_syntax::Value::Number(n) => Self::Number(n),
-            json_syntax::Value::String(s) => Self::String(s),
+            jstrict::Value::Boolean(b) => Self::Boolean(*b),
+            jstrict::Value::Number(n) => Self::Number(n),
+            jstrict::Value::String(s) => Self::String(s),
             _ => panic!("not a literal value"),
         }
     }
@@ -150,7 +150,7 @@ where
             let result: Literal = match value {
                 LiteralValue::Given(v) => match v {
                     GivenLiteralValue::Boolean(b) => Literal::Boolean(b),
-                    GivenLiteralValue::Number(n) => Literal::Number(unsafe { json_syntax::NumberBuf::new_unchecked(n.as_bytes().into()) }),
+                    GivenLiteralValue::Number(n) => Literal::Number(unsafe { jstrict::NumberBuf::new_unchecked(n.as_bytes().into()) }),
                     GivenLiteralValue::String(s) => Literal::String(s.into()),
                 },
                 LiteralValue::Inferred(s) => Literal::String(s),

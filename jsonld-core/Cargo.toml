@@ -15,8 +15,12 @@ readme = "README.md"
 default = ["fast-hash"]
 fast-hash = ["iri-rs/fast-hash", "jsonld-syntax/fast-hash"]
 reqwest = ["bytes", "dep:reqwest", "utf8-decode", "reqwest-middleware"]
-serde = ["dep:serde", "json-syntax/serde"]
-serde_json = ["dep:serde_json", "json-syntax/serde_json", "jsonld-syntax/serde_json"]
+serde = ["dep:serde", "jstrict/serde"]
+serde_json = [
+    "dep:serde_json",
+    "jstrict/serde_json",
+    "jsonld-syntax/serde_json",
+]
 ahash = ["dep:ahash", "jsonld-syntax/ahash"]
 gxhash = ["dep:gxhash", "jsonld-syntax/gxhash"]
 
@@ -32,7 +36,7 @@ hashbrown = "0.17.0"
 indexmap = "2.14.0"
 iri-rs = { version = "3.3.4", features = ["static"] }
 jsonld-syntax.workspace = true
-json-syntax = { version = "0.12.5", features = ["contextual", "canonicalize"] }
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git", features = ["contextual", "canonicalize"] }
 langtag = "1.1.0"
 ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
 log = "0.4.29"
@@ -43,7 +47,7 @@ pretty_dtoa = "0.3.0"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 reqwest = { version = "0.13.2", optional = true }
 reqwest-middleware = { version = "0.5.1", optional = true }
-ryu-js = "0.2.2"
+ryu-js = "1.0.2"
 serde = { version = "1.0.228", optional = true }
 serde_json = { version = "1.0", optional = true }
 smallvec = "1.15.1"

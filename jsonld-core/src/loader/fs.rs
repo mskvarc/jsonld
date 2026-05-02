@@ -1,7 +1,7 @@
 use super::{Loader, RemoteDocument};
 use crate::{LoadError, LoadingResult};
 use iri_rs::{Iri, IriBuf};
-use json_syntax::Parse;
+use jstrict::Parse;
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -21,7 +21,7 @@ pub enum Error {
 
     /// Parse error.
     #[error("parse error: {0}")]
-    Parse(json_syntax::parse::Error),
+    Parse(jstrict::parse::Error),
 }
 
 /// File-system loader.
@@ -78,7 +78,7 @@ impl Loader for FsLoader {
                 let mut buf_reader = BufReader::new(file);
                 let mut contents = String::new();
                 buf_reader.read_to_string(&mut contents).map_err(|e| LoadError::new(url.into(), Error::IO(e)))?;
-                let (doc, _) = json_syntax::Value::parse_str(&contents).map_err(|e| LoadError::new(url.into(), Error::Parse(e)))?;
+                let (doc, _) = jstrict::Value::parse_str(&contents).map_err(|e| LoadError::new(url.into(), Error::Parse(e)))?;
                 Ok(RemoteDocument::new(Some(url.into()), Some("application/ld+json".parse().unwrap()), doc))
             }
             None => Err(LoadError::new(url.into(), Error::NoMountPoint)),

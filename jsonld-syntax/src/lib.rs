@@ -25,7 +25,7 @@ pub use direction::*;
 pub use error::*;
 pub use expandable::*;
 pub use into_json::*;
-pub use json_syntax::{
+pub use jstrict::{
     BorrowUnordered,
     Kind,
     Number,
@@ -49,7 +49,7 @@ pub use nullable::*;
 pub use try_from_json::*;
 
 #[cfg(feature = "serde")]
-pub use json_syntax::{from_value, to_value};
+pub use jstrict::{from_value, to_value};
 
 #[derive(Clone, Copy, Debug)]
-pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);
+pub struct Unexpected(jstrict::Kind, &'static [jstrict::Kind]);

@@ -54,9 +54,9 @@ fn xsd_to_value<V: IriVocabularyMut>(vocabulary: &mut V, value: xsd_rs::Value) -
         }
     };
 
-    match json_syntax::Number::new(&number) {
+    match jstrict::Number::new(&number) {
         Ok(_) => {
-            let n = unsafe { json_syntax::NumberBuf::new_unchecked(number.into_bytes().into()) };
+            let n = unsafe { jstrict::NumberBuf::new_unchecked(number.into_bytes().into()) };
             Value::Literal(Literal::Number(n), None)
         }
         Err(_) => {

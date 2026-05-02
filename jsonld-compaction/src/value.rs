@@ -15,7 +15,7 @@ pub async fn compact_indexed_value_with<N, L>(
     active_property: Option<&str>,
     loader: &L,
     options: Options,
-) -> Result<json_syntax::Value, Error>
+) -> Result<jstrict::Value, Error>
 where
     N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
@@ -51,7 +51,7 @@ where
     // Here starts the Value Compaction Algorithm.
 
     // Initialize result to a copy of value.
-    let mut result = json_syntax::Object::default();
+    let mut result = jstrict::Object::default();
 
     // If the active context has a null inverse context,
     // set inverse context in active context to the result of calling the
@@ -108,15 +108,15 @@ where
             use object::value::Literal;
             if ty.clone().map(Type::Iri) == type_mapping && remove_index {
                 match lit {
-                    Literal::Null => return Ok(json_syntax::Value::Null),
-                    Literal::Boolean(b) => return Ok(json_syntax::Value::Boolean(*b)),
-                    Literal::Number(n) => return Ok(json_syntax::Value::Number(n.clone())),
+                    Literal::Null => return Ok(jstrict::Value::Null),
+                    Literal::Boolean(b) => return Ok(jstrict::Value::Boolean(*b)),
+                    Literal::Number(n) => return Ok(jstrict::Value::Number(n.clone())),
                     Literal::String(s) => {
                         if ty.is_some() || (language.is_none() && direction.is_none()) {
-                            return Ok(json_syntax::Value::String(s.as_str().into()));
+                            return Ok(jstrict::Value::String(s.as_str().into()));
                         } else {
                             let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
-                            result.insert(compact_key.unwrap(), json_syntax::Value::String(s.as_str().into()));
+                            result.insert(compact_key.unwrap(), jstrict::Value::String(s.as_str().into()));
                         }
                     }
                 }
@@ -124,16 +124,16 @@ where
                 let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
                 match lit {
                     Literal::Null => {
-                        result.insert(compact_key.unwrap(), json_syntax::Value::Null);
+                        result.insert(compact_key.unwrap(), jstrict::Value::Null);
                     }
                     Literal::Boolean(b) => {
-                        result.insert(compact_key.unwrap(), json_syntax::Value::Boolean(*b));
+                        result.insert(compact_key.unwrap(), jstrict::Value::Boolean(*b));
                     }
                     Literal::Number(n) => {
-                        result.insert(compact_key.unwrap(), json_syntax::Value::Number(n.clone()));
+                        result.insert(compact_key.unwrap(), jstrict::Value::Number(n.clone()));
                     }
                     Literal::String(s) => {
-                        result.insert(compact_key.unwrap(), json_syntax::Value::String(s.as_str().into()));
+                        result.insert(compact_key.unwrap(), jstrict::Value::String(s.as_str().into()));
                     }
                 }
 
@@ -143,8 +143,8 @@ where
                     result.insert(
                         compact_key.unwrap(),
                         match compact_ty {
-                            Some(s) => json_syntax::Value::String(s.into()),
-                            None => json_syntax::Value::Null,
+                            Some(s) => jstrict::Value::String(s.into()),
+                            None => jstrict::Value::Null,
                         },
                     );
                 }
@@ -159,19 +159,19 @@ where
 			&& (ls_direction.is_none() || direction == ls_direction)
             {
                 // || (ls.direction().is_none() && direction.is_none())) {
-                return Ok(json_syntax::Value::String(ls.as_str().into()));
+                return Ok(jstrict::Value::String(ls.as_str().into()));
             } else {
                 let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
-                result.insert(compact_key.unwrap(), json_syntax::Value::String(ls.as_str().into()));
+                result.insert(compact_key.unwrap(), jstrict::Value::String(ls.as_str().into()));
 
                 if let Some(language) = ls.language() {
                     let compact_key = crate::compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Language), true, false, options)?;
-                    result.insert(compact_key.unwrap(), json_syntax::Value::String(language.as_str().into()));
+                    result.insert(compact_key.unwrap(), jstrict::Value::String(language.as_str().into()));
                 }
 
                 if let Some(direction) = ls.direction() {
                     let compact_key = crate::compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Direction), true, false, options)?;
-                    result.insert(compact_key.unwrap(), json_syntax::Value::String(direction.as_str().into()));
+                    result.insert(compact_key.unwrap(), jstrict::Value::String(direction.as_str().into()));
                 }
             }
         }
@@ -188,8 +188,8 @@ where
                 result.insert(
                     compact_key.unwrap(),
                     match compact_ty {
-                        Some(s) => json_syntax::Value::String(s.into()),
-                        None => json_syntax::Value::Null,
+                        Some(s) => jstrict::Value::String(s.into()),
+                        None => jstrict::Value::Null,
                     },
                 );
             }
@@ -199,9 +199,9 @@ where
     if !remove_index {
         if let Some(index) = index {
             let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
-            result.insert(compact_key.unwrap(), json_syntax::Value::String(index.into()));
+            result.insert(compact_key.unwrap(), jstrict::Value::String(index.into()));
         }
     }
 
-    Ok(json_syntax::Value::Object(result))
+    Ok(jstrict::Value::Object(result))
 }

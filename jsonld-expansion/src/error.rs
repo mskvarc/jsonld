@@ -46,7 +46,7 @@ pub enum Error {
     InvalidNestValue,
 
     #[error("Duplicate key `{0}`")]
-    DuplicateKey(json_syntax::object::Key),
+    DuplicateKey(jstrict::object::Key),
 
     #[error(transparent)]
     Literal(crate::LiteralExpansionError),
@@ -90,7 +90,7 @@ impl Error {
 }
 
 impl Error {
-    pub fn duplicate_key_ref(json_syntax::object::Duplicate(a, _b): json_syntax::object::Duplicate<&json_syntax::object::Entry>) -> Self {
+    pub fn duplicate_key_ref(jstrict::object::Duplicate(a, _b): jstrict::object::Duplicate<&jstrict::object::Entry>) -> Self {
         Self::DuplicateKey(a.key.clone())
     }
 }

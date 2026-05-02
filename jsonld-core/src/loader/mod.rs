@@ -27,7 +27,7 @@ pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, jsonld_
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocumentReference<I = IriBuf, T = json_syntax::Value> {
+pub enum RemoteDocumentReference<I = IriBuf, T = jstrict::Value> {
     /// IRI to the remote document.
     Iri(I),
 
@@ -36,10 +36,10 @@ pub enum RemoteDocumentReference<I = IriBuf, T = json_syntax::Value> {
 }
 
 impl<I, T> RemoteDocumentReference<I, T> {
-    /// Creates an IRI to a `json_syntax::Value` JSON document.
+    /// Creates an IRI to a `jstrict::Value` JSON document.
     ///
     /// This method can replace `RemoteDocumentReference::Iri` to help the type
-    /// inference in the case where `T = json_syntax::Value`.
+    /// inference in the case where `T = jstrict::Value`.
     pub fn iri(iri: I) -> Self {
         Self::Iri(iri)
     }
@@ -126,7 +126,7 @@ impl<I> RemoteContextReference<I> {
 ///
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Debug, Clone)]
-pub struct RemoteDocument<I = IriBuf, T = json_syntax::Value> {
+pub struct RemoteDocument<I = IriBuf, T = jstrict::Value> {
     /// The final URL of the loaded document, after eventual redirection.
     pub url: Option<I>,
 
@@ -274,28 +274,28 @@ impl<I, T> RemoteDocument<I, T> {
     }
 }
 
-impl<I> RemoteDocument<I, json_syntax::Value> {
+impl<I> RemoteDocument<I, jstrict::Value> {
     /// Creates a remote document from any value convertible into a
-    /// [`json_syntax::Value`].
+    /// [`jstrict::Value`].
     ///
     /// With the `serde_json` feature enabled, this also accepts
     /// [`serde_json::Value`] thanks to the `From<serde_json::Value>`
-    /// implementation provided by `json-syntax`.
-    pub fn from_value(url: Option<I>, content_type: Option<Mime>, document: impl Into<json_syntax::Value>) -> Self {
+    /// implementation provided by `jstrict`.
+    pub fn from_value(url: Option<I>, content_type: Option<Mime>, document: impl Into<jstrict::Value>) -> Self {
         Self::new(url, content_type, document.into())
     }
 }
 
 #[cfg(feature = "serde_json")]
-impl<I> RemoteDocument<I, json_syntax::Value> {
+impl<I> RemoteDocument<I, jstrict::Value> {
     /// Creates a remote document from a [`serde_json::Value`].
     pub fn from_serde_json(url: Option<I>, content_type: Option<Mime>, document: serde_json::Value) -> Self {
-        Self::new(url, content_type, json_syntax::Value::from_serde_json(document))
+        Self::new(url, content_type, jstrict::Value::from_serde_json(document))
     }
 
     /// Consumes the document, returning a `RemoteDocument<I, serde_json::Value>`.
     pub fn into_serde_json(self) -> RemoteDocument<I, serde_json::Value> {
-        self.map(json_syntax::Value::into_serde_json)
+        self.map(jstrict::Value::into_serde_json)
     }
 }
 
@@ -490,7 +490,7 @@ impl<L: Loader> Loader for &mut L {
 pub enum ExtractContextError {
     /// Unexpected JSON value.
     #[error("unexpected {0}")]
-    Unexpected(json_syntax::Kind),
+    Unexpected(jstrict::Kind),
 
     /// No context definition found.
     #[error("missing `@context` entry")]
@@ -506,7 +506,7 @@ pub enum ExtractContextError {
 }
 
 impl ExtractContextError {
-    fn duplicate_context(json_syntax::object::Duplicate(_, _): json_syntax::object::Duplicate<json_syntax::object::Entry>) -> Self {
+    fn duplicate_context(jstrict::object::Duplicate(_, _): jstrict::object::Duplicate<jstrict::object::Entry>) -> Self {
         Self::DuplicateContext
     }
 }
@@ -515,7 +515,7 @@ pub trait ExtractContext {
     fn into_ld_context(self) -> Result<jsonld_syntax::context::Context, ExtractContextError>;
 }
 
-impl ExtractContext for json_syntax::Value {
+impl ExtractContext for jstrict::Value {
     fn into_ld_context(self) -> Result<jsonld_syntax::context::Context, ExtractContextError> {
         match self {
             Self::Object(mut o) => match o.remove_unique("@context").map_err(ExtractContextError::duplicate_context)? {
@@ -548,7 +548,7 @@ mod serde_json_tests {
         assert!(doc.context_url().is_none());
         assert!(doc.profile.is_empty());
         match doc.document() {
-            json_syntax::Value::Object(o) => {
+            jstrict::Value::Object(o) => {
                 assert_eq!(o.get("foo").next().unwrap().as_str(), Some("bar"));
             }
             other => panic!("expected object, got {:?}", other.kind()),
@@ -567,34 +567,34 @@ mod serde_json_tests {
         });
         let doc = RemoteDocument::<IriBuf, _>::from_serde_json(None, None, value);
         let obj = match doc.document() {
-            json_syntax::Value::Object(o) => o,
+            jstrict::Value::Object(o) => o,
             _ => panic!("expected object"),
         };
-        assert!(matches!(obj.get("null").next().unwrap(), json_syntax::Value::Null));
-        assert!(matches!(obj.get("bool").next().unwrap(), json_syntax::Value::Boolean(true)));
-        assert!(matches!(obj.get("num").next().unwrap(), json_syntax::Value::Number(_)));
-        assert!(matches!(obj.get("str").next().unwrap(), json_syntax::Value::String(_)));
-        assert!(matches!(obj.get("arr").next().unwrap(), json_syntax::Value::Array(_)));
-        assert!(matches!(obj.get("obj").next().unwrap(), json_syntax::Value::Object(_)));
+        assert!(matches!(obj.get("null").next().unwrap(), jstrict::Value::Null));
+        assert!(matches!(obj.get("bool").next().unwrap(), jstrict::Value::Boolean(true)));
+        assert!(matches!(obj.get("num").next().unwrap(), jstrict::Value::Number(_)));
+        assert!(matches!(obj.get("str").next().unwrap(), jstrict::Value::String(_)));
+        assert!(matches!(obj.get("arr").next().unwrap(), jstrict::Value::Array(_)));
+        assert!(matches!(obj.get("obj").next().unwrap(), jstrict::Value::Object(_)));
     }
 
     #[test]
     fn into_serde_json_round_trip() {
-        use json_syntax::Parse;
-        let original = json_syntax::Value::parse_str(r#"{"a": [1, 2, 3], "b": "x"}"#).unwrap().0;
+        use jstrict::Parse;
+        let original = jstrict::Value::parse_str(r#"{"a": [1, 2, 3], "b": "x"}"#).unwrap().0;
         let doc: RemoteDocument<IriBuf, _> = RemoteDocument::new(None, None, original.clone());
         let serde_doc = doc.into_serde_json();
-        let round_tripped = json_syntax::Value::from_serde_json(serde_doc.document.clone());
+        let round_tripped = jstrict::Value::from_serde_json(serde_doc.document.clone());
         assert_eq!(round_tripped, original);
     }
 
     #[test]
-    fn from_value_accepts_json_syntax_value() {
-        use json_syntax::Parse;
-        let value = json_syntax::Value::parse_str(r#"{"k": 1}"#).unwrap().0;
+    fn from_value_accepts_jstrict_value() {
+        use jstrict::Parse;
+        let value = jstrict::Value::parse_str(r#"{"k": 1}"#).unwrap().0;
         let doc: RemoteDocument<IriBuf, _> = RemoteDocument::from_value(None, None, value);
         match doc.document() {
-            json_syntax::Value::Object(_) => {}
+            jstrict::Value::Object(_) => {}
             _ => panic!("expected object"),
         }
     }

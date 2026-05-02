@@ -4,7 +4,7 @@
 //! # Usage
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
-use json_syntax::object::Entry;
+use jstrict::object::Entry;
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
     Context,
@@ -68,7 +68,7 @@ impl From<IriConfusedWithPrefix> for Error {
     }
 }
 
-pub type CompactFragmentResult = Result<json_syntax::Value, Error>;
+pub type CompactFragmentResult = Result<jstrict::Value, Error>;
 
 /// Compaction options.
 #[derive(Clone, Copy)]
@@ -292,7 +292,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                     )
                     .await
                 } else {
-                    let mut result = json_syntax::Object::default();
+                    let mut result = jstrict::Object::default();
                     compact_property(
                         vocabulary,
                         &mut result,
@@ -324,11 +324,11 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                             let alias = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
 
                             // Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-                            result.insert(alias.unwrap(), json_syntax::Value::String(index.into()));
+                            result.insert(alias.unwrap(), jstrict::Value::String(index.into()));
                         }
                     }
 
-                    Ok(json_syntax::Value::Object(result))
+                    Ok(jstrict::Value::Object(result))
                 }
             }
         }
@@ -336,20 +336,20 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 }
 
 /// Default value of `as_array` is false.
-fn add_value(map: &mut json_syntax::Object, key: &str, value: json_syntax::Value, as_array: bool) {
+fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_array: bool) {
     match map.get_unique(key).ok().unwrap().map(|entry| entry.is_array()) {
         Some(false) => {
             let Entry { key, value } = map.remove_unique(key).ok().unwrap().unwrap();
-            map.insert(key, json_syntax::Value::Array(vec![value]));
+            map.insert(key, jstrict::Value::Array(vec![value]));
         }
         None if as_array => {
-            map.insert(key.into(), json_syntax::Value::Array(Vec::new()));
+            map.insert(key.into(), jstrict::Value::Array(Vec::new()));
         }
         _ => (),
     }
 
     match value {
-        json_syntax::Value::Array(values) => {
+        jstrict::Value::Array(values) => {
             for value in values {
                 add_value(map, key, value, false)
             }
@@ -366,16 +366,16 @@ fn add_value(map: &mut json_syntax::Object, key: &str, value: json_syntax::Value
 }
 
 /// Get the `@value` field of a value object.
-fn value_value<I>(value: &Value<I>) -> json_syntax::Value {
+fn value_value<I>(value: &Value<I>) -> jstrict::Value {
     use jsonld_core::object::Literal;
     match value {
         Value::Literal(lit, _ty) => match lit {
-            Literal::Null => json_syntax::Value::Null,
-            Literal::Boolean(b) => json_syntax::Value::Boolean(*b),
-            Literal::Number(n) => json_syntax::Value::Number(n.clone()),
-            Literal::String(s) => json_syntax::Value::String(s.as_str().into()),
+            Literal::Null => jstrict::Value::Null,
+            Literal::Boolean(b) => jstrict::Value::Boolean(*b),
+            Literal::Number(n) => jstrict::Value::Number(n.clone()),
+            Literal::String(s) => jstrict::Value::String(s.as_str().into()),
         },
-        Value::LangString(s) => json_syntax::Value::String(s.as_str().into()),
+        Value::LangString(s) => jstrict::Value::String(s.as_str().into()),
         Value::Json(json) => json.clone(),
     }
 }
@@ -416,7 +416,7 @@ where
     }
 
     if result.is_empty() || result.len() > 1 || !options.compact_arrays || active_property == Some("@graph") || active_property == Some("@set") || list_or_set {
-        return Ok(json_syntax::Value::Array(result.into_iter().collect()));
+        return Ok(jstrict::Value::Array(result.into_iter().collect()));
     }
 
     Ok(result.into_iter().next().unwrap())

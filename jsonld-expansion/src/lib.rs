@@ -6,7 +6,7 @@
 //! The expansion algorithm is provided by the [`Expand`] trait.
 use std::hash::Hash;
 
-use json_syntax::Value;
+use jstrict::Value;
 use jsonld_context_processing::Context;
 use jsonld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
 use rdf_rs::{
@@ -51,7 +51,7 @@ impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where H: jsonld_core::warn
 ///
 /// This trait provides the functions necessary to expand
 /// a JSON-LD document into an [`ExpandedDocument`].
-/// It is implemented by [`json_syntax::Value`] representing
+/// It is implemented by [`jstrict::Value`] representing
 /// a JSON object and [`RemoteDocument`].
 ///
 /// # Example

@@ -223,7 +223,7 @@ impl CompactError {
 }
 
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<json_syntax::Value, CompactError>;
+pub type CompactResult = Result<jstrict::Value, CompactError>;
 
 /// Error that can be raised by the [`JsonLdProcessor::flatten`] function.
 #[derive(Debug, thiserror::Error)]
@@ -258,7 +258,7 @@ impl<I, B> FlattenError<I, B> {
 }
 
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult<I, B> = Result<json_syntax::Value, FlattenError<I, B>>;
+pub type FlattenResult<I, B> = Result<jstrict::Value, FlattenError<I, B>>;
 
 /// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
 #[derive(Debug, thiserror::Error)]
@@ -288,8 +288,8 @@ pub type CompareResult = Result<bool, ExpandError>;
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
 ///
-/// It is notably implemented for the [`RemoteDocument<I, M, json_syntax::Value<M>>`](crate::RemoteDocument)
-/// and [`RemoteDocumentReference<I, M, json_syntax::Value<M>>`] types.
+/// It is notably implemented for the [`RemoteDocument<I, M, jstrict::Value<M>>`](crate::RemoteDocument)
+/// and [`RemoteDocumentReference<I, M, jstrict::Value<M>>`] types.
 ///
 /// # Methods naming
 ///
@@ -1779,7 +1779,7 @@ async fn compact_expanded_full<'a, T, N, L>(
     loader: &'a L,
     options: Options<N::Iri>,
     warnings: impl context_processing::WarningHandler<N>,
-) -> Result<json_syntax::Value, CompactError>
+) -> Result<jstrict::Value, CompactError>
 where
     N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
@@ -1825,7 +1825,7 @@ where
 #[cfg(test)]
 mod tests {
     use futures::Future;
-    use json_syntax::Value;
+    use jstrict::Value;
     use jsonld_core::{NoLoader, RemoteDocument};
     use rdf_rs::generator;
 

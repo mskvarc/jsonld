@@ -15,7 +15,7 @@ pub enum InvalidContext {
     InvalidIriRef(String),
 
     #[error("Unexpected {0}")]
-    Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]),
+    Unexpected(jstrict::Kind, &'static [jstrict::Kind]),
 
     #[error("Invalid `@direction`")]
     InvalidDirection,
@@ -52,13 +52,13 @@ impl From<crate::Unexpected> for InvalidContext {
 impl TryFromJson for TermDefinition {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::Simple(term_definition::Simple(s.as_str().to_owned()))),
-            json_syntax::Value::Object(o) => {
+            jstrict::Value::String(s) => Ok(Self::Simple(term_definition::Simple(s.as_str().to_owned()))),
+            jstrict::Value::Object(o) => {
                 let mut def = term_definition::Expanded::new();
 
-                for json_syntax::object::Entry { key, value } in o {
+                for jstrict::object::Entry { key, value } in o {
                     match Keyword::try_from(key.as_str()) {
                         Ok(Keyword::Id) => def.id = Some(Nullable::try_from_json(value)?),
                         Ok(Keyword::Type) => def.type_ = Some(Nullable::try_from_json(value)?),
@@ -69,7 +69,7 @@ impl TryFromJson for TermDefinition {
                         Ok(Keyword::Direction) => def.direction = Some(Nullable::try_from_json(value)?),
                         Ok(Keyword::Container) => {
                             let container = match value {
-                                json_syntax::Value::Null => Nullable::Null,
+                                jstrict::Value::Null => Nullable::Null,
                                 other => {
                                     let container = Container::try_from_json(other)?;
                                     Nullable::Some(container)
@@ -90,7 +90,7 @@ impl TryFromJson for TermDefinition {
             }
             unexpected => Err(InvalidContext::Unexpected(
                 unexpected.kind(),
-                &[json_syntax::Kind::String, json_syntax::Kind::Object],
+                &[jstrict::Kind::String, jstrict::Kind::Object],
             )),
         }
     }
@@ -99,10 +99,10 @@ impl TryFromJson for TermDefinition {
 impl TryFromJson for term_definition::Type {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            jstrict::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -110,13 +110,13 @@ impl TryFromJson for term_definition::Type {
 impl TryFromJson for definition::TypeContainer {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => match Keyword::try_from(s.as_str()) {
+            jstrict::Value::String(s) => match Keyword::try_from(s.as_str()) {
                 Ok(Keyword::Set) => Ok(Self::Set),
                 _ => Err(InvalidContext::InvalidTermDefinition),
             },
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -124,13 +124,13 @@ impl TryFromJson for definition::TypeContainer {
 impl TryFromJson for definition::Type {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::Object(o) => {
+            jstrict::Value::Object(o) => {
                 let mut container = None;
                 let mut protected = None;
 
-                for json_syntax::object::Entry { key, value } in o {
+                for jstrict::object::Entry { key, value } in o {
                     match Keyword::try_from(key.as_str()) {
                         Ok(Keyword::Container) => {
                             if container.replace(definition::TypeContainer::try_from_json(value)?).is_some() {
@@ -151,7 +151,7 @@ impl TryFromJson for definition::Type {
                     None => Err(InvalidContext::InvalidTermDefinition),
                 }
             }
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::Object])),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::Object])),
         }
     }
 }
@@ -159,13 +159,13 @@ impl TryFromJson for definition::Type {
 impl TryFromJson for definition::Version {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::Number(n) => match n.as_str() {
+            jstrict::Value::Number(n) => match n.as_str() {
                 "1.1" => Ok(Self::V1_1),
                 _ => Err(InvalidContext::InvalidTermDefinition),
             },
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::Number])),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::Number])),
         }
     }
 }
@@ -173,10 +173,10 @@ impl TryFromJson for definition::Version {
 impl TryFromJson for definition::Vocab {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            jstrict::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -184,10 +184,10 @@ impl TryFromJson for definition::Vocab {
 impl TryFromJson for term_definition::Id {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            jstrict::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -195,10 +195,10 @@ impl TryFromJson for term_definition::Id {
 impl TryFromJson for definition::Key {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, Self::Error> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, Self::Error> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            jstrict::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -206,10 +206,10 @@ impl TryFromJson for definition::Key {
 impl TryFromJson for term_definition::Index {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            jstrict::Value::String(s) => Ok(Self::from(s.as_str().to_owned())),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -217,13 +217,13 @@ impl TryFromJson for term_definition::Index {
 impl TryFromJson for term_definition::Nest {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::String(s) => match Self::try_from(s.as_str().to_owned()) {
+            jstrict::Value::String(s) => match Self::try_from(s.as_str().to_owned()) {
                 Ok(nest) => Ok(nest),
                 Err(InvalidNest(s)) => Err(InvalidContext::InvalidNestValue(s)),
             },
-            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String])),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String])),
         }
     }
 }
@@ -231,9 +231,9 @@ impl TryFromJson for term_definition::Nest {
 impl TryFromJson for Context {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::Array(a) => {
+            jstrict::Value::Array(a) => {
                 let mut many = Vec::with_capacity(a.len());
 
                 for item in a {
@@ -250,17 +250,17 @@ impl TryFromJson for Context {
 impl TryFromJson for ContextEntry {
     type Error = InvalidContext;
 
-    fn try_from_json(value: &json_syntax::Value) -> Result<Self, InvalidContext> {
+    fn try_from_json(value: &jstrict::Value) -> Result<Self, InvalidContext> {
         match value {
-            json_syntax::Value::Null => Ok(Self::Null),
-            json_syntax::Value::String(s) => match IriRefBuf::new(s.as_str().to_owned()) {
+            jstrict::Value::Null => Ok(Self::Null),
+            jstrict::Value::String(s) => match IriRefBuf::new(s.as_str().to_owned()) {
                 Ok(iri_ref) => Ok(Self::IriRef(iri_ref)),
                 Err(e) => Err(InvalidContext::InvalidIriRef(e.0)),
             },
-            json_syntax::Value::Object(o) => {
+            jstrict::Value::Object(o) => {
                 let mut def = Definition::new();
 
-                for json_syntax::object::Entry { key, value } in o {
+                for jstrict::object::Entry { key, value } in o {
                     match Keyword::try_from(key.as_str()) {
                         Ok(Keyword::Base) => def.base = Some(Nullable::try_from_json(value)?),
                         Ok(Keyword::Import) => def.import = Some(IriRefBuf::try_from_json(value)?),
@@ -273,7 +273,7 @@ impl TryFromJson for ContextEntry {
                         Ok(Keyword::Vocab) => def.vocab = Some(Nullable::try_from_json(value)?),
                         _ => {
                             let term_def = match value {
-                                json_syntax::Value::Null => Nullable::Null,
+                                jstrict::Value::Null => Nullable::Null,
                                 other => Nullable::Some(TermDefinition::try_from_json(other)?),
                             };
 
@@ -288,7 +288,7 @@ impl TryFromJson for ContextEntry {
             }
             unexpected => Err(InvalidContext::Unexpected(
                 unexpected.kind(),
-                &[json_syntax::Kind::Null, json_syntax::Kind::String, json_syntax::Kind::Object],
+                &[jstrict::Kind::Null, jstrict::Kind::String, jstrict::Kind::Object],
             )),
         }
     }

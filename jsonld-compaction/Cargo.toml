@@ -30,7 +30,7 @@ jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-expansion.workspace = true
 jsonld-syntax.workspace = true
-json-syntax = "0.12.5"
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 langtag = "1.1.0"
 mown = "1.0.0"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }

@@ -1,6 +1,6 @@
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Nullable};
 use iri_rs::IriRefBuf;
-use json_syntax::print::{Options, PrecomputeSize, Print, Size, printed_string_size, string_literal};
+use jstrict::print::{Options, PrecomputeSize, Print, Size, printed_string_size, string_literal};
 use std::fmt;
 
 impl PrecomputeSize for Direction {
@@ -43,7 +43,7 @@ impl PrecomputeSize for Nullable<&IriRefBuf> {
     fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
         match self {
             Self::Null => Size::Width(4),
-            Self::Some(v) => Size::Width(json_syntax::print::printed_string_size(v.as_str())),
+            Self::Some(v) => Size::Width(jstrict::print::printed_string_size(v.as_str())),
         }
     }
 }
@@ -204,7 +204,7 @@ impl Print for Nullable<crate::Direction> {
 // 		sizes: &[Size],
 // 		index: &mut usize,
 // 	) -> fmt::Result {
-// 		json_syntax::print::print_object(
+// 		jstrict::print::print_object(
 // 			self.entries().iter()
 // 				.map(|e| (e.key.as_str(), &e.value)),
 // 			f,

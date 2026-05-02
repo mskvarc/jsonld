@@ -56,7 +56,7 @@ async fn compact_output_into_serde_json() {
     let compact = doc.compact(context, &jsonld::NoLoader).await.expect("compaction failed");
 
     let serde_v: serde_json::Value = compact.clone().into_serde_json();
-    let round_trip = json_syntax::Value::from_serde_json(serde_v);
+    let round_trip = jstrict::Value::from_serde_json(serde_v);
     assert!(jsonld_syntax::Compare::compare(&compact, &round_trip));
 }
 
@@ -67,6 +67,6 @@ async fn flatten_output_into_serde_json() {
     let flattened = doc.flatten(&mut generator, &jsonld::NoLoader).await.expect("flatten failed");
 
     let serde_v: serde_json::Value = flattened.clone().into_serde_json();
-    let round_trip = json_syntax::Value::from_serde_json(serde_v);
+    let round_trip = jstrict::Value::from_serde_json(serde_v);
     assert!(jsonld_syntax::Compare::compare(&flattened, &round_trip));
 }

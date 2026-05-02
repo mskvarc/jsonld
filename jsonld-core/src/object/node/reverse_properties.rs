@@ -188,16 +188,16 @@ where
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ReverseProperties<T, B> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+            jstrict::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
             _ => Err(InvalidExpandedJson::InvalidObject),
         }
     }
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for ReverseProperties<T, B> {
-    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: json_syntax::Object) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: jstrict::Object) -> Result<Self, InvalidExpandedJson> {
         let mut result = Self::new();
 
         for entry in object {
@@ -309,8 +309,8 @@ impl<'a, T, B> std::iter::FusedIterator for Iter<'a, T, B> {}
 pub type IterMut<'a, T, B> = indexmap::map::IterMut<'a, Id<T, B>, ReversePropertyNodes<T, B>>;
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for ReverseProperties<T, B> {
-    fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
-        let mut obj = json_syntax::Object::new();
+    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+        let mut obj = jstrict::Object::new();
 
         for (prop, nodes) in self {
             obj.insert(prop.with(vocabulary).to_string().into(), nodes.into_json_with(vocabulary));

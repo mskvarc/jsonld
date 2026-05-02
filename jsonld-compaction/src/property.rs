@@ -33,7 +33,7 @@ async fn compact_property_list<N, L>(
     vocabulary: &mut N,
     list: &List<N::Iri, N::BlankId>,
     expanded_index: Option<&str>,
-    nest_result: &mut json_syntax::Object,
+    nest_result: &mut jstrict::Object,
     container: Container,
     as_array: bool,
     item_active_property: &str,
@@ -63,7 +63,7 @@ where
     // then set `compacted_item` to an array containing only `compacted_item`.
     if !compacted_item.is_array() {
         let array = vec![compacted_item];
-        compacted_item = json_syntax::Value::Array(array)
+        compacted_item = jstrict::Value::Array(array)
     }
 
     // If container does not include @list:
@@ -73,7 +73,7 @@ where
         // IRI compacting @list and the value is the original
         // compacted item.
         let key = compact_key(vocabulary, active_context, &Term::Keyword(Keyword::List), true, false, options)?;
-        let mut compacted_item_list_object = json_syntax::Object::default();
+        let mut compacted_item_list_object = jstrict::Object::default();
         compacted_item_list_object.insert(key.unwrap(), compacted_item);
 
         // If `expanded_item` contains the entry @index-value,
@@ -82,10 +82,10 @@ where
         if let Some(index) = expanded_index {
             let key = compact_key(vocabulary, active_context, &Term::Keyword(Keyword::Index), true, false, options)?;
 
-            compacted_item_list_object.insert(key.unwrap(), json_syntax::Value::String(index.into()));
+            compacted_item_list_object.insert(key.unwrap(), jstrict::Value::String(index.into()));
         }
 
-        compacted_item = json_syntax::Value::Object(compacted_item_list_object);
+        compacted_item = jstrict::Value::Object(compacted_item_list_object);
 
         // Use add value to add `compacted_item` to
         // the `item_active_property` entry in `nest_result` using `as_array`.
@@ -103,7 +103,7 @@ async fn compact_property_graph<N, L>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
     expanded_index: Option<&str>,
-    nest_result: &mut json_syntax::Object,
+    nest_result: &mut jstrict::Object,
     container: Container,
     as_array: bool,
     item_active_property: &str,
@@ -182,11 +182,11 @@ where
         // containing the key from IRI compacting @included and
         // the original `compacted_item` as the value.
         compacted_item = match compacted_item {
-            json_syntax::Value::Array(items) if items.len() > 1 => {
+            jstrict::Value::Array(items) if items.len() > 1 => {
                 let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Included), true, false, options)?.unwrap();
-                let mut map = json_syntax::Object::default();
-                map.insert(key.into(), json_syntax::Value::Array(items));
-                json_syntax::Value::Object(map)
+                let mut map = jstrict::Object::default();
+                map.insert(key.into(), jstrict::Value::Array(items));
+                jstrict::Value::Object(map)
             }
             item => item,
         };
@@ -201,7 +201,7 @@ where
         // Set `compacted_item` to a new map containing the key from
         // IRI compacting @graph using the original `compacted_item` as a value.
         let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Graph), true, false, options)?.unwrap();
-        let mut map = json_syntax::Object::default();
+        let mut map = jstrict::Object::default();
         map.insert(key.into(), compacted_item);
 
         // If `expanded_item` contains an @id entry,
@@ -217,7 +217,7 @@ where
                 key.into(),
                 match value {
                     Some(s) => s.into(),
-                    None => json_syntax::Value::Null,
+                    None => jstrict::Value::Null,
                 },
             );
         }
@@ -232,7 +232,7 @@ where
 
         // Use `add_value` to add `compacted_item` to the
         // `item_active_property` entry in `nest_result` using `as_array`.
-        let compacted_item = json_syntax::Value::Object(map);
+        let compacted_item = jstrict::Value::Object(map);
         add_value(nest_result, item_active_property, compacted_item, as_array)
     }
 
@@ -240,11 +240,11 @@ where
 }
 
 fn select_nest_result<'a, I, B>(
-    result: &'a mut json_syntax::Object,
+    result: &'a mut jstrict::Object,
     active_context: &Context<I, B>,
     item_active_property: &str,
     compact_arrays: bool,
-) -> Result<(&'a mut json_syntax::Object, Container, bool), Error>
+) -> Result<(&'a mut jstrict::Object, Container, bool), Error>
 where
     I: Clone + Hash + Eq,
     B: Clone + Hash + Eq,
@@ -267,7 +267,7 @@ where
                     // If result does not have a nest_term entry,
                     // initialize it to an empty map.
                     if result.get_unique(nest_term.as_str()).ok().unwrap().is_none() {
-                        result.insert(nest_term.as_str().into(), json_syntax::Object::default().into());
+                        result.insert(nest_term.as_str().into(), jstrict::Object::default().into());
                     }
 
                     // Initialize `nest_result` to the value of `nest_term` in result.
@@ -308,7 +308,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub async fn compact_property<'a, N, L, O, T>(
     vocabulary: &mut N,
-    result: &mut json_syntax::Object,
+    result: &mut jstrict::Object,
     expanded_property: Term<N::Iri, N::BlankId>,
     expanded_value: O,
     active_context: &Context<N::Iri, N::BlankId>,
@@ -393,7 +393,7 @@ where
                         // `item_active_property` in `nest_result`,
                         // initializing it to a new empty map, if necessary.
                         if nest_result.get_unique(item_active_property.as_str()).ok().unwrap().is_none() {
-                            nest_result.insert(item_active_property.clone().into(), json_syntax::Object::default().into());
+                            nest_result.insert(item_active_property.clone().into(), jstrict::Object::default().into());
                         }
 
                         let map_object = nest_result.get_unique_mut(item_active_property.as_str()).ok().unwrap().unwrap();
@@ -446,10 +446,10 @@ where
                                     // Set `map_key` to the first value of
                                     // `container_key` in `compacted_item`, if any.
                                     let (map_key, remaining_values) = match &mut compacted_item {
-                                        json_syntax::Value::Object(map) => match map.remove_unique(container_key.as_ref().unwrap().as_str()).ok().unwrap() {
+                                        jstrict::Value::Object(map) => match map.remove_unique(container_key.as_ref().unwrap().as_str()).ok().unwrap() {
                                             Some(entry) => match entry.value {
-                                                json_syntax::Value::String(s) => (Some(s.to_string()), Vec::new()),
-                                                json_syntax::Value::Array(values) => {
+                                                jstrict::Value::String(s) => (Some(s.to_string()), Vec::new()),
+                                                jstrict::Value::Array(values) => {
                                                     let mut values = values.into_iter();
                                                     match values.next() {
                                                         Some(first_value) => (first_value.as_str().map(|v| v.to_string()), values.collect()),
@@ -507,8 +507,8 @@ where
                             let (map_key, remaining_values) = match compacted_item.as_object_mut() {
                                 Some(map) => match map.remove_unique(container_key.as_ref().unwrap().as_str()).ok().unwrap() {
                                     Some(entry) => match entry.value {
-                                        json_syntax::Value::String(s) => (Some((*s).to_string()), Vec::new()),
-                                        json_syntax::Value::Array(values) => {
+                                        jstrict::Value::String(s) => (Some((*s).to_string()), Vec::new()),
+                                        jstrict::Value::Array(values) => {
                                             let mut values = values.into_iter();
                                             match values.next() {
                                                 Some(first_value) => (first_value.as_str().map(ToOwned::to_owned), values.collect()),

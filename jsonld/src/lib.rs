@@ -262,7 +262,7 @@
 //! ## Interop with `serde_json`
 //!
 //! By default, this crate represents JSON values using
-//! [`json_syntax::Value`]. If you have a [`serde_json::Value`] (for example
+//! [`jstrict::Value`]. If you have a [`serde_json::Value`] (for example
 //! deserialized via [`serde`]), enable the `serde_json` feature flag to
 //! convert between the two without manual unpacking.
 //!
@@ -270,14 +270,14 @@
 //!
 //! [`RemoteDocument::from_serde_json`] consumes a [`serde_json::Value`]
 //! directly. [`RemoteDocument::from_value`] is more general and accepts
-//! anything that implements `Into<json_syntax::Value>`, which includes both
-//! `json_syntax::Value` and `serde_json::Value` (when the feature is on).
+//! anything that implements `Into<jstrict::Value>`, which includes both
+//! `jstrict::Value` and `serde_json::Value` (when the feature is on).
 //!
 //! ### Output
 //!
 //! - [`JsonLdProcessor::compact`] and [`JsonLdProcessor::flatten`] return a
-//!   [`json_syntax::Value`] — call its inherent
-//!   [`into_serde_json`](json_syntax::Value::into_serde_json) method.
+//!   [`jstrict::Value`] — call its inherent
+//!   [`into_serde_json`](jstrict::Value::into_serde_json) method.
 //! - [`ExpandedDocument`] gains
 //!   [`into_serde_json_with`](crate::ExpandedDocument::into_serde_json_with)
 //!   (and [`into_serde_json`](crate::ExpandedDocument::into_serde_json) for

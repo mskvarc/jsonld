@@ -185,9 +185,9 @@ impl<I> indexmap::Equivalent<Id<I, BlankIdBuf>> for BlankIdBuf {
 }
 
 impl<I, B> TryFromJson<I, B> for Id<I, B> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::String(s) => match Iri::parse(s.as_str()) {
+            jstrict::Value::String(s) => match Iri::parse(s.as_str()) {
                 Ok(iri) => Ok(Self::Valid(ValidId::Iri(vocabulary.insert(iri)))),
                 Err(_) => match BlankId::new(s.as_str()) {
                     Ok(blank_id) => Ok(Self::Valid(ValidId::Blank(vocabulary.insert_blank_id(blank_id)))),
@@ -425,7 +425,7 @@ impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Id<T, B> {
-    fn into_json_with(self, context: &N) -> json_syntax::Value {
+    fn into_json_with(self, context: &N) -> jstrict::Value {
         self.with(context).to_string().into()
     }
 }

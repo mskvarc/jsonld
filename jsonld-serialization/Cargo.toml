@@ -19,7 +19,7 @@ fast-hash = ["iri-rs/fast-hash", "jsonld-core/fast-hash"]
 indexmap = "2.14.0"
 iri-rs = "3.3.4"
 jsonld-core.workspace = true
-json-syntax = "0.12.5"
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 thiserror = "2.0.18"
@@ -27,7 +27,7 @@ xsd-rs = { git = "ssh://git@github.com/mskvarc/xsd-rs.git" }
 
 [dev-dependencies]
 contextual = "0.1.6"
-json-syntax = "0.12.5"
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git", features = [
     "derive",
 ] }

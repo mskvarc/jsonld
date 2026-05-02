@@ -1,7 +1,7 @@
 use super::{RDF_DIRECTION, RDF_FIRST, RDF_JSON, RDF_NIL, RDF_REST, RDF_VALUE, RdfDirection, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 use crate::{Direction, Id, Indexed, IndexedObject, Node, Object, ValidId, object::value};
 use iri_rs::IriBuf;
-use json_syntax::Print;
+use jstrict::Print;
 use langtag::LangTagBuf;
 use rdf_rs::{
     Literal,

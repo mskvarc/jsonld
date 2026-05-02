@@ -179,16 +179,16 @@ where
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Properties<T, B> {
-    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: json_syntax::Value) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson> {
         match value {
-            json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+            jstrict::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
             _ => Err(InvalidExpandedJson::InvalidObject),
         }
     }
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Properties<T, B> {
-    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: json_syntax::Object) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: jstrict::Object) -> Result<Self, InvalidExpandedJson> {
         let mut result = Self::new();
 
         for entry in object {

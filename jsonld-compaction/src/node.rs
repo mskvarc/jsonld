@@ -7,8 +7,8 @@ use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
-fn optional_string(s: Option<String>) -> json_syntax::Value {
-    s.map(Into::into).unwrap_or_else(|| json_syntax::Value::Null)
+fn optional_string(s: Option<String>) -> jstrict::Value {
+    s.map(Into::into).unwrap_or_else(|| jstrict::Value::Null)
 }
 
 /// Compact the given indexed node.
@@ -22,7 +22,7 @@ pub async fn compact_indexed_node_with<N, L>(
     active_property: Option<&str>,
     loader: &L,
     options: Options,
-) -> Result<json_syntax::Value, Error>
+) -> Result<jstrict::Value, Error>
 where
     N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
@@ -64,7 +64,7 @@ where
     }
 
     // let inside_reverse = active_property == Some("@reverse");
-    let mut result = json_syntax::Object::default();
+    let mut result = jstrict::Object::default();
 
     if !node.types().is_empty() {
         // If element has an @type entry, create a new array compacted types initialized by
@@ -202,7 +202,7 @@ where
                 }
             }
 
-            let mut reverse_result = json_syntax::Object::default();
+            let mut reverse_result = jstrict::Object::default();
             for (expanded_property, expanded_value) in reverse_properties.iter() {
                 compact_property(
                     vocabulary,
@@ -218,9 +218,9 @@ where
             }
 
             // For each property and value in compacted value:
-            let mut reverse_map = json_syntax::Object::default();
+            let mut reverse_map = jstrict::Object::default();
             for (property, mapped_value) in reverse_result.iter_mut() {
-                let mut value = json_syntax::Value::Null;
+                let mut value = jstrict::Value::Null;
                 std::mem::swap(&mut value, &mut *mapped_value);
 
                 // If the term definition for property in the active context indicates that
@@ -321,7 +321,7 @@ where
 /// Compact the given list of types into the given `result` compacted object.
 fn compact_types<N>(
     vocabulary: &mut N,
-    result: &mut json_syntax::Object,
+    result: &mut jstrict::Object,
     types: Option<&[Id<N::Iri, N::BlankId>]>,
     active_context: &Context<N::Iri, N::BlankId>,
     type_scoped_context: &Context<N::Iri, N::BlankId>,
@@ -363,7 +363,7 @@ where
                     compacted_value.push(optional_string(compacted_ty))
                 }
 
-                json_syntax::Value::Array(compacted_value.into_iter().collect())
+                jstrict::Value::Array(compacted_value.into_iter().collect())
             };
 
             // Initialize alias by IRI compacting expanded property.

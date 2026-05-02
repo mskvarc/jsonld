@@ -32,13 +32,13 @@ gxhash = ["jsonld-core/gxhash"]
 contextual = "0.1.6"
 futures = "0.3.32"
 iri-rs = "3.3.4"
-json-syntax = "0.12.5"
 jsonld-compaction.workspace = true
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-expansion.workspace = true
 jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 locspan = "0.8.2"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 thiserror = "2.0.18"

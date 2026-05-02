@@ -1,6 +1,6 @@
 use crate::HashSet;
 use iri_rs::{Iri, iri};
-use json_syntax::Parse;
+use jstrict::Parse;
 use rdf_rs::{
     GeneralizedQuad as Quad,
     LiteralTypeRef,
@@ -214,7 +214,7 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 #[derive(Debug, thiserror::Error)]
 pub enum SerializationError {
     #[error("invalid JSON")]
-    InvalidJson(ld_core::ContextIris, json_syntax::parse::Error),
+    InvalidJson(ld_core::ContextIris, jstrict::parse::Error),
 
     #[error("invalid boolean value")]
     InvalidBoolean(ld_core::ContextIris, String),
@@ -601,7 +601,7 @@ where
                         let ty_handle = vocabulary.get(ty).expect("literal type IRI not in vocabulary");
                         if ty == RDF_JSON {
                             let (json, _) =
-                                json_syntax::Value::parse_str(l.value).map_err(|e| SerializationError::InvalidJson(context.into_iris(interpretation), e))?;
+                                jstrict::Value::parse_str(l.value).map_err(|e| SerializationError::InvalidJson(context.into_iris(interpretation), e))?;
                             Value::Json(json)
                         } else if ty == XSD_BOOLEAN {
                             let b = match l.as_ref() {
@@ -614,7 +614,7 @@ where
 
                             Value::Literal(Literal::Boolean(b), Some(ty_handle))
                         } else if ty == XSD_INTEGER || ty == XSD_DOUBLE {
-                            let n = json_syntax::NumberBuf::from_str(l.as_str())
+                            let n = jstrict::NumberBuf::from_str(l.as_str())
                                 .map_err(|_| SerializationError::Number(context.into_iris(interpretation), l.as_ref().to_owned()))?;
                             Value::Literal(Literal::Number(n), Some(ty_handle))
                         } else if ty == XSD_STRING {
