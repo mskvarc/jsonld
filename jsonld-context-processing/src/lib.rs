@@ -152,7 +152,6 @@ pub type ProcessingResult<'a, T, B, E> = Result<Processed<'a, T, B>, Error<E>>;
 
 pub trait Process {
     /// Process the local context with specific options.
-    #[allow(async_fn_in_trait)]
     async fn process_full<N, L, W>(
         &self,
         vocabulary: &mut N,
@@ -174,8 +173,6 @@ pub trait Process {
     ///
     /// The cache must outlive the active context and local context references
     /// to remain sound. See [`ProcessingCache`] for the soundness contract.
-    #[allow(async_fn_in_trait)]
-    #[allow(clippy::too_many_arguments)]
     async fn process_full_with_cache<N, L, W>(
         &self,
         vocabulary: &mut N,
@@ -195,7 +192,6 @@ pub trait Process {
 
     /// Process the local context, consulting `cache` first and storing the
     /// result on a miss. Convenience wrapper using the default warning handler.
-    #[allow(async_fn_in_trait)]
     async fn process_with_cache<N, L>(
         &self,
         vocabulary: &mut N,
@@ -216,8 +212,6 @@ pub trait Process {
     }
 
     /// Process the local context with specific options.
-    #[allow(clippy::type_complexity)]
-    #[allow(async_fn_in_trait)]
     async fn process_with<N, L>(
         &self,
         vocabulary: &mut N,
@@ -225,7 +219,7 @@ pub trait Process {
         loader: &L,
         base_url: Option<N::Iri>,
         options: Options,
-    ) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
+    ) -> ProcessingResult<'_, N::Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut,
         N::Iri: Clone + Eq + Hash,
@@ -237,7 +231,6 @@ pub trait Process {
 
     /// Process the local context with the given initial active context with the default options:
     /// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-    #[allow(async_fn_in_trait)]
     async fn process<N, L>(&self, vocabulary: &mut N, loader: &L, base_url: Option<N::Iri>) -> Result<Processed<'_, N::Iri, N::BlankId>, Error<L::Error>>
     where
         N: VocabularyMut,

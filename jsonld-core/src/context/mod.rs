@@ -141,6 +141,9 @@ fn keyword_alias_index(k: Keyword) -> Option<usize> {
     })
 }
 
+type CompactIriCache<T, B> = Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>>;
+type TermResolutionCache<T, B> = Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>>;
+
 pub struct Context<T = IriBuf, B = BlankIdBuf> {
     original_base_url: Option<T>,
     base_iri: Option<T>,
@@ -161,8 +164,8 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
     // keep their (still-valid) cached entries.
     inverse: Arc<OnceCell<InverseContext<T, B>>>,
     prefix_terms: Arc<OnceCell<Vec<Key>>>,
-    compact_iri_cache: Arc<OnceCell<Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>>>>,
-    term_resolution_cache: Arc<OnceCell<Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>>>>,
+    compact_iri_cache: Arc<OnceCell<CompactIriCache<T, B>>>,
+    term_resolution_cache: Arc<OnceCell<TermResolutionCache<T, B>>>,
     keyword_aliases: Arc<OnceCell<KeywordAliases>>,
 }
 
@@ -338,7 +341,7 @@ impl<T, B> Context<T, B> {
             self.definitions
                 .iter()
                 .filter_map(|binding| match binding {
-                    BindingRef::Normal(key, def) if def.prefix => Some(key.clone()),
+                    BindingRef::Normal(key, def) if def.prefix => Some(*key),
                     _ => None,
                 })
                 .collect()
@@ -351,7 +354,7 @@ impl<T, B> Context<T, B> {
     /// invalidated whenever the context's term definitions, base IRI,
     /// vocabulary, language, or direction change, since those affect
     /// compaction output.
-    pub fn compact_iri_cache(&self) -> &Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>> {
+    pub fn compact_iri_cache(&self) -> &CompactIriCache<T, B> {
         self.compact_iri_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
     }
 
@@ -362,7 +365,7 @@ impl<T, B> Context<T, B> {
     /// `document_relative=false`); other shapes bypass this cache. Invalidated
     /// alongside the compact-IRI / inverse caches whenever the context's term
     /// definitions, base IRI, vocabulary, language, or direction change.
-    pub fn term_resolution_cache(&self) -> &Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>> {
+    pub fn term_resolution_cache(&self) -> &TermResolutionCache<T, B> {
         self.term_resolution_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
     }
 

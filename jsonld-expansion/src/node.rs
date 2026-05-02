@@ -53,7 +53,6 @@ pub(crate) fn node_id_of_term<T: Clone, B: Clone>(term: Arc<Term<T, B>>) -> Opti
 }
 
 /// Expand a node object.
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_node<'a, N, L, W>(
     env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -131,7 +130,6 @@ type ExpandedNode<T, B> = (Indexed<Node<T, B>>, bool);
 /// Result of the `expand_node_entries` function.
 type NodeEntriesExpensionResult<T, B, E> = Result<ExpandedNode<T, B>, Error<E>>;
 
-#[allow(clippy::too_many_arguments)]
 async fn expand_node_entries<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     mut result: Indexed<Node<N::Iri, N::BlankId>>,
@@ -295,7 +293,7 @@ where
                         }
 
                         if let Some(included) = result.included_entry_mut() {
-                            included.extend(expanded_nodes.into_iter());
+                            included.extend(expanded_nodes);
                         } else {
                             result.set_included(Some(expanded_nodes.into_iter().collect()));
                         }
@@ -391,7 +389,7 @@ where
 
                                             result
                                                 .reverse_properties_or_default()
-                                                .insert_all(reverse_prop, reverse_expanded_nodes.into_iter())
+                                                .insert_all(reverse_prop, reverse_expanded_nodes)
                                         }
                                     }
                                     _ => {
@@ -559,11 +557,10 @@ where
 
                             // If key's term definition in active context has a
                             // direction mapping, update direction with that value.
-                            if let Some(key_definition) = key_definition {
-                                if let Some(key_direction) = key_definition.direction() {
+                            if let Some(key_definition) = key_definition
+                                && let Some(key_direction) = key_definition.direction() {
                                     direction = key_direction.option()
                                 }
-                            }
 
                             // For each key-value pair language-language value in
                             // value, ordered lexicographically by language if ordered is true:
@@ -681,11 +678,10 @@ where
                                 // from `active_context` if it exists, otherwise, set
                                 // `map_context` to `active_context`.
                                 let mut map_context = Mown::Borrowed(active_context);
-                                if container_mapping.contains(ContainerKind::Type) || container_mapping.contains(ContainerKind::Id) {
-                                    if let Some(previous_context) = active_context.previous_context() {
+                                if (container_mapping.contains(ContainerKind::Type) || container_mapping.contains(ContainerKind::Id))
+                                    && let Some(previous_context) = active_context.previous_context() {
                                         map_context = Mown::Borrowed(previous_context)
                                     }
-                                }
 
                                 // If container mapping includes @type and
                                 // index's term definition in map context has a
@@ -694,9 +690,9 @@ where
                                 // map context as active context the value of the
                                 // index's local context as local context and base URL
                                 // from the term definition for index in map context.
-                                if container_mapping.contains(ContainerKind::Type) {
-                                    if let Some(index_definition) = map_context.get(index.as_str()) {
-                                        if let Some(local_context) = index_definition.context() {
+                                if container_mapping.contains(ContainerKind::Type)
+                                    && let Some(index_definition) = map_context.get(index.as_str())
+                                        && let Some(local_context) = index_definition.context() {
                                             let base_url = index_definition.base_url().cloned();
                                             let processed = match cache {
                                                 Some(cache) => local_context
@@ -718,8 +714,6 @@ where
                                             };
                                             map_context = Mown::Owned(processed)
                                         }
-                                    }
-                                }
 
                                 // Otherwise, set map context to active context.
                                 // TODO What?
@@ -937,7 +931,7 @@ where
                             }
                         }
 
-                        result.reverse_properties_or_default().insert_all(prop, reverse_expanded_nodes.into_iter());
+                        result.reverse_properties_or_default().insert_all(prop, reverse_expanded_nodes);
                     } else {
                         // Otherwise, key is not a reverse property use add value
                         // to add expanded value to the expanded property entry in

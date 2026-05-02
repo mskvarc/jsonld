@@ -144,7 +144,7 @@ impl<T, B> Node<T, B> {
 
     /// Assigns an identifier to this node and every other node included in this
     /// one using the given `generator`.
-    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
         generator: &mut G,
@@ -152,7 +152,6 @@ impl<T, B> Node<T, B> {
     where
         T: Eq + Hash,
         B: Eq + Hash,
-        V: VocabularyMut,
     {
         if self.id.is_none() {
             self.id = Some(crate::id::generator_next_id(vocabulary, generator)?.into())
@@ -426,9 +425,8 @@ impl<T, B> Node<T, B> {
     ///
     /// The unnamed graph is returned as a set of indexed objects.
     /// Fails and returns itself if the node is *not* an unnamed graph.
-    #[allow(clippy::result_large_err)]
     #[inline(always)]
-    pub fn into_unnamed_graph(self) -> Result<Graph<T, B>, Self> {
+    pub fn into_unnamed_graph(self: Box<Self>) -> Result<Graph<T, B>, Box<Self>> {
         if self.is_unnamed_graph() {
             // SAFETY: `is_unnamed_graph()` implies `self.graph` is `Some`.
             Ok(unsafe { self.graph.unwrap_unchecked() })
@@ -589,7 +587,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
 }
 
 impl<T, B> Relabel<T, B> for Node<T, B> {
-    fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    fn relabel_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
@@ -598,7 +596,6 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
-        N: VocabularyMut,
     {
         self.id = match self.id.take() {
             Some(Id::Valid(ValidId::Blank(b))) => {
@@ -1217,8 +1214,8 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<
             obj.insert("@id".into(), id.into_with(vocabulary).into_json());
         }
 
-        if let Some(types) = self.types {
-            if !types.is_empty() {
+        if let Some(types) = self.types
+            && !types.is_empty() {
                 // let value = if types.len() > 1 {
                 // 	types.value.into_with(vocabulary).into_json()
                 // } else {
@@ -1228,7 +1225,6 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<
 
                 obj.insert("@type".into(), value);
             }
-        }
 
         if let Some(graph) = self.graph {
             obj.insert("@graph".into(), graph.into_with(vocabulary).into_json());

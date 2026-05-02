@@ -126,7 +126,7 @@ impl Default for Options {
 }
 
 pub trait CompactFragment<I, B> {
-    /// Heuristic used by the parallel branch in [`compact_collection_with`].
+    /// Heuristic used by the parallel branch in `compact_collection_with`.
     /// Returns `true` for items whose compaction is dominated by FuturesOrdered
     /// scheduling overhead rather than useful work — those should stay on the
     /// sequential path. Default is `false` (treat as heavy, parallel-eligible).
@@ -135,7 +135,6 @@ pub trait CompactFragment<I, B> {
         false
     }
 
-    #[allow(async_fn_in_trait)]
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -151,7 +150,6 @@ pub trait CompactFragment<I, B> {
         B: Clone + Hash + Eq,
         L: Loader;
 
-    #[allow(async_fn_in_trait)]
     #[inline(always)]
     async fn compact_fragment_with<'a, N, L>(&'a self, vocabulary: &'a mut N, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
@@ -164,7 +162,6 @@ pub trait CompactFragment<I, B> {
             .await
     }
 
-    #[allow(async_fn_in_trait)]
     #[inline(always)]
     async fn compact_fragment<'a, L>(&'a self, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
@@ -198,8 +195,6 @@ pub trait CompactIndexedFragment<I, B> {
         false
     }
 
-    #[allow(async_fn_in_trait)]
-    #[allow(clippy::too_many_arguments)]
     async fn compact_indexed_fragment<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -290,8 +285,8 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                 //       Seems that the term definition should be looked up in `type_scoped_context`.
                 let mut active_context = Mown::Borrowed(active_context);
                 let mut list_container = false;
-                if let Some(active_property) = active_property {
-                    if let Some(active_property_definition) = type_scoped_context.get(active_property) {
+                if let Some(active_property) = active_property
+                    && let Some(active_property_definition) = type_scoped_context.get(active_property) {
                         if let Some(local_context) = active_property_definition.context() {
                             active_context = Mown::Owned(
                                 local_context
@@ -309,7 +304,6 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 
                         list_container = active_property_definition.container().contains(ContainerKind::List);
                     }
-                }
 
                 if list_container {
                     compact_collection_with(
@@ -340,15 +334,13 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                     // active context that includes @index,
                     if let Some(index) = index {
                         let mut index_container = false;
-                        if let Some(active_property) = active_property {
-                            if let Some(active_property_definition) = active_context.get(active_property) {
-                                if active_property_definition.container().contains(ContainerKind::Index) {
+                        if let Some(active_property) = active_property
+                            && let Some(active_property_definition) = active_context.get(active_property)
+                                && active_property_definition.container().contains(ContainerKind::Index) {
                                     // then the compacted result will be inside of an @index container,
                                     // drop the @index entry by continuing to the next expanded property.
                                     index_container = true;
                                 }
-                            }
-                        }
 
                         if !index_container {
                             // Initialize alias by IRI compacting expanded property.
@@ -469,12 +461,11 @@ where
     }
 
     let mut list_or_set = false;
-    if let Some(active_property) = active_property {
-        if let Some(active_property_definition) = active_context.get(active_property) {
+    if let Some(active_property) = active_property
+        && let Some(active_property_definition) = active_context.get(active_property) {
             list_or_set =
                 active_property_definition.container().contains(ContainerKind::List) || active_property_definition.container().contains(ContainerKind::Set);
         }
-    }
 
     if result.is_empty() || result.len() > 1 || !options.compact_arrays || active_property == Some("@graph") || active_property == Some("@set") || list_or_set {
         return Ok(jstrict::Value::Array(result.into_iter().collect()));

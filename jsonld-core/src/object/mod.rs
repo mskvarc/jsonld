@@ -135,7 +135,7 @@ impl<T, B> Object<T, B> {
     }
 
     /// Assigns an identifier to every node included in this object using the given `generator`.
-    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
         generator: &mut G,
@@ -143,7 +143,6 @@ impl<T, B> Object<T, B> {
     where
         T: Eq + Hash,
         B: Eq + Hash,
-        V: VocabularyMut,
     {
         match self {
             Object::Node(n) => n.identify_all_with(vocabulary, generator)?,
@@ -430,7 +429,7 @@ impl<T, B> Object<T, B> {
 }
 
 impl<T, B> Relabel<T, B> for Object<T, B> {
-    fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    fn relabel_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
@@ -439,7 +438,6 @@ impl<T, B> Relabel<T, B> for Object<T, B> {
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
-        N: VocabularyMut,
     {
         match self {
             Self::Node(n) => n.relabel_with(vocabulary, generator, relabeling),
@@ -483,7 +481,7 @@ impl<T, B> Indexed<Object<T, B>> {
         match obj {
             Object::Node(n) => match n.into_unnamed_graph() {
                 Ok(g) => Ok(g),
-                Err(n) => Err(Indexed::new(Object::node(n), index)),
+                Err(n) => Err(Indexed::new(Object::Node(n), index)),
             },
             obj => Err(Indexed::new(obj, index)),
         }

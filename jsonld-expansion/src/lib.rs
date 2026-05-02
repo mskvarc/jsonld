@@ -125,7 +125,6 @@ pub trait Expand<Iri> {
     /// imported by the input and required during expansion.
     /// The `options` are used to tweak the expansion algorithm.
     /// The `warning_handler` is called each time a warning is emitted during expansion.
-    #[allow(async_fn_in_trait)]
     async fn expand_full<N, L, W>(
         &self,
         vocabulary: &mut N,
@@ -149,7 +148,6 @@ pub trait Expand<Iri> {
     /// imported by the input and required during expansion.
     /// The expansion algorithm is called with an empty initial context with
     /// a base URL given by [`Expand::default_base_url`].
-    #[allow(async_fn_in_trait)]
     async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -174,7 +172,6 @@ pub trait Expand<Iri> {
     /// imported by the input and required during expansion.
     /// The expansion algorithm is called with an empty initial context with
     /// a base URL given by [`Expand::default_base_url`].
-    #[allow(async_fn_in_trait)]
     async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,

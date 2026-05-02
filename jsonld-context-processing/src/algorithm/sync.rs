@@ -52,6 +52,15 @@ use jsonld_syntax::{
 use rdf_rs::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};
 
+type ExpandIriResult<N, L> = Result<
+    Option<Arc<Term<<N as rdf_rs::vocabulary::IriVocabulary>::Iri, <N as rdf_rs::vocabulary::BlankIdVocabulary>::BlankId>>>,
+    Error<<L as Loader>::Error>,
+>;
+type ProcessContextResult<'l, N, L> = Result<
+    crate::Processed<'l, <N as rdf_rs::vocabulary::IriVocabulary>::Iri, <N as rdf_rs::vocabulary::BlankIdVocabulary>::BlankId>,
+    Error<<L as Loader>::Error>,
+>;
+
 /// Returns `true` if the given context (or any context nested in a term
 /// definition's `@context`) references a remote `@context` IRI or contains
 /// `@import`.
@@ -80,13 +89,11 @@ fn entry_requires_loader(entry: &syntax::ContextEntry) -> bool {
                     Nullable::Null => continue,
                     Nullable::Some(d) => d,
                 };
-                if let term_definition::TermDefinition::Expanded(e) = term_def {
-                    if let Some(nested) = e.context.as_deref() {
-                        if requires_loader(nested) {
+                if let term_definition::TermDefinition::Expanded(e) = term_def
+                    && let Some(nested) = e.context.as_deref()
+                        && requires_loader(nested) {
                             return true;
                         }
-                    }
-                }
             }
             false
         }
@@ -119,7 +126,6 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 }
 
 /// Sync mirror of [`super::expand_iri_with`].
-#[allow(clippy::too_many_arguments)]
 pub fn expand_iri_with_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -130,7 +136,7 @@ pub fn expand_iri_with_sync<'a, N, L, W>(
     defined: &'a mut DefinedTerms,
     remote_contexts: ProcessingStack<N::Iri>,
     options: Options,
-) -> Result<Option<Arc<Term<N::Iri, N::BlankId>>>, Error<L::Error>>
+) -> ExpandIriResult<N, L>
 where
     N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
@@ -163,11 +169,10 @@ where
             )?;
 
             if let Some(term_definition) = active_context.get(value) {
-                if let Some(arc) = term_definition.value_arc() {
-                    if arc.is_keyword() {
+                if let Some(arc) = term_definition.value_arc()
+                    && arc.is_keyword() {
                         return Ok(Some(Arc::clone(arc)));
                     }
-                }
 
                 if vocab.is_some() {
                     return match term_definition.value_arc() {
@@ -204,16 +209,14 @@ where
                     )?;
 
                     let prefix_key = Key::from(compact_iri.prefix());
-                    if let Some(term_definition) = active_context.get_normal(&prefix_key) {
-                        if term_definition.prefix {
-                            if let Some(mapping) = term_definition.value() {
+                    if let Some(term_definition) = active_context.get_normal(&prefix_key)
+                        && term_definition.prefix
+                            && let Some(mapping) = term_definition.value() {
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(compact_iri.suffix());
 
                                 return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
                             }
-                        }
-                    }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
@@ -240,13 +243,11 @@ where
                 }
             }
 
-            if document_relative {
-                if let Ok(iri_ref) = IriRef::parse(value) {
-                    if let Some(iri) = resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
+            if document_relative
+                && let Ok(iri_ref) = IriRef::parse(value)
+                    && let Some(iri) = resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
                         return Ok(Some(Arc::new(Term::from(iri))));
                     }
-                }
-            }
 
             Ok(Some(Arc::new(invalid_iri(&mut env, value.to_string()))))
         }
@@ -262,7 +263,6 @@ where
 }
 
 /// Sync mirror of [`super::define`].
-#[allow(clippy::too_many_arguments)]
 pub fn define_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -309,17 +309,15 @@ where
                         definition.protected = protected
                     }
 
-                    if !options.override_protected {
-                        if let Some(previous_definition) = previous_definition {
-                            if previous_definition.protected {
+                    if !options.override_protected
+                        && let Some(previous_definition) = previous_definition
+                            && previous_definition.protected {
                                 if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
                                     return Err(Error::ProtectedTermRedefinition);
                                 }
 
                                 definition.protected = true;
                             }
-                        }
-                    }
 
                     active_context.set_type(Some(definition));
                 }
@@ -327,7 +325,7 @@ where
                     // SAFETY: at this point `term` is a `KeyOrKeyword::Key`,
                     // since the `Type` arm above returns early.
                     let key = unsafe { term.as_key().unwrap_unchecked() };
-                    let previous_definition = active_context.set_normal(key.clone(), None);
+                    let previous_definition = active_context.set_normal(*key, None);
 
                     let simple_term = !d.map(|d| d.is_expanded()).unwrap_or(false);
                     let value = term_definition::ExpandedRef::from(d);
@@ -514,13 +512,11 @@ where
                                     if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
                                         let mut result = String::new();
 
-                                        if let Some(prefix_key) = prefix_definition.value() {
-                                            if let Some(prefix_iri) = prefix_key.as_iri() {
-                                                if let Some(iri) = env.vocabulary.iri(prefix_iri) {
+                                        if let Some(prefix_key) = prefix_definition.value()
+                                            && let Some(prefix_iri) = prefix_key.as_iri()
+                                                && let Some(iri) = env.vocabulary.iri(prefix_iri) {
                                                     result = iri.to_string()
                                                 }
-                                            }
-                                        }
 
                                         result.push_str(compact_iri.suffix());
 
@@ -669,17 +665,15 @@ where
                         return Err(Error::InvalidTermDefinition);
                     }
 
-                    if !options.override_protected {
-                        if let Some(previous_definition) = previous_definition {
-                            if previous_definition.protected {
+                    if !options.override_protected
+                        && let Some(previous_definition) = previous_definition
+                            && previous_definition.protected {
                                 if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
                                     return Err(Error::ProtectedTermRedefinition);
                                 }
 
                                 definition.protected = true;
                             }
-                        }
-                    }
 
                     active_context.set_normal(key.to_owned(), Some(definition));
                 }
@@ -706,7 +700,7 @@ pub(crate) fn process_context_sync<'l: 'a, 'a, N, L, W>(
     remote_contexts: ProcessingStack<N::Iri>,
     base_url: Option<N::Iri>,
     mut options: Options,
-) -> Result<crate::Processed<'l, N::Iri, N::BlankId>, Error<L::Error>>
+) -> ProcessContextResult<'l, N, L>
 where
     N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
@@ -716,15 +710,14 @@ where
 {
     let mut result = active_context.clone();
 
-    if let syntax::context::Context::One(syntax::ContextEntry::Definition(def)) = local_context {
-        if let Some(propagate) = def.propagate {
+    if let syntax::context::Context::One(syntax::ContextEntry::Definition(def)) = local_context
+        && let Some(propagate) = def.propagate {
             if options.processing_mode == ProcessingMode::JsonLd1_0 {
                 return Err(Error::InvalidContextEntry);
             }
 
             options.propagate = propagate
         }
-    }
 
     if !options.propagate && result.previous_context().is_none() {
         result.set_previous_context(active_context.clone());
@@ -764,8 +757,8 @@ where
 
                 let context = Merged::new(context, None);
 
-                if remote_contexts.is_empty() {
-                    if let Some(value) = context.base() {
+                if remote_contexts.is_empty()
+                    && let Some(value) = context.base() {
                         match value {
                             syntax::Nullable::Null => {
                                 result.set_base_iri(None);
@@ -779,7 +772,6 @@ where
                             },
                         }
                     }
-                }
 
                 if let Some(value) = context.vocab() {
                     match value {

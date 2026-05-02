@@ -199,11 +199,10 @@ fn rdf_type<'a, V: IriVocabulary, I: ReverseIriInterpretation<Iri = V::Iri>>(
     id: &'a I::Resource,
 ) -> RdfType<&'a I::Resource> {
     for i in interpretation.iris_of(id) {
-        if let Some(iri) = vocabulary.iri(i) {
-            if iri == RDF_LIST {
+        if let Some(iri) = vocabulary.iri(i)
+            && iri == RDF_LIST {
                 return RdfType::List;
             }
-        }
     }
 
     RdfType::Other(id)
@@ -216,13 +215,13 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 #[derive(Debug, thiserror::Error)]
 pub enum SerializationError {
     #[error("invalid JSON")]
-    InvalidJson(ld_core::ContextIris, jstrict::parse::Error),
+    InvalidJson(Box<ld_core::ContextIris>, jstrict::parse::Error),
 
     #[error("invalid boolean value")]
-    InvalidBoolean(ld_core::ContextIris, String),
+    InvalidBoolean(Box<ld_core::ContextIris>, String),
 
     #[error("invalid number value")]
-    Number(ld_core::ContextIris, String),
+    Number(Box<ld_core::ContextIris>, String),
 }
 
 #[derive(Clone, Copy)]
@@ -278,11 +277,10 @@ impl<I, B> ExpandedDocument<I, B> {
                     rdf_terms.rest = Some(quad.1);
                     if nil.is_none() {
                         for i in ReverseIriInterpretation::iris_of(interpretation, quad.2) {
-                            if let Some(iri) = vocabulary.iri(i) {
-                                if iri == RDF_NIL {
+                            if let Some(iri) = vocabulary.iri(i)
+                                && iri == RDF_NIL {
                                     nil = Some(quad.2);
                                 }
-                            }
                         }
                     }
 
@@ -306,13 +304,13 @@ impl<I, B> ExpandedDocument<I, B> {
         let mut graph = node_map.fold_into_default_graph();
 
         let mut lists = Vec::new();
-        if let Some(nil_id) = nil {
-            if let Some(nil) = graph.get(&nil_id) {
+        if let Some(nil_id) = nil
+            && let Some(nil) = graph.get(&nil_id) {
                 for &node_id in &nil.list.reverse_rest {
                     let mut head_id = node_id;
-                    if is_anonymous(interpretation, head_id) {
-                        if let Some(mut head) = graph.get(&head_id) {
-                            if head.references == 1 && head.is_list_node() {
+                    if is_anonymous(interpretation, head_id)
+                        && let Some(mut head) = graph.get(&head_id)
+                            && head.references == 1 && head.is_list_node() {
                                 let mut values = Vec::new();
 
                                 loop {
@@ -322,15 +320,13 @@ impl<I, B> ExpandedDocument<I, B> {
                                     let parent_id = unsafe { head.list.reverse_rest.iter().next().copied().unwrap_unchecked() };
                                     values.push(first);
 
-                                    if is_anonymous(interpretation, parent_id) {
-                                        if let Some(parent) = graph.get(&parent_id) {
-                                            if parent.references == 1 && parent.is_list_node() {
+                                    if is_anonymous(interpretation, parent_id)
+                                        && let Some(parent) = graph.get(&parent_id)
+                                            && parent.references == 1 && parent.is_list_node() {
                                                 head_id = parent_id;
                                                 head = parent;
                                                 continue;
                                             }
-                                        }
-                                    }
 
                                     break;
                                 }
@@ -338,11 +334,8 @@ impl<I, B> ExpandedDocument<I, B> {
                                 values.reverse();
                                 lists.push((head_id, values))
                             }
-                        }
-                    }
                 }
             }
-        }
 
         for (id, values) in lists {
             graph.resource_mut(id).list.values = Some(values)
@@ -483,7 +476,6 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn insert_property<'a, V, I, O>(
     vocabulary: &V,
     interpretation: &I,
@@ -617,21 +609,21 @@ where
                         let ty_handle = unsafe { vocabulary.get(ty).unwrap_unchecked() };
                         if ty == RDF_JSON {
                             let (json, _) =
-                                jstrict::Value::parse_str(l.value).map_err(|e| SerializationError::InvalidJson(context.into_iris(interpretation), e))?;
+                                jstrict::Value::parse_str(l.value).map_err(|e| SerializationError::InvalidJson(Box::new(context.into_iris(interpretation)), e))?;
                             Value::Json(json)
                         } else if ty == XSD_BOOLEAN {
                             let b = match l.as_ref() {
                                 "true" | "1" => true,
                                 "false" | "0" => false,
                                 other => {
-                                    return Err(SerializationError::InvalidBoolean(context.into_iris(interpretation), other.to_owned()));
+                                    return Err(SerializationError::InvalidBoolean(Box::new(context.into_iris(interpretation)), other.to_owned()));
                                 }
                             };
 
                             Value::Literal(Literal::Boolean(b), Some(ty_handle))
                         } else if ty == XSD_INTEGER || ty == XSD_DOUBLE {
                             let n = jstrict::NumberBuf::from_str(l.as_str())
-                                .map_err(|_| SerializationError::Number(context.into_iris(interpretation), l.as_ref().to_owned()))?;
+                                .map_err(|_| SerializationError::Number(Box::new(context.into_iris(interpretation)), l.as_ref().to_owned()))?;
                             Value::Literal(Literal::Number(n), Some(ty_handle))
                         } else if ty == XSD_STRING {
                             Value::Literal(Literal::String(l.as_ref().into()), None)

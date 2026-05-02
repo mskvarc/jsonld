@@ -71,6 +71,8 @@ impl<'a, T, B> BindingRef<'a, T, B> {
     }
 }
 
+pub type DefinitionParts<T, B> = (HashMap<Key, NormalTermDefinition<T, B>>, Option<TypeTermDefinition>);
+
 /// Context term definitions.
 #[derive(Clone)]
 pub struct Definitions<T, B> {
@@ -88,8 +90,7 @@ impl<T, B> Default for Definitions<T, B> {
 }
 
 impl<T, B> Definitions<T, B> {
-    #[allow(clippy::type_complexity)]
-    pub fn into_parts(self) -> (HashMap<Key, NormalTermDefinition<T, B>>, Option<TypeTermDefinition>) {
+    pub fn into_parts(self) -> DefinitionParts<T, B> {
         (self.normal, self.type_)
     }
 

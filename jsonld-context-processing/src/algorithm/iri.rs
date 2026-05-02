@@ -24,7 +24,6 @@ impl From<MalformedIri> for Warning {
 pub type ExpandIriResult<T, B, E> = Result<Option<Arc<Term<T, B>>>, Error<E>>;
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-#[allow(clippy::too_many_arguments)]
 pub async fn expand_iri_with<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -76,11 +75,10 @@ where
             if let Some(term_definition) = active_context.get(value) {
                 // If active context has a term definition for value, and the associated IRI mapping
                 // is a keyword, return that keyword.
-                if let Some(arc) = term_definition.value_arc() {
-                    if arc.is_keyword() {
+                if let Some(arc) = term_definition.value_arc()
+                    && arc.is_keyword() {
                         return Ok(Some(Arc::clone(arc)));
                     }
-                }
 
                 // If vocab is true and the active context has a term definition for value, return the
                 // associated IRI mapping.
@@ -128,16 +126,14 @@ where
                     // mapping and the prefix flag of the term definition is true, return the result
                     // of concatenating the IRI mapping associated with prefix and suffix.
                     let prefix_key = Key::from(compact_iri.prefix());
-                    if let Some(term_definition) = active_context.get_normal(&prefix_key) {
-                        if term_definition.prefix {
-                            if let Some(mapping) = term_definition.value() {
+                    if let Some(term_definition) = active_context.get_normal(&prefix_key)
+                        && term_definition.prefix
+                            && let Some(mapping) = term_definition.value() {
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(compact_iri.suffix());
 
                                 return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
                             }
-                        }
-                    }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
@@ -172,13 +168,11 @@ where
             // are performed. Characters additionally allowed in IRI references are treated in the
             // same way that unreserved characters are treated in URI references, per section 6.5 of
             // [RFC3987].
-            if document_relative {
-                if let Ok(iri_ref) = IriRef::parse(value) {
-                    if let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
+            if document_relative
+                && let Ok(iri_ref) = IriRef::parse(value)
+                    && let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
                         return Ok(Some(Arc::new(Term::from(iri))));
                     }
-                }
-            }
 
             // Return value as is.
             Ok(Some(Arc::new(invalid_iri(&mut env, value.to_string()))))
@@ -243,11 +237,10 @@ where
         None
     };
 
-    if let Some(s) = cache_value {
-        if let Some(arc) = active_context.term_resolution_cache().lock().get(s).cloned() {
+    if let Some(s) = cache_value
+        && let Some(arc) = active_context.term_resolution_cache().lock().get(s).cloned() {
             return Ok(Some(arc));
         }
-    }
 
     let result = expand_iri_simple_inner::<W, N, L, H>(env, active_context, value, document_relative, vocab)?;
 
@@ -286,11 +279,10 @@ where
             if let Some(term_definition) = active_context.get(value) {
                 // If active context has a term definition for value, and the associated IRI mapping
                 // is a keyword, return that keyword.
-                if let Some(arc) = term_definition.value_arc() {
-                    if arc.is_keyword() {
+                if let Some(arc) = term_definition.value_arc()
+                    && arc.is_keyword() {
                         return Ok(Some(Arc::clone(arc)));
                     }
-                }
 
                 // If vocab is true and the active context has a term definition for value, return the
                 // associated IRI mapping.
@@ -316,16 +308,14 @@ where
                     // mapping and the prefix flag of the term definition is true, return the result
                     // of concatenating the IRI mapping associated with prefix and suffix.
                     let prefix_key = Key::from(compact_iri.prefix());
-                    if let Some(term_definition) = active_context.get_normal(&prefix_key) {
-                        if term_definition.prefix {
-                            if let Some(mapping) = term_definition.value() {
+                    if let Some(term_definition) = active_context.get_normal(&prefix_key)
+                        && term_definition.prefix
+                            && let Some(mapping) = term_definition.value() {
                                 let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
                                 result.push_str(compact_iri.suffix());
 
                                 return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
                             }
-                        }
-                    }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
@@ -360,13 +350,11 @@ where
             // are performed. Characters additionally allowed in IRI references are treated in the
             // same way that unreserved characters are treated in URI references, per section 6.5 of
             // [RFC3987].
-            if document_relative {
-                if let Ok(iri_ref) = IriRef::parse(value) {
-                    if let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
+            if document_relative
+                && let Ok(iri_ref) = IriRef::parse(value)
+                    && let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
                         return Ok(Some(Arc::new(Term::from(iri))));
                     }
-                }
-            }
 
             // Return value as is.
             Ok(Some(Arc::new(invalid_iri_simple(env, value.to_string()))))

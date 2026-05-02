@@ -26,6 +26,9 @@ repository = "https://github.com/mskvarc/jsonld/"
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 categories = ["web-programming", "database", "data-structures"]
 
+[workspace.lints.rust]
+async_fn_in_trait = "allow"
+
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
@@ -33,6 +36,7 @@ panic = "deny"
 unreachable = "deny"
 todo = "deny"
 unimplemented = "deny"
+too_many_arguments = "allow"
 
 [workspace.dependencies]
 jsonld = { path = "jsonld", version = "0.22.0" }

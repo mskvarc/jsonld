@@ -135,7 +135,6 @@ pub enum Id<I = IriBuf, B = BlankIdBuf> {
     Invalid(String),
 }
 
-#[allow(clippy::derived_hash_with_manual_eq)]
 impl<I: Hash, B: Hash> Hash for Id<I, B> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
@@ -154,7 +153,7 @@ impl<I: PartialEq, B: PartialEq> indexmap::Equivalent<Id<I, B>> for ValidId<I, B
     }
 }
 
-impl<'a, B> indexmap::Equivalent<Id<IriBuf, B>> for Iri<&'a str> {
+impl<B> indexmap::Equivalent<Id<IriBuf, B>> for Iri<&str> {
     fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
         match key {
             Id::Valid(ValidId::Iri(iri)) => self.as_str() == iri.as_str(),
@@ -543,11 +542,10 @@ where
 }
 
 pub trait IdentifyAll<T, B> {
-    fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut N, generator: &mut G) -> Result<(), GeneratedIdError>
+    fn identify_all_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut N, generator: &mut G) -> Result<(), GeneratedIdError>
     where
         T: Eq + Hash,
-        B: Eq + Hash,
-        N: VocabularyMut;
+        B: Eq + Hash;
 
     fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), GeneratedIdError>
     where
@@ -560,7 +558,7 @@ pub trait IdentifyAll<T, B> {
 }
 
 pub trait Relabel<T, B> {
-    fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    fn relabel_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
@@ -568,8 +566,7 @@ pub trait Relabel<T, B> {
     ) -> Result<(), GeneratedIdError>
     where
         T: Clone + Eq + Hash,
-        B: Clone + Eq + Hash,
-        N: VocabularyMut;
+        B: Clone + Eq + Hash;
 
     fn relabel<G: LocalGenerator>(&mut self, generator: &mut G, relabeling: &mut HashMap<B, ValidId<T, B>>) -> Result<(), GeneratedIdError>
     where

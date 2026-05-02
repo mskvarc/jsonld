@@ -163,11 +163,10 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Indexed<T> {
     fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
         let mut result = self.value.into_json_with(vocabulary);
 
-        if let Some(obj) = result.as_object_mut() {
-            if let Some(index) = self.index {
+        if let Some(obj) = result.as_object_mut()
+            && let Some(index) = self.index {
                 obj.insert("@index".into(), index.into_json());
             }
-        }
 
         result
     }

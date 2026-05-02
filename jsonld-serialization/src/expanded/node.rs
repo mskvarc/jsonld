@@ -155,11 +155,10 @@ pub(crate) fn into_type_value<I, B>(obj: Indexed<Object<I, B>>) -> Result<jsonld
         Some(_) => Err(obj),
         None => match obj.into_inner() {
             Object::Node(mut node) => {
-                if node.is_empty() {
-                    if let Some(id) = node.id.take() {
+                if node.is_empty()
+                    && let Some(id) = node.id.take() {
                         return Ok(id);
                     }
-                }
                 Err(Indexed::none(Object::Node(node)))
             }
             obj => Err(Indexed::none(obj)),

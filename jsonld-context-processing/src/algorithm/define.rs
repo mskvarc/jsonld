@@ -92,7 +92,6 @@ pub struct DefinedTerm {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-#[allow(clippy::too_many_arguments)]
 pub async fn define<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -156,9 +155,9 @@ where
                     }
 
                     // If override protected is false and previous_definition exists and is protected;
-                    if !options.override_protected {
-                        if let Some(previous_definition) = previous_definition {
-                            if previous_definition.protected {
+                    if !options.override_protected
+                        && let Some(previous_definition) = previous_definition
+                            && previous_definition.protected {
                                 // If `definition` is not the same as `previous_definition`
                                 // (other than the value of protected), a protected term
                                 // redefinition error has been detected, and processing is aborted.
@@ -170,8 +169,6 @@ where
                                 // protected.
                                 definition.protected = true;
                             }
-                        }
-                    }
 
                     active_context.set_type(Some(definition));
                 }
@@ -181,7 +178,7 @@ where
                     let key = unsafe { term.as_key().unwrap_unchecked() };
                     // Initialize `previous_definition` to any existing term definition for `term` in
                     // `active_context`, removing that term definition from active context.
-                    let previous_definition = active_context.set_normal(key.clone(), None);
+                    let previous_definition = active_context.set_normal(*key, None);
 
                     let simple_term = !d.map(|d| d.is_expanded()).unwrap_or(false);
                     let value = term_definition::ExpandedRef::from(d);
@@ -454,13 +451,11 @@ where
                                     if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
                                         let mut result = String::new();
 
-                                        if let Some(prefix_key) = prefix_definition.value() {
-                                            if let Some(prefix_iri) = prefix_key.as_iri() {
-                                                if let Some(iri) = env.vocabulary.iri(prefix_iri) {
+                                        if let Some(prefix_key) = prefix_definition.value()
+                                            && let Some(prefix_iri) = prefix_key.as_iri()
+                                                && let Some(iri) = env.vocabulary.iri(prefix_iri) {
                                                     result = iri.to_string()
                                                 }
-                                            }
-                                        }
 
                                         result.push_str(compact_iri.suffix());
 
@@ -706,9 +701,9 @@ where
                     }
 
                     // If override protected is false and previous_definition exists and is protected;
-                    if !options.override_protected {
-                        if let Some(previous_definition) = previous_definition {
-                            if previous_definition.protected {
+                    if !options.override_protected
+                        && let Some(previous_definition) = previous_definition
+                            && previous_definition.protected {
                                 // If `definition` is not the same as `previous_definition`
                                 // (other than the value of protected), a protected term
                                 // redefinition error has been detected, and processing is aborted.
@@ -720,8 +715,6 @@ where
                                 // protected.
                                 definition.protected = true;
                             }
-                        }
-                    }
 
                     // Set the term definition of `term` in `active_context` to `definition` and
                     // set the value associated with `defined`'s entry term to true.

@@ -77,13 +77,13 @@ impl Type {
                             match literal.value {
                                 "true" => true,
                                 "false" => false,
-                                _ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                                _ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
                             }
                         } else {
-                            return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())));
+                            return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
                         }
                     }
-                    _ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                    _ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
                 };
 
                 Ok(quote! { #b })
@@ -103,7 +103,7 @@ impl Type {
                     let s = iri.as_str();
                     Ok(quote! { ::iri_rs::iri!(#s) })
                 }
-                _ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                _ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
             },
             Self::ProcessingMode => {
                 let s = match value {
@@ -113,10 +113,10 @@ impl Type {
                         if literal.type_.is_iri(&xsd_string) {
                             literal.value.to_owned()
                         } else {
-                            return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())));
+                            return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
                         }
                     }
-                    _ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                    _ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
                 };
 
                 match jsonld::ProcessingMode::try_from(s.as_str()) {
@@ -124,7 +124,7 @@ impl Type {
                         jsonld::ProcessingMode::JsonLd1_0 => Ok(quote! { ::jsonld::ProcessingMode::JsonLd1_0 }),
                         jsonld::ProcessingMode::JsonLd1_1 => Ok(quote! { ::jsonld::ProcessingMode::JsonLd1_1 }),
                     },
-                    Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                    Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
                 }
             }
             Self::RdfDirection => {
@@ -135,10 +135,10 @@ impl Type {
                         if literal.type_.is_iri(&xsd_string) {
                             literal.value.to_owned()
                         } else {
-                            return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())));
+                            return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
                         }
                     }
-                    _ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                    _ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
                 };
 
                 match jsonld::rdf::RdfDirection::try_from(s.as_str()) {
@@ -146,16 +146,16 @@ impl Type {
                         jsonld::rdf::RdfDirection::CompoundLiteral => Ok(quote! { ::jsonld::rdf::RdfDirection::CompoundLiteral }),
                         jsonld::rdf::RdfDirection::I18nDatatype => Ok(quote! { ::jsonld::rdf::RdfDirection::I18nDatatype }),
                     },
-                    Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                    Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
                 }
             }
             Self::Ref(r) => match value {
                 IndexTerm::Iri(_) | IndexTerm::Blank(_) => {
                     let d = spec.types.get(r).unwrap();
                     let mod_id = &spec.id;
-                    d.generate(vocabulary, spec, dataset, value.clone(), quote! { #mod_id :: #r })
+                    d.generate(vocabulary, spec, dataset, *value, quote! { #mod_id :: #r })
                 }
-                _ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+                _ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
             },
         }
     }
@@ -262,11 +262,10 @@ impl Definition {
                     for ty_iri in node_types {
                         match ty_iri {
                             IndexTerm::Iri(ty_iri) => {
-                                if let Some(v) = e.variants.get(ty_iri) {
-                                    if variant.replace(v).is_some() {
+                                if let Some(v) = e.variants.get(ty_iri)
+                                    && variant.replace(v).is_some() {
                                         return Err(Box::new(Error::MultipleTypeVariants(id)));
                                     }
-                                }
                             }
                             _ => panic!("invalid type"),
                         }

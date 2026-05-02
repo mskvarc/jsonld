@@ -77,7 +77,6 @@ pub(crate) type ElementExpansionResult<T, B, E> = Result<Expanded<T, B>, Error<E
 ///
 /// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
 /// The default specified value for `ordered` and `from_map` is `false`.
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_element<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -150,11 +149,10 @@ where
                         _ => (),
                     }
                 }
-                if !has_value_entry && !(element.len() == 1 && has_id_entry) {
-                    if let Some(previous_context) = active_context.previous_context() {
+                if !(has_value_entry || element.len() == 1 && has_id_entry)
+                    && let Some(previous_context) = active_context.previous_context() {
                         active_context = Mown::Owned(previous_context.clone());
                     }
-                }
             }
 
             // If `property_scoped_context` is defined, set `active_context` to the result of
@@ -268,8 +266,8 @@ where
                 }
                 sorted_value.sort_unstable();
                 for term in sorted_value {
-                    if let Some(term_definition) = type_scoped_context.get(term) {
-                        if let Some(local_context) = term_definition.context() {
+                    if let Some(term_definition) = type_scoped_context.get(term)
+                        && let Some(local_context) = term_definition.context() {
                             let base_url = term_definition.base_url().cloned();
                             let options: ProcessingOptions = options.into();
                             let processed = match cache {
@@ -292,7 +290,6 @@ where
                             };
                             active_context = Mown::Owned(processed);
                         }
-                    }
                 }
             }
 
@@ -347,11 +344,10 @@ where
             for ExpandedEntry(_, expanded_key, value) in expanded_entries.iter() {
                 match expanded_key.as_ref() {
                     Term::Keyword(Keyword::Value) => value_entry = Some(*value),
-                    Term::Keyword(Keyword::List) => {
-                        if active_property.is_some() && active_property != Keyword::Graph {
+                    Term::Keyword(Keyword::List)
+                        if active_property.is_some() && active_property != Keyword::Graph => {
                             list_entry = Some(*value)
                         }
-                    }
                     Term::Keyword(Keyword::Set) => set_entry = Some(*value),
                     Term::Id(Id::Valid(ValidId::Blank(id))) => {
                         env.warnings.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));

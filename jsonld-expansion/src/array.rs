@@ -42,7 +42,6 @@ fn is_value_object_shape(obj: &jstrict::Object) -> bool {
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_array<'a, N, L, W>(
     env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,

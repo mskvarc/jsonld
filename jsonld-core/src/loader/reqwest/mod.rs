@@ -165,29 +165,26 @@ impl Loader for ReqwestLoader {
                             let mut context_url = None;
                             if *content_type.media_type() != LD_JSON_MEDIA_TYPE {
                                 for link in response.headers().get_all(LINK).into_iter() {
-                                    if let Some(link) = Link::new(link) {
-                                        if link.rel() == Some(b"http://www.w3.org/ns/json-ld#context") {
+                                    if let Some(link) = Link::new(link)
+                                        && link.rel() == Some(b"http://www.w3.org/ns/json-ld#context") {
                                             if context_url.is_some() {
                                                 return Err(LoadError::new(url, Error::MultipleContextLinkHeaders));
                                             }
 
-                                            if let Ok(resolved) = link.href().resolved(&url) {
-                                                if let Ok(iri) = IriBuf::try_from(resolved) {
+                                            if let Ok(resolved) = link.href().resolved(&url)
+                                                && let Ok(iri) = IriBuf::try_from(resolved) {
                                                     context_url = Some(iri);
                                                 }
-                                            }
                                         }
-                                    }
                                 }
                             }
 
                             let mut profile = HashSet::new();
                             for p in content_type.profile().into_iter().flat_map(|p| p.split(|b| *b == b' ')) {
-                                if let Ok(p) = std::str::from_utf8(p) {
-                                    if let Ok(iri) = Iri::parse(p) {
+                                if let Ok(p) = std::str::from_utf8(p)
+                                    && let Ok(iri) = Iri::parse(p) {
                                         profile.insert(Profile::new(iri));
                                     }
-                                }
                             }
 
                             let bytes = response.bytes().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e.into())))?;
@@ -206,18 +203,16 @@ impl Loader for ReqwestLoader {
                         None => {
                             log::debug!("no valid media type found");
                             for link in response.headers().get_all(LINK).into_iter() {
-                                if let Some(link) = Link::new(link) {
-                                    if link.rel() == Some(b"alternate") && link.type_() == Some(b"application/ld+json") {
+                                if let Some(link) = Link::new(link)
+                                    && link.rel() == Some(b"alternate") && link.type_() == Some(b"application/ld+json") {
                                         log::debug!("link found");
-                                        if let Ok(resolved) = link.href().resolved(&url) {
-                                            if let Ok(next) = IriBuf::try_from(resolved) {
+                                        if let Ok(resolved) = link.href().resolved(&url)
+                                            && let Ok(next) = IriBuf::try_from(resolved) {
                                                 url = next;
                                                 redirection_number += 1;
                                                 continue 'next_url;
                                             }
-                                        }
                                     }
-                                }
                             }
 
                             break Err(LoadError::new(url, Error::InvalidContentType));

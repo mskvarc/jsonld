@@ -3,7 +3,7 @@ use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Obj
 use educe::Educe;
 use rdf_rs::{
     LocalGenerator,
-    vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut},
+    vocabulary::{BlankIdVocabulary, IriVocabulary, VocabularyMut},
 };
 use std::{collections::HashMap, hash::Hash};
 
@@ -188,15 +188,14 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
     {
         if let Some(entry) = self.nodes.get_mut(&id) {
             match (entry.index(), index) {
-                (Some(entry_index), Some(index)) => {
-                    if entry_index != index {
+                (Some(entry_index), Some(index))
+                    if entry_index != index => {
                         return Err(ConflictingIndexes {
                             node_id: id,
                             defined_index: entry_index.to_string(),
                             conflicting_index: index.to_string(),
                         });
                     }
-                }
                 (None, Some(index)) => entry.set_index(Some(index.to_owned())),
                 _ => (),
             }
@@ -294,14 +293,11 @@ impl<'a, T, B> IntoIterator for &'a NodeMapGraph<T, B> {
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> ExpandedDocument<T, B> {
-    pub fn generate_node_map_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    pub fn generate_node_map_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &self,
         vocabulary: &mut V,
         generator: G,
-    ) -> Result<NodeMap<T, B>, NodeMapError<T, B>>
-    where
-        V: VocabularyMut,
-    {
+    ) -> Result<NodeMap<T, B>, NodeMapError<T, B>> {
         let mut node_map: NodeMap<T, B> = NodeMap::new();
         let mut env: Environment<V, G> = Environment::new(vocabulary, generator);
         for object in self {
@@ -317,14 +313,13 @@ pub type ExtendNodeMapResult<V> = Result<
 >;
 
 /// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
-fn extend_node_map<N: Vocabulary, G: LocalGenerator>(
+fn extend_node_map<N: VocabularyMut, G: LocalGenerator>(
     env: &mut Environment<N, G>,
     node_map: &mut NodeMap<N::Iri, N::BlankId>,
     element: &IndexedObject<N::Iri, N::BlankId>,
     active_graph: Option<&Id<N::Iri, N::BlankId>>,
 ) -> ExtendNodeMapResult<N>
 where
-    N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
 {
@@ -351,7 +346,7 @@ where
 
 type ExtendNodeMapFromNodeResult<T, B> = Result<Indexed<Node<T, B>>, NodeMapError<T, B>>;
 
-fn extend_node_map_from_node<N: Vocabulary, G: LocalGenerator>(
+fn extend_node_map_from_node<N: VocabularyMut, G: LocalGenerator>(
     env: &mut Environment<N, G>,
     node_map: &mut NodeMap<N::Iri, N::BlankId>,
     node: &Node<N::Iri, N::BlankId>,
@@ -359,7 +354,6 @@ fn extend_node_map_from_node<N: Vocabulary, G: LocalGenerator>(
     active_graph: Option<&Id<N::Iri, N::BlankId>>,
 ) -> ExtendNodeMapFromNodeResult<N::Iri, N::BlankId>
 where
-    N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
 {

@@ -12,8 +12,8 @@ impl Compare for Value {
             (Self::Boolean(a), Self::Boolean(b)) => a == b,
             (Self::Number(a), Self::Number(b)) => a == b,
             (Self::String(a), Self::String(b)) => a == b,
-            (Self::Array(a), Self::Array(b)) => {
-                if a.len() == b.len() {
+            (Self::Array(a), Self::Array(b))
+                if a.len() == b.len() => {
                     let mut selected = Vec::new();
                     selected.resize(b.len(), false);
 
@@ -29,12 +29,9 @@ impl Compare for Value {
                     }
 
                     true
-                } else {
-                    false
                 }
-            }
-            (Self::Object(a), Self::Object(b)) => {
-                if a.len() == b.len() {
+            (Self::Object(a), Self::Object(b))
+                if a.len() == b.len() => {
                     for entry in a {
                         // Duplicate keys mean the document isn't valid JSON-LD;
                         // treat as "not equal".
@@ -49,10 +46,7 @@ impl Compare for Value {
                     }
 
                     true
-                } else {
-                    false
                 }
-            }
             _ => false,
         }
     }

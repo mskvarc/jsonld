@@ -112,7 +112,7 @@ impl<T, B> List<T, B> {
 }
 
 impl<T, B> Relabel<T, B> for List<T, B> {
-    fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    fn relabel_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
@@ -121,7 +121,6 @@ impl<T, B> Relabel<T, B> for List<T, B> {
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
-        N: VocabularyMut,
     {
         for object in self {
             object.relabel_with(vocabulary, generator, relabeling)?

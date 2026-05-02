@@ -517,7 +517,7 @@ fn nested_with_repeated_terms(depth: usize, props: usize) -> Scenario {
         doc.push_str(&format!(r#""p{i}":"v{i}""#));
     }
     for d in 0..depth {
-        doc.push_str(&format!(r#","child":{{"#));
+        doc.push_str(r#","child":{"#);
         for i in 0..props {
             if i > 0 {
                 doc.push(',');

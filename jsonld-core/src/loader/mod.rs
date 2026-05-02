@@ -290,7 +290,7 @@ impl<I> RemoteDocument<I, jstrict::Value> {
     /// [`jstrict::Value`].
     ///
     /// With the `serde_json` feature enabled, this also accepts
-    /// [`serde_json::Value`] thanks to the `From<serde_json::Value>`
+    /// `serde_json::Value` thanks to the `From<serde_json::Value>`
     /// implementation provided by `jstrict`.
     pub fn from_value(url: Option<I>, content_type: Option<MediaTypeBuf>, document: impl Into<jstrict::Value>) -> Self {
         Self::new(url, content_type, document.into())
@@ -464,7 +464,6 @@ pub trait Loader {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Loads the document behind the given IRI, using the given vocabulary.
-    #[allow(async_fn_in_trait)]
     async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
@@ -479,7 +478,6 @@ pub trait Loader {
     }
 
     /// Loads the document behind the given IRI.
-    #[allow(async_fn_in_trait)]
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>>;
 }
 

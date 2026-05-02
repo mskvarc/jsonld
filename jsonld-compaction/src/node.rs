@@ -12,7 +12,6 @@ fn optional_string(s: Option<&str>) -> jstrict::Value {
 }
 
 /// Compact the given indexed node.
-#[allow(clippy::too_many_arguments)]
 pub async fn compact_indexed_node_with<N, L>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
@@ -44,9 +43,9 @@ where
     // FIXME https://github.com/w3c/json-ld-api/issues/502
     //       Seems that the term definition should be looked up in `type_scoped_context`.
     let mut active_context = Mown::Borrowed(active_context);
-    if let Some(active_property) = active_property {
-        if let Some(active_property_definition) = type_scoped_context.get(active_property) {
-            if let Some(local_context) = active_property_definition.context() {
+    if let Some(active_property) = active_property
+        && let Some(active_property_definition) = type_scoped_context.get(active_property)
+            && let Some(local_context) = active_property_definition.context() {
                 active_context = Mown::Owned(
                     local_context
                         .process_with(
@@ -60,8 +59,6 @@ where
                         .into_processed(),
                 )
             }
-        }
-    }
 
     // let inside_reverse = active_property == Some("@reverse");
     let mut result = jstrict::Object::default();
@@ -80,8 +77,8 @@ where
         compacted_types.sort_by(|a, b| a.as_deref().cmp(&b.as_deref()));
 
         for term in compacted_types.iter().flatten() {
-            if let Some(term_definition) = type_scoped_context.get(&**term) {
-                if let Some(local_context) = term_definition.context() {
+            if let Some(term_definition) = type_scoped_context.get(&**term)
+                && let Some(local_context) = term_definition.context() {
                     let processing_options = ProcessingOptions::from(options).without_propagation();
                     active_context = Mown::Owned(
                         local_context
@@ -96,7 +93,6 @@ where
                             .into_processed(),
                     )
                 }
-            }
         }
     }
 
@@ -177,14 +173,14 @@ where
     )?;
 
     // If expanded property is @reverse:
-    if let Some(reverse_properties) = node.reverse_properties_entry() {
-        if !reverse_properties.is_empty() {
+    if let Some(reverse_properties) = node.reverse_properties_entry()
+        && !reverse_properties.is_empty() {
             // Initialize compacted value to the result of using this algorithm recursively,
             // passing active context, @reverse for active property,
             // expanded value for element, and the compactArrays and ordered flags.
             let active_property = "@reverse";
-            if let Some(active_property_definition) = active_context.get(active_property) {
-                if let Some(local_context) = active_property_definition.context() {
+            if let Some(active_property_definition) = active_context.get(active_property)
+                && let Some(local_context) = active_property_definition.context() {
                     active_context = Mown::Owned(
                         local_context
                             .process_with(
@@ -198,7 +194,6 @@ where
                             .into_processed(),
                     )
                 }
-            }
 
             // NOTE: Plan's two-phase parallel branch for the `@reverse` property loop is
             // deferred. The merge step described in the plan (`add_value` per fragment
@@ -234,8 +229,8 @@ where
 
                 // If the term definition for property in the active context indicates that
                 // property is a reverse property
-                if let Some(term_definition) = active_context.get(property.as_str()) {
-                    if term_definition.reverse_property() {
+                if let Some(term_definition) = active_context.get(property.as_str())
+                    && term_definition.reverse_property() {
                         // Initialize as array to true if the container mapping for property in
                         // the active context includes @set, otherwise the negation of compactArrays.
                         let as_array = term_definition.container().contains(ContainerKind::Set) || !options.compact_arrays;
@@ -244,7 +239,6 @@ where
                         add_value(&mut result, property, value, as_array);
                         continue;
                     }
-                }
 
                 reverse_map.insert(property.clone(), value);
             }
@@ -257,21 +251,18 @@ where
                 result.insert(alias.into(), reverse_map.into());
             }
         }
-    }
 
     // If expanded property is @index and active property has a container mapping in
     // active context that includes @index,
     if let Some(index_entry) = index {
         let mut index_container = false;
-        if let Some(active_property) = active_property {
-            if let Some(active_property_definition) = active_context.get(active_property) {
-                if active_property_definition.container().contains(ContainerKind::Index) {
+        if let Some(active_property) = active_property
+            && let Some(active_property_definition) = active_context.get(active_property)
+                && active_property_definition.container().contains(ContainerKind::Index) {
                     // then the compacted result will be inside of an @index container,
                     // drop the @index entry by continuing to the next expanded property.
                     index_container = true;
                 }
-            }
-        }
 
         if !index_container {
             // Initialize alias by IRI compacting expanded property.
@@ -342,8 +333,8 @@ where
     N::BlankId: Clone + Hash + Eq,
 {
     // If expanded property is @type:
-    if let Some(types) = types {
-        if !types.is_empty() {
+    if let Some(types) = types
+        && !types.is_empty() {
             // If expanded value is a string,
             // then initialize compacted value by IRI compacting expanded value using
             // type-scoped context for active context.
@@ -384,7 +375,6 @@ where
             // Use add value to add compacted value to the alias entry in result using as array.
             add_value(result, alias, compacted_value, as_array)
         }
-    }
 
     Ok(())
 }

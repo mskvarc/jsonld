@@ -11,6 +11,8 @@ pub use flattened::FlattenedDocument;
 
 use crate::RemoteDocument;
 
+pub type DocumentParts<I, B> = (RemoteDocument<I>, ExpandedDocument<I, B>);
+
 /// JSON-LD document in both compact and expanded form.
 #[derive(Debug, Clone)]
 pub struct Document<I = IriBuf, B = BlankIdBuf> {
@@ -35,8 +37,7 @@ impl<I, B> Document<I, B> {
         self.expanded
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn into_parts(self) -> (RemoteDocument<I>, ExpandedDocument<I, B>) {
+    pub fn into_parts(self) -> DocumentParts<I, B> {
         (self.remote, self.expanded)
     }
 

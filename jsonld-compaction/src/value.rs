@@ -24,9 +24,9 @@ where
 {
     // If the term definition for active property in active context has a local context:
     let mut active_context = Mown::Borrowed(active_context);
-    if let Some(active_property) = active_property {
-        if let Some(active_property_definition) = active_context.get(active_property) {
-            if let Some(local_context) = active_property_definition.context() {
+    if let Some(active_property) = active_property
+        && let Some(active_property_definition) = active_context.get(active_property)
+            && let Some(local_context) = active_property_definition.context() {
                 active_context = Mown::Owned(
                     local_context
                         .process_with(
@@ -40,8 +40,6 @@ where
                         .into_processed(),
                 )
             }
-        }
-    }
 
     // If element has an @value or @id entry and the result of using the Value Compaction algorithm,
     // passing active context, active property, and element as value is a scalar,
@@ -189,12 +187,11 @@ where
         }
     }
 
-    if !remove_index {
-        if let Some(index) = index {
+    if !remove_index
+        && let Some(index) = index {
             let index_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Index);
             result.insert(index_key.into(), jstrict::Value::String(index.into()));
         }
-    }
 
     Ok(jstrict::Value::Object(result))
 }

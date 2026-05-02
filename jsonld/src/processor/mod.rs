@@ -383,8 +383,8 @@ pub enum JsonLdError<E = std::convert::Infallible> {
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
 ///
-/// It is notably implemented for the [`RemoteDocument<I, M, jstrict::Value<M>>`](crate::RemoteDocument)
-/// and [`RemoteDocumentReference<I, M, jstrict::Value<M>>`] types.
+/// It is notably implemented for the [`RemoteDocument`](crate::RemoteDocument)
+/// and [`RemoteDocumentReference`](crate::RemoteDocumentReference) types.
 ///
 /// # Methods naming
 ///
@@ -402,7 +402,7 @@ pub enum JsonLdError<E = std::convert::Infallible> {
 ///
 /// [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 /// [`BlankIdBuf`]: rdf_rs::BlankIdBuf
-/// [`Vocabulary`]: rdf_rs::Vocabulary
+/// [`Vocabulary`]: rdf_rs::vocabulary::Vocabulary
 ///
 /// # Example
 ///
@@ -457,7 +457,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ).await.expect("comparison failed"));
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compare_full<N, L>(
         &self,
         other: &Self,
@@ -504,7 +503,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ).await.expect("comparison failed"));
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compare_with_using<'a, N, L>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -547,7 +545,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ).await.expect("comparison failed"));
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compare_with<'a, N, L>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a L) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -586,7 +583,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ).await.expect("comparison failed"));
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compare_using<'a, L>(&'a self, other: &'a Self, loader: &'a L, options: Options<Iri>) -> CompareResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -624,7 +620,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ).await.expect("comparison failed"));
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compare<'a, L>(&'a self, other: &'a Self, loader: &'a L) -> CompareResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -669,7 +664,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("expansion failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn expand_full<N, L>(
         &self,
         vocabulary: &mut N,
@@ -718,7 +712,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("expansion failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn expand_with_using<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -763,7 +756,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("expansion failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -803,7 +795,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("expansion failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn expand_using<'a, L>(&'a self, loader: &'a L, options: Options<Iri>) -> ExpandResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -840,7 +831,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("expansion failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpandResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -849,7 +839,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         self.expand_with(vocabulary::no_vocabulary_mut(), loader).await
     }
 
-    #[allow(async_fn_in_trait)]
     async fn into_document_full<'a, N, L>(
         self,
         vocabulary: &'a mut N,
@@ -862,7 +851,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: 'a + Clone + Eq + Hash, L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
-    #[allow(async_fn_in_trait)]
     async fn into_document_with_using<'a, N, L>(self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -872,7 +860,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         self.into_document_full(vocabulary, loader, options, ()).await
     }
 
-    #[allow(async_fn_in_trait)]
     async fn into_document_with<'a, N, L>(self, vocabulary: &'a mut N, loader: &'a L) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -882,7 +869,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         self.into_document_with_using(vocabulary, loader, Options::default()).await
     }
 
-    #[allow(async_fn_in_trait)]
     async fn into_document<'a, L>(self, loader: &'a L) -> IntoDocumentResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -894,8 +880,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// Compact the document relative to `context` with the given `vocabulary`
     /// and `loader`, using the given `options` and warning handler.
     ///
-    /// On success, the result is an [`syntax::Value`] wrapped inside a
-    /// [`Meta`].
+    /// On success, the result is a [`jstrict::Value`].
     ///
     /// # Example
     ///
@@ -932,7 +917,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("compaction failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compact_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -950,8 +934,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// and `loader`, using the given `options`.
     ///
     /// Warnings are ignored.
-    /// On success, the result is an [`syntax::Value`] wrapped inside a
-    /// [`Meta`].
+    /// On success, the result is a [`jstrict::Value`].
     ///
     /// # Example
     ///
@@ -987,7 +970,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("compaction failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compact_with_using<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -1008,8 +990,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///
     /// Default options are used.
     /// Warnings are ignored.
-    /// On success, the result is an [`syntax::Value`] wrapped inside a
-    /// [`Meta`].
+    /// On success, the result is a [`jstrict::Value`].
     ///
     /// # Example
     ///
@@ -1044,7 +1025,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("compaction failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compact_with<'a, N, L>(&'a self, vocabulary: &'a mut N, context: RemoteContextReference<Iri>, loader: &'a L) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -1058,8 +1038,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// using the given `options`.
     ///
     /// Warnings are ignored.
-    /// On success, the result is an [`syntax::Value`] wrapped inside a
-    /// [`Meta`].
+    /// On success, the result is a [`jstrict::Value`].
     ///
     /// # Example
     ///
@@ -1090,7 +1069,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("compaction failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compact_using<'a, L>(&'a self, context: RemoteContextReference<Iri>, loader: &'a L, options: Options<Iri>) -> CompactResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -1103,8 +1081,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///
     /// Default options are used.
     /// Warnings are ignored.
-    /// On success, the result is an [`syntax::Value`] wrapped inside a
-    /// [`Meta`].
+    /// On success, the result is a [`jstrict::Value`].
     ///
     /// # Example
     ///
@@ -1134,7 +1111,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("compaction failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn compact<'a, L>(&'a self, context: RemoteContextReference<Iri>, loader: &'a L) -> CompactResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -1149,7 +1125,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// An optional `context` can be given to compact the document.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
+    /// which is why the flattening functions take an [`rdf_rs::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
     /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
@@ -1194,7 +1170,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("flattening failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn flatten_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -1213,7 +1188,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// and `loader`, using the given `options`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
+    /// which is why the flattening functions take an [`rdf_rs::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
     /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
@@ -1257,7 +1232,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("flattening failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn flatten_with_using<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -1277,7 +1251,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// and `loader`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
+    /// which is why the flattening functions take an [`rdf_rs::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
     /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
@@ -1321,7 +1295,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("flattening failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn flatten_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -1340,7 +1313,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// given `options`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
+    /// which is why the flattening functions take an [`rdf_rs::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
     /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
@@ -1378,7 +1351,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("flattening failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn flatten_using<'a, L>(
         &'a self,
         generator: &'a mut impl LocalGenerator,
@@ -1395,7 +1367,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// Flatten the document with the given `generator` and `loader`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
+    /// which is why the flattening functions take an [`rdf_rs::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
     /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
@@ -1433,7 +1405,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ///   .expect("flattening failed");
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn flatten<'a, L>(&'a self, generator: &'a mut impl LocalGenerator, loader: &'a L) -> FlattenResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -1498,7 +1469,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// }
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn to_rdf_full<N, G, L>(
         &self,
         mut vocabulary: N,
@@ -1577,7 +1547,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// }
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn to_rdf_with_using<N, G, L>(&self, vocabulary: N, generator: G, loader: &L, options: Options<Iri>) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -1643,7 +1612,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// }
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn to_rdf_with<N, G, L>(&self, vocabulary: N, generator: G, loader: &L) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
@@ -1710,7 +1678,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// }
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn to_rdf_using<G, L>(&self, generator: G, loader: &L, options: Options<Iri>) -> ToRdfResult<(), G, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -1777,7 +1744,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// }
     /// # }
     /// ```
-    #[allow(async_fn_in_trait)]
     async fn to_rdf<G, L>(&self, generator: G, loader: &L) -> ToRdfResult<(), G, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,

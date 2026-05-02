@@ -1,6 +1,6 @@
 //! Workspace-wide hasher selection.
 //!
-//! Default: hashbrown's [`DefaultHashBuilder`] (FoldHash on hashbrown 0.15+).
+//! Default: hashbrown's [`hashbrown::DefaultHashBuilder`] (FoldHash on hashbrown 0.15+).
 //! Opt-in features: `ahash` and `gxhash` switch the default. They are mutually
 //! exclusive — enabling both fails compilation.
 

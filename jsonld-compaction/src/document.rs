@@ -30,7 +30,6 @@ pub trait EmbedContext {
 /// Compaction function.
 pub trait Compact<I, B> {
     /// Compacts the input document with full options.
-    #[allow(async_fn_in_trait)]
     async fn compact_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -46,7 +45,6 @@ pub trait Compact<I, B> {
 
     /// Compacts the input document with the given `vocabulary` to
     /// interpret identifiers.
-    #[allow(async_fn_in_trait)]
     async fn compact_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -63,7 +61,6 @@ pub trait Compact<I, B> {
     }
 
     /// Compacts the input document.
-    #[allow(async_fn_in_trait)]
     async fn compact<'a, L>(&'a self, context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>, loader: &'a L) -> CompactDocumentResult<L::Error>
     where
         (): rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,

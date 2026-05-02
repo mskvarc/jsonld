@@ -18,8 +18,8 @@ fn term_lt(a: &Key, b: &Key) -> bool {
 #[inline]
 fn keep_smaller_opt(slot: &mut Option<Key>, candidate: &Key) {
     match slot {
-        None => *slot = Some(candidate.clone()),
-        Some(existing) if term_lt(candidate, existing) => *slot = Some(candidate.clone()),
+        None => *slot = Some(*candidate),
+        Some(existing) if term_lt(candidate, existing) => *slot = Some(*candidate),
         _ => {}
     }
 }
@@ -27,7 +27,7 @@ fn keep_smaller_opt(slot: &mut Option<Key>, candidate: &Key) {
 #[inline]
 fn keep_smaller(slot: &mut Key, candidate: &Key) {
     if term_lt(candidate, slot) {
-        *slot = candidate.clone();
+        *slot = *candidate;
     }
 }
 
@@ -83,10 +83,10 @@ impl<T> InverseType<T> {
     {
         match self.map.entry(ty.clone()) {
             Entry::Vacant(v) => {
-                v.insert(term.clone());
+                v.insert(*term);
             }
             Entry::Occupied(mut o) if term_lt(term, o.get()) => {
-                o.insert(term.clone());
+                o.insert(*term);
             }
             _ => {}
         }
@@ -129,10 +129,10 @@ impl InverseLang {
         let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
         match self.map.entry(lang_dir) {
             Entry::Vacant(v) => {
-                v.insert(term.clone());
+                v.insert(*term);
             }
             Entry::Occupied(mut o) if term_lt(term, o.get()) => {
-                o.insert(term.clone());
+                o.insert(*term);
             }
             _ => {}
         }
@@ -161,7 +161,7 @@ impl<T> InverseContainer<T> {
                 any: None,
                 map: HashMap::default(),
             },
-            any: Any { none: term.clone() },
+            any: Any { none: *term },
         }
     }
 }
@@ -302,8 +302,8 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
         // (length-then-lex) on collision. Same end-state as the old sort-then-
         // first-wins approach, without the O(P log P) cost.
         for binding in context.definitions().iter() {
-            if let BindingRef::Normal(term, term_definition) = binding {
-                if let Some(var) = term_definition.value.as_ref() {
+            if let BindingRef::Normal(term, term_definition) = binding
+                && let Some(var) = term_definition.value.as_ref() {
                     let container = &term_definition.container;
                     let container_map = result.reference_mut(var, InverseDefinition::new);
                     let type_lang_map = container_map.reference_mut(container, || InverseContainer::new(term));
@@ -372,7 +372,6 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
                         }
                     }
                 }
-            }
         }
 
         result

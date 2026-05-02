@@ -74,7 +74,7 @@ impl<T, B> ExpandedDocument<T, B> {
     /// Give an identifier (`@id`) to every nodes using the given generator to
     /// generate fresh identifiers for anonymous nodes.
     #[inline(always)]
-    pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
         generator: &mut G,
@@ -82,7 +82,6 @@ impl<T, B> ExpandedDocument<T, B> {
     where
         T: Eq + Hash,
         B: Eq + Hash,
-        V: VocabularyMut,
     {
         let objects = std::mem::take(&mut self.0);
         for mut object in objects {
@@ -108,7 +107,7 @@ impl<T, B> ExpandedDocument<T, B> {
     /// literals using the given generator to generate fresh identifiers for
     /// anonymous nodes.
     #[inline(always)]
-    pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    pub fn relabel_and_canonicalize_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
         generator: &mut G,
@@ -116,7 +115,6 @@ impl<T, B> ExpandedDocument<T, B> {
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
-        V: VocabularyMut,
     {
         let objects = std::mem::take(&mut self.0);
         let mut relabeling = HashMap::new();
@@ -144,7 +142,7 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Relabels nodes.
     #[inline(always)]
-    pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
+    pub fn relabel_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
         generator: &mut G,
@@ -152,7 +150,6 @@ impl<T, B> ExpandedDocument<T, B> {
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
-        V: VocabularyMut,
     {
         let objects = std::mem::take(&mut self.0);
         let mut relabeling = HashMap::new();

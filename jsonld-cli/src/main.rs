@@ -138,11 +138,10 @@ async fn run() -> Result<(), CliError> {
         Command::Fetch { url } => {
             let url = vocabulary.insert(url.as_ref());
             let remote_document = RemoteDocumentReference::iri(url).load_with(&mut vocabulary, &loader).await?;
-            if let Some(remote_url) = remote_document.url() {
-                if let Some(iri) = vocabulary.iri(remote_url) {
+            if let Some(remote_url) = remote_document.url()
+                && let Some(iri) = vocabulary.iri(remote_url) {
                     log::info!("document URL: {iri}");
                 }
-            }
 
             println!("{}", remote_document.document().pretty_print());
         }

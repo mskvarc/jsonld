@@ -66,9 +66,9 @@ fn parse_multiple(ty: syn::Type) -> Result<Type, UnknownType> {
 }
 
 fn parse_reference(r: syn::TypeReference) -> Result<Type, UnknownType> {
-    if r.mutability.is_none() {
-        if let Some(lft) = r.lifetime {
-            if lft.ident == "static" {
+    if r.mutability.is_none()
+        && let Some(lft) = r.lifetime
+            && lft.ident == "static" {
                 if is_str(&r.elem) {
                     return Ok(Type::String);
                 }
@@ -77,23 +77,19 @@ fn parse_reference(r: syn::TypeReference) -> Result<Type, UnknownType> {
                     return Ok(Type::Iri);
                 }
             }
-        }
-    }
 
     Err(UnknownType)
 }
 
 fn reference_into_multiple(r: syn::TypeReference) -> Result<syn::Type, syn::TypeReference> {
-    if r.mutability.is_none() {
-        if let Some(lft) = &r.lifetime {
-            if lft.ident == "static" && matches!(r.elem.as_ref(), syn::Type::Slice(_)) {
+    if r.mutability.is_none()
+        && let Some(lft) = &r.lifetime
+            && lft.ident == "static" && matches!(r.elem.as_ref(), syn::Type::Slice(_)) {
                 match *r.elem {
                     syn::Type::Slice(e) => return Ok(*e.elem),
                     _ => unreachable!(),
                 }
             }
-        }
-    }
 
     Err(r)
 }
@@ -117,7 +113,7 @@ fn parse_path(p: syn::TypePath) -> Result<Type, UnknownType> {
 /// Recognizes `Iri<&'static str>`, `iri_rs::Iri<&'static str>`,
 /// or `iref::Iri<&'static str>` (legacy).
 fn is_static_iri_path(p: &syn::TypePath) -> bool {
-    if !p.qself.is_none() {
+    if p.qself.is_some() {
         return false;
     }
 
@@ -142,7 +138,7 @@ fn is_static_iri_path(p: &syn::TypePath) -> bool {
     match &last.arguments {
         syn::PathArguments::AngleBracketed(args) if args.args.len() == 1 => match &args.args[0] {
             syn::GenericArgument::Type(syn::Type::Reference(r)) => {
-                r.mutability.is_none() && r.lifetime.as_ref().map_or(false, |lft| lft.ident == "static") && is_str(&r.elem)
+                r.mutability.is_none() && r.lifetime.as_ref().is_some_and(|lft| lft.ident == "static") && is_str(&r.elem)
             }
             _ => false,
         },

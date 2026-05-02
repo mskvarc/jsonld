@@ -268,7 +268,7 @@
 //!
 //! ### Input
 //!
-//! [`RemoteDocument::from_serde_json`] consumes a [`serde_json::Value`]
+//! `RemoteDocument::from_serde_json` consumes a [`serde_json::Value`]
 //! directly. [`RemoteDocument::from_value`] is more general and accepts
 //! anything that implements `Into<jstrict::Value>`, which includes both
 //! `jstrict::Value` and `serde_json::Value` (when the feature is on).
@@ -276,12 +276,9 @@
 //! ### Output
 //!
 //! - [`JsonLdProcessor::compact`] and [`JsonLdProcessor::flatten`] return a
-//!   [`jstrict::Value`] — call its inherent
-//!   [`into_serde_json`](jstrict::Value::into_serde_json) method.
-//! - [`ExpandedDocument`] gains
-//!   [`into_serde_json_with`](crate::ExpandedDocument::into_serde_json_with)
-//!   (and [`into_serde_json`](crate::ExpandedDocument::into_serde_json) for
-//!   the default no-vocabulary case).
+//!   [`jstrict::Value`] — call its inherent `into_serde_json` method.
+//! - [`ExpandedDocument`] gains `into_serde_json_with` (and `into_serde_json`
+//!   for the default no-vocabulary case).
 //!
 //! ### Example
 //!

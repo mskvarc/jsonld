@@ -152,12 +152,11 @@ where
             let mut containers: SmallVec<[Container; 8]> = SmallVec::new();
             let mut type_lang_value = None;
 
-            if let Some(value) = value {
-                if value.index().is_some() && !value.is_graph() {
+            if let Some(value) = value
+                && value.index().is_some() && !value.is_graph() {
                     containers.push(Container::Index);
                     containers.push(Container::IndexSet);
                 }
-            }
 
             let mut has_index = false;
             let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
@@ -311,13 +310,11 @@ where
             }
 
             let mut is_empty_list = false;
-            if let Some(value) = value {
-                if let object::Ref::List(list) = value.inner().as_ref() {
-                    if list.is_empty() {
+            if let Some(value) = value
+                && let object::Ref::List(list) = value.inner().as_ref()
+                    && list.is_empty() {
                         is_empty_list = true;
                     }
-                }
-            }
 
             // If type/language value is @reverse, append @reverse to preferred values.
             let selection = if is_empty_list {
@@ -332,18 +329,16 @@ where
                         }
 
                         let mut has_id_type = false;
-                        if let Some(value) = value {
-                            if let Some(id) = value.id() {
-                                if type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse {
+                        if let Some(value) = value
+                            && let Some(id) = value.id()
+                                && (type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse) {
                                     has_id_type = true;
                                     let mut vocab = false;
-                                    if let Some(compacted_iri) = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)? {
-                                        if let Some(def) = active_context.get(&*compacted_iri) {
-                                            if let Some(iri_mapping) = def.value() {
+                                    if let Some(compacted_iri) = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)?
+                                        && let Some(def) = active_context.get(&*compacted_iri)
+                                            && let Some(iri_mapping) = def.value() {
                                                 vocab = iri_mapping == id;
                                             }
-                                        }
-                                    }
 
                                     if vocab {
                                         selection.push(TypeSelection::Type(Type::Vocab));
@@ -355,8 +350,6 @@ where
 
                                     selection.push(TypeSelection::Type(Type::None));
                                 }
-                            }
-                        }
 
                         if !has_id_type {
                             selection.push(type_value);
@@ -395,11 +388,10 @@ where
             // If var begins with the vocabulary mapping's value but is longer, then initialize
             // suffix to the substring of var that does not match. If suffix does not have a term
             // definition in active context, then return suffix.
-            if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(vocab_mapping.with(vocabulary).as_str()) {
-                if !suffix.is_empty() && active_context.get(suffix).is_none() {
+            if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(vocab_mapping.with(vocabulary).as_str())
+                && !suffix.is_empty() && active_context.get(suffix).is_none() {
                     return Ok(Some(Arc::from(suffix)));
                 }
-            }
         }
     }
 
@@ -475,19 +467,17 @@ where
     // if the IRI scheme of var matches any term in active context with prefix flag set to true,
     // and var has no IRI authority (preceded by double-forward-slash (//),
     // an IRI confused with prefix error has been detected, and processing is aborted.
-    if let Some(iri) = var.as_iri() {
-        if let Some(iri) = vocabulary.iri(iri) {
-            if active_context.contains_term(iri.scheme()) {
+    if let Some(iri) = var.as_iri()
+        && let Some(iri) = vocabulary.iri(iri)
+            && active_context.contains_term(iri.scheme()) {
                 return Err(IriConfusedWithPrefix);
             }
-        }
-    }
 
     // If vocab is false, transform var to a relative IRI reference using the
     // base IRI from active context, if it exists.
-    if !vocab {
-        if let Some(base_iri) = active_context.base_iri() {
-            if let Some(iri) = var.as_iri() {
+    if !vocab
+        && let Some(base_iri) = active_context.base_iri()
+            && let Some(iri) = var.as_iri() {
                 let iri = match vocabulary.iri(iri) {
                     Some(i) => i,
                     None => return Ok(None),
@@ -507,8 +497,6 @@ where
                 };
                 return Ok(Some(Arc::from(disambiguate_keyword(out))));
             }
-        }
-    }
 
     // Finally, return var as is.
     Ok(Some(Arc::from(var.with(vocabulary).to_string())))

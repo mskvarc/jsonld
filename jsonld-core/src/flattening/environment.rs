@@ -43,12 +43,11 @@ where
         match r {
             Some(Id::Valid(ValidId::Blank(id))) => Ok(self.assign(id.clone())?.into()),
             Some(r) => Ok(r.clone()),
-            None => Ok(self.next()?.into()),
+            None => Ok(self.next_id()?.into()),
         }
     }
 
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<ValidId<V::Iri, V::BlankId>, crate::id::GeneratedIdError> {
+    pub fn next_id(&mut self) -> Result<ValidId<V::Iri, V::BlankId>, crate::id::GeneratedIdError> {
         crate::id::generator_next_id(self.vocabulary, &mut self.generator)
     }
 }

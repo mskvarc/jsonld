@@ -283,10 +283,7 @@ impl<'a, T, B> NestedListTriples<'a, T, B> {
     /// Pull the next object of the list.
     ///
     /// Uses the given generator to assign as id to the list element.
-    fn next<V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G) -> Option<ListNode<'a, '_, T, B>>
-    where
-        V: VocabularyMut,
-    {
+    fn next<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G) -> Option<ListNode<'a, '_, T, B>> {
         if let Some(next) = self.iter.next() {
             let id = match self.head_ref.take() {
                 Some(id) => id,

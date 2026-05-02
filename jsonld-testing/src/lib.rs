@@ -471,11 +471,11 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
     let mut tests = HashMap::new();
 
     for Quad(subject, predicate, object, graph) in &dataset {
-        if graph.is_none() {
-            if let IndexTerm::Iri(id) = subject {
-                if *predicate == IndexTerm::Iri(well_known.rdf_type) {
-                    if let IndexTerm::Iri(ty) = object {
-                        if let Some(type_id) = spec.type_map.get(ty) {
+        if graph.is_none()
+            && let IndexTerm::Iri(id) = subject
+                && *predicate == IndexTerm::Iri(well_known.rdf_type)
+                    && let IndexTerm::Iri(ty) = object
+                        && let Some(type_id) = spec.type_map.get(ty) {
                             match spec.ignore.get(id) {
                                 Some(link) => {
                                     println!(
@@ -490,10 +490,6 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
     }
 
     let id = &spec.id;

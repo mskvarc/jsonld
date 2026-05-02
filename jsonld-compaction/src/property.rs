@@ -29,7 +29,6 @@ use jsonld_syntax::Keyword;
 use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
-#[allow(clippy::too_many_arguments)]
 async fn compact_property_list<N, L>(
     vocabulary: &mut N,
     list: &List<N::Iri, N::BlankId>,
@@ -99,7 +98,6 @@ where
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn compact_property_graph<N, L>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
@@ -307,7 +305,6 @@ where
 }
 
 /// Compact the given property into the `result` compacted object.
-#[allow(clippy::too_many_arguments)]
 pub async fn compact_property<'a, N, L, O, T>(
     vocabulary: &mut N,
     result: &mut jstrict::Object,
@@ -473,13 +470,12 @@ where
                                     // those remaining values to the `container_key`
                                     // in `compacted_item`.
                                     // Otherwise, remove that entry from compacted item.
-                                    if !remaining_values.is_empty() {
-                                        if let Some(map) = compacted_item.as_object_mut() {
+                                    if !remaining_values.is_empty()
+                                        && let Some(map) = compacted_item.as_object_mut() {
                                             for value in remaining_values {
                                                 add_value(map, container_key.as_str(), value, false)
                                             }
                                         }
-                                    }
 
                                     map_key
                                 }
@@ -532,13 +528,12 @@ where
                             // remaining values to the `container_key` in
                             // `compacted_item`.
                             // Otherwise, remove that entry from compacted item.
-                            if !remaining_values.is_empty() {
-                                if let Some(map) = compacted_item.as_object_mut() {
+                            if !remaining_values.is_empty()
+                                && let Some(map) = compacted_item.as_object_mut() {
                                     for value in remaining_values {
                                         add_value(map, container_key.as_str(), value, false)
                                     }
                                 }
-                            }
 
                             // If `compacted_item` contains a single entry with a key
                             // expanding to @id, set `compacted_item` to the result of
@@ -546,8 +541,8 @@ where
                             // passing `active_context`, `item_active_property` for
                             // `active_property`, and a map composed of the single
                             // entry for @id from `expanded_item` for `element`.
-                            if let Some(map) = compacted_item.as_object() {
-                                if map.len() == 1 && map.get_unique("@id").ok().flatten().is_some() {
+                            if let Some(map) = compacted_item.as_object()
+                                && map.len() == 1 && map.get_unique("@id").ok().flatten().is_some() {
                                     // SAFETY: an `@id`-only map implies the expanded
                                     // item has an `id`.
                                     let id = unsafe { expanded_item.id().unwrap_unchecked() };
@@ -563,7 +558,6 @@ where
                                     ))
                                     .await?
                                 }
-                            }
 
                             map_key
                         };
