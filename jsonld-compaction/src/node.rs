@@ -104,14 +104,17 @@ where
     // lexicographically by expanded property if ordered is true:
     let expanded_entries: Vec<_> = if options.ordered {
         // Decorate-sort-undecorate: cache `as_str()` so the comparator does
-        // not call `with(vocabulary).as_str()` O(P log P) times.
+        // not call `with(vocabulary).as_str()` O(P log P) times. The cached
+        // `&str` borrows from `entry.0` (which lives in `node.properties()`)
+        // and `vocabulary`, both of which outlive `decorated`, so we avoid
+        // the per-entry `to_string()` allocation.
         let vocabulary: &N = vocabulary;
-        let mut decorated: Vec<_> = node
+        let mut decorated: Vec<(&str, _)> = node
             .properties()
             .iter()
-            .map(|entry| (entry.0.with(vocabulary).as_str().to_string(), entry))
+            .map(|entry| (entry.0.with(vocabulary).as_str(), entry))
             .collect();
-        decorated.sort_by(|a, b| a.0.cmp(&b.0));
+        decorated.sort_by(|a, b| a.0.cmp(b.0));
         decorated.into_iter().map(|(_, entry)| entry).collect()
     } else {
         node.properties().iter().collect()

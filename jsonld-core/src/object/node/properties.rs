@@ -116,7 +116,22 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
         if let Some(node_values) = self.0.get_mut(&prop) {
             node_values.extend(values);
         } else {
-            self.0.insert(prop, values.into_iter().collect());
+            // Fast path for the common single-value case: skip the
+            // `FromIterator` collect and build a singleton `Multiset` directly.
+            let mut iter = values.into_iter();
+            match (iter.next(), iter.size_hint()) {
+                (Some(first), (0, Some(0))) => {
+                    self.0.insert(prop, Multiset::singleton(first));
+                }
+                (Some(first), _) => {
+                    let mut multiset: PropertyObjects<T, B> = Multiset::singleton(first);
+                    multiset.extend(iter);
+                    self.0.insert(prop, multiset);
+                }
+                (None, _) => {
+                    self.0.insert(prop, Multiset::default());
+                }
+            }
         }
     }
 

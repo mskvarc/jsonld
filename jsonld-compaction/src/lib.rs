@@ -4,7 +4,6 @@
 //! # Usage
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
-use jstrict::object::Entry;
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
     Context,
@@ -336,32 +335,52 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 }
 
 /// Default value of `as_array` is false.
+///
+/// Refactored from a 3-lookup-per-call shape (peek + remove+reinsert + insert)
+/// to a single `get_unique_mut` per scalar call. Array values still recurse,
+/// but the scalar path — which is the common case — now hits the indexmap
+/// once.
 fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_array: bool) {
-    match map.get_unique(key).ok().unwrap().map(|entry| entry.is_array()) {
-        Some(false) => {
-            let Entry { key, value } = map.remove_unique(key).ok().unwrap().unwrap();
-            map.insert(key, jstrict::Value::Array(vec![value]));
-        }
-        None if as_array => {
-            map.insert(key.into(), jstrict::Value::Array(Vec::new()));
-        }
-        _ => (),
-    }
-
     match value {
         jstrict::Value::Array(values) => {
-            for value in values {
-                add_value(map, key, value, false)
+            // Pre-arrange the entry shape exactly as the original two-pass code did:
+            // wrap an existing scalar into a single-element array, or insert an
+            // empty array when `as_array` is set and the entry is absent.
+            match map.get_unique_mut(key).ok().unwrap() {
+                Some(existing) if !existing.is_array() => {
+                    let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new()));
+                    if let jstrict::Value::Array(arr) = existing {
+                        arr.push(prev);
+                    }
+                }
+                None if as_array => {
+                    map.insert(key.into(), jstrict::Value::Array(Vec::new()));
+                }
+                _ => {}
+            }
+            for v in values {
+                add_value(map, key, v, false);
             }
         }
-        value => {
-            if let Some(array) = map.get_unique_mut(key).ok().unwrap() {
-                array.as_array_mut().unwrap().push(value);
-                return;
+        scalar => match map.get_unique_mut(key).ok().unwrap() {
+            Some(existing) if existing.is_array() => {
+                existing.as_array_mut().unwrap().push(scalar);
             }
-
-            map.insert(key.into(), value);
-        }
+            Some(existing) => {
+                // Existing scalar — wrap into [prev, new] array.
+                let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new()));
+                if let jstrict::Value::Array(arr) = existing {
+                    arr.push(prev);
+                    arr.push(scalar);
+                }
+            }
+            None if as_array => {
+                map.insert(key.into(), jstrict::Value::Array(vec![scalar]));
+            }
+            None => {
+                map.insert(key.into(), scalar);
+            }
+        },
     }
 }
 
