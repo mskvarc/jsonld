@@ -228,6 +228,53 @@ where
     W: From<MalformedIri>,
     H: warning::Handler<N, W>,
 {
+    // Per-context memoization of the dominant key-expansion call shape:
+    // `vocab=Some(Keep)`, `document_relative=false`, value is a string. Hits
+    // skip term-definition lookup, blank/CompactIRI/Iri::parse validators and
+    // the vocab-fallback string concat + IRI re-parse + Arc::new for repeated
+    // keys (the common NGSI-LD / schema.org pattern).
+    let cache_value: Option<&str> = if !document_relative && matches!(vocab, Some(Action::Keep)) {
+        if let Nullable::Some(ExpandableRef::String(s)) = &value {
+            Some(*s)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(s) = cache_value {
+        if let Some(arc) = active_context.term_resolution_cache().lock().get(s).cloned() {
+            return Ok(Some(arc));
+        }
+    }
+
+    let result = expand_iri_simple_inner::<W, N, L, H>(env, active_context, value, document_relative, vocab)?;
+
+    if let (Some(s), Some(arc)) = (cache_value, &result) {
+        active_context
+            .term_resolution_cache()
+            .lock()
+            .insert(Box::from(s), Arc::clone(arc));
+    }
+
+    Ok(result)
+}
+
+fn expand_iri_simple_inner<W, N, L, H>(
+    env: &mut Environment<N, L, H>,
+    active_context: &Context<N::Iri, N::BlankId>,
+    value: Nullable<ExpandableRef>,
+    document_relative: bool,
+    vocab: Option<Action>,
+) -> IriExpansionResult<N>
+where
+    N: VocabularyMut,
+    N::Iri: Clone,
+    N::BlankId: Clone,
+    W: From<MalformedIri>,
+    H: warning::Handler<N, W>,
+{
     match value {
         Nullable::Null => Ok(Some(Arc::new(Term::Null))),
         Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Some(Arc::new(Term::Keyword(k)))),

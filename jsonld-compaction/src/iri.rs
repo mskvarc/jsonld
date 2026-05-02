@@ -10,13 +10,13 @@ use jsonld_core::{
     Term,
     Type,
     Value,
-    context::{CompactIriKeyRef, inverse::{LangSelection, Selection, TypeSelection}},
+    context::{CACHED_KEYWORDS, CompactIriKeyRef, KeywordAliases, inverse::{LangSelection, Selection, TypeSelection}},
     object,
 };
-use jsonld_syntax::{is_keyword, is_keyword_like};
+use jsonld_syntax::{Keyword, is_keyword, is_keyword_like};
 use rdf_rs::vocabulary::Vocabulary;
 use smallvec::SmallVec;
-use std::hash::Hash;
+use std::{hash::Hash, sync::Arc};
 
 pub struct IriConfusedWithPrefix;
 
@@ -49,7 +49,7 @@ pub(crate) fn compact_iri<N>(
     vocab: bool,
     reverse: bool,
     options: Options,
-) -> Result<Option<String>, IriConfusedWithPrefix>
+) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -57,7 +57,7 @@ where
 {
     let cache = active_context.compact_iri_cache();
     {
-        let guard = cache.lock().unwrap();
+        let guard = cache.lock();
         if let Some(hit) = guard.get(&CompactIriKeyRef(var, vocab, reverse)) {
             return Ok(hit.clone());
         }
@@ -65,24 +65,37 @@ where
 
     let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options)?;
 
-    cache.lock().unwrap().insert((var.clone(), vocab, reverse), result.clone());
+    cache.lock().insert((var.clone(), vocab, reverse), result.clone());
     Ok(result)
 }
 
-pub(crate) fn compact_key<N>(
+/// Returns the cached compact alias for one of the 13 fixed keywords used
+/// repeatedly during compaction (see [`CACHED_KEYWORDS`]). Computed once per
+/// active context via [`compact_iri`] and reused — saves Mutex traffic +
+/// HashMap lookups + the alias-selection walk in `compact_iri_full` for each
+/// of the ~25 hot keyword call-sites.
+pub(crate) fn keyword_alias<'a, N>(
     vocabulary: &N,
-    active_context: &Context<N::Iri, N::BlankId>,
-    var: &Term<N::Iri, N::BlankId>,
-    vocab: bool,
-    reverse: bool,
+    active_context: &'a Context<N::Iri, N::BlankId>,
     options: Options,
-) -> Result<Option<jstrict::object::Key>, IriConfusedWithPrefix>
+    k: Keyword,
+) -> &'a str
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
 {
-    Ok(compact_iri(vocabulary, active_context, var, vocab, reverse, options)?.map(Into::into))
+    let aliases = active_context.keyword_aliases_or_init(|| {
+        let arr: [Box<str>; 13] = std::array::from_fn(|i| {
+            let kw = CACHED_KEYWORDS[i];
+            match compact_iri(vocabulary, active_context, &Term::Keyword(kw), true, false, options).ok().flatten() {
+                Some(arc) => Box::<str>::from(&*arc),
+                None => Box::<str>::from(kw.into_str()),
+            }
+        });
+        KeywordAliases::new(arr)
+    });
+    aliases.get(k).expect("keyword must be in CACHED_KEYWORDS")
 }
 
 /// Compact the given term considering the given value object.
@@ -96,7 +109,7 @@ pub(crate) fn compact_iri_with<N, O>(
     vocab: bool,
     reverse: bool,
     options: Options,
-) -> Result<Option<String>, IriConfusedWithPrefix>
+) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -117,7 +130,7 @@ pub(crate) fn compact_iri_full<N, O>(
     vocab: bool,
     reverse: bool,
     options: Options,
-) -> Result<Option<String>, IriConfusedWithPrefix>
+) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -329,7 +342,7 @@ where
                                     has_id_type = true;
                                     let mut vocab = false;
                                     let compacted_iri = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)?.unwrap();
-                                    if let Some(def) = active_context.get(compacted_iri.as_str()) {
+                                    if let Some(def) = active_context.get(&*compacted_iri) {
                                         if let Some(iri_mapping) = def.value() {
                                             vocab = iri_mapping == id;
                                         }
@@ -375,7 +388,7 @@ where
             };
 
             if let Some(term) = entry.select(&containers, &selection) {
-                return Ok(Some(term.to_string()));
+                return Ok(Some(Arc::from(term.as_str())));
             }
         }
 
@@ -387,7 +400,7 @@ where
             // definition in active context, then return suffix.
             if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(vocab_mapping.with(vocabulary).as_str()) {
                 if !suffix.is_empty() && active_context.get(suffix).is_none() {
-                    return Ok(Some(suffix.into()));
+                    return Ok(Some(Arc::from(suffix)));
                 }
             }
         }
@@ -458,7 +471,7 @@ where
 
     // If compact IRI is not null, return compact IRI.
     if let Some(compact_iri) = compact_iri {
-        return Ok(Some(compact_iri.into()));
+        return Ok(Some(Arc::from(compact_iri)));
     }
 
     // To ensure that the IRI var is not confused with a compact IRI,
@@ -488,13 +501,13 @@ where
                 } else {
                     s.to_string()
                 };
-                return Ok(Some(disambiguate_keyword(out)));
+                return Ok(Some(Arc::from(disambiguate_keyword(out))));
             }
         }
     }
 
     // Finally, return var as is.
-    Ok(Some(var.with(vocabulary).to_string()))
+    Ok(Some(Arc::from(var.with(vocabulary).to_string())))
 }
 
 fn disambiguate_keyword(s: String) -> String {

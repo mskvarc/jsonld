@@ -321,10 +321,10 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 
                         if !index_container {
                             // Initialize alias by IRI compacting expanded property.
-                            let alias = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
+                            let alias = crate::iri::keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Index);
 
                             // Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-                            result.insert(alias.unwrap(), jstrict::Value::String(index.into()));
+                            result.insert(alias.into(), jstrict::Value::String(index.into()));
                         }
                     }
 

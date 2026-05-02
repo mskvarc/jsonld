@@ -1,12 +1,9 @@
-use jsonld_core::{ExpandedDocument, FlattenedDocument, Loader, Term};
+use jsonld_core::{ExpandedDocument, FlattenedDocument, Loader};
 use jsonld_syntax::{IntoJson, Keyword};
 use rdf_rs::vocabulary::{self, Vocabulary};
 use std::hash::Hash;
 
-use crate::{
-    CompactFragment,
-    iri::{IriConfusedWithPrefix, compact_iri},
-};
+use crate::{CompactFragment, iri::IriConfusedWithPrefix};
 
 pub type CompactDocumentResult = Result<jstrict::Value, crate::Error>;
 
@@ -146,9 +143,9 @@ impl EmbedContext for jstrict::Value {
                 let mut obj = jstrict::Object::new();
 
                 if !array.is_empty() {
-                    let key = compact_iri(vocabulary, context.processed(), &Term::Keyword(Keyword::Graph), true, false, options)?;
+                    let key = crate::iri::keyword_alias(vocabulary, context.processed(), options, Keyword::Graph);
 
-                    obj.insert(key.unwrap().into(), array.into());
+                    obj.insert(key.into(), array.into());
                 }
 
                 Some(obj)

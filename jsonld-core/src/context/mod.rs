@@ -5,14 +5,11 @@ pub mod inverse;
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term, ValidId as Id};
 use contextual::WithContext;
 use iri_rs::IriBuf;
-use jsonld_syntax::{KeywordType, Nullable};
+use jsonld_syntax::{Keyword, KeywordType, Nullable};
 use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
 use rdf_rs::{BlankIdBuf, vocabulary::Vocabulary};
-use std::{
-    borrow::Borrow,
-    hash::Hash,
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
 pub use jsonld_syntax::context::{
     definition::{Key, KeyOrType, Type},
@@ -53,6 +50,70 @@ impl<'a, T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> 
     }
 }
 
+/// Cached fixed-keyword aliases for an active context.
+///
+/// 13 keywords appear repeatedly during compaction (`@id`, `@type`, `@value`,
+/// `@list`, `@set`, `@graph`, `@index`, `@language`, `@direction`, `@reverse`,
+/// `@none`, `@included`, `@json`). Their compact-IRI form is a pure function
+/// of the active context, so the result is computed once and reused — saving
+/// per-element [`Mutex`] traffic + cache lookups + alias-selection work in
+/// `compact_iri_full`.
+pub struct KeywordAliases {
+    aliases: [Box<str>; 13],
+}
+
+impl KeywordAliases {
+    pub fn new(aliases: [Box<str>; 13]) -> Self {
+        Self { aliases }
+    }
+
+    /// Returns the cached alias for one of the 13 supported keywords. Returns
+    /// `None` for any other keyword (e.g. `@base`, `@context`, `@nest`,
+    /// `@prefix`, `@propagate`, `@protected`, `@import`, `@version`,
+    /// `@vocab`) — those are not used as compact output keys.
+    #[inline]
+    pub fn get(&self, k: Keyword) -> Option<&str> {
+        keyword_alias_index(k).map(|i| self.aliases[i].as_ref())
+    }
+}
+
+/// 13 keywords supported by [`KeywordAliases`], in cache-array order.
+pub const CACHED_KEYWORDS: [Keyword; 13] = [
+    Keyword::Id,
+    Keyword::Type,
+    Keyword::Value,
+    Keyword::List,
+    Keyword::Set,
+    Keyword::Graph,
+    Keyword::Index,
+    Keyword::Language,
+    Keyword::Direction,
+    Keyword::Reverse,
+    Keyword::None,
+    Keyword::Included,
+    Keyword::Json,
+];
+
+#[inline]
+fn keyword_alias_index(k: Keyword) -> Option<usize> {
+    Some(match k {
+        Keyword::Id => 0,
+        Keyword::Type => 1,
+        Keyword::Value => 2,
+        Keyword::List => 3,
+        Keyword::Set => 4,
+        Keyword::Graph => 5,
+        Keyword::Index => 6,
+        Keyword::Language => 7,
+        Keyword::Direction => 8,
+        Keyword::Reverse => 9,
+        Keyword::None => 10,
+        Keyword::Included => 11,
+        Keyword::Json => 12,
+        _ => return None,
+    })
+}
+
 pub struct Context<T = IriBuf, B = BlankIdBuf> {
     original_base_url: Option<T>,
     base_iri: Option<T>,
@@ -61,9 +122,21 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
     default_base_direction: Option<Direction>,
     previous_context: Option<Arc<Self>>,
     definitions: Arc<Definitions<T, B>>,
-    inverse: OnceCell<InverseContext<T, B>>,
-    prefix_terms: OnceCell<Vec<Key>>,
-    compact_iri_cache: OnceCell<Box<Mutex<crate::HashMap<CompactIriKey<T, B>, Option<String>>>>>,
+    // Caches are wrapped in `Arc` so that `Clone` shares them across
+    // copies of a processed context. This is critical for the
+    // `ProcessingCache` hit path, which clones a stored `Arc<Context>`
+    // for each entity expansion — without sharing, every entity would
+    // start with empty caches and the per-context memoization would
+    // never see cross-entity hits.
+    //
+    // Invalidation (via [`Self::invalidate_iri_caches`]) replaces the
+    // `Arc` with a fresh one, so other holders of the original `Arc`
+    // keep their (still-valid) cached entries.
+    inverse: Arc<OnceCell<InverseContext<T, B>>>,
+    prefix_terms: Arc<OnceCell<Vec<Key>>>,
+    compact_iri_cache: Arc<OnceCell<Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>>>>,
+    term_resolution_cache: Arc<OnceCell<Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>>>>,
+    keyword_aliases: Arc<OnceCell<KeywordAliases>>,
 }
 
 impl<T, B> Default for Context<T, B> {
@@ -76,9 +149,11 @@ impl<T, B> Default for Context<T, B> {
             default_base_direction: None,
             previous_context: None,
             definitions: Arc::new(Definitions::default()),
-            inverse: OnceCell::default(),
-            prefix_terms: OnceCell::default(),
-            compact_iri_cache: OnceCell::default(),
+            inverse: Arc::new(OnceCell::new()),
+            prefix_terms: Arc::new(OnceCell::new()),
+            compact_iri_cache: Arc::new(OnceCell::new()),
+            term_resolution_cache: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::new(OnceCell::new()),
         }
     }
 }
@@ -99,9 +174,11 @@ impl<T, B> Context<T, B> {
             default_base_direction: None,
             previous_context: None,
             definitions: Arc::new(Definitions::default()),
-            inverse: OnceCell::default(),
-            prefix_terms: OnceCell::default(),
-            compact_iri_cache: OnceCell::default(),
+            inverse: Arc::new(OnceCell::new()),
+            prefix_terms: Arc::new(OnceCell::new()),
+            compact_iri_cache: Arc::new(OnceCell::new()),
+            term_resolution_cache: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::new(OnceCell::new()),
         }
     }
 
@@ -247,22 +324,50 @@ impl<T, B> Context<T, B> {
     /// invalidated whenever the context's term definitions, base IRI,
     /// vocabulary, language, or direction change, since those affect
     /// compaction output.
-    pub fn compact_iri_cache(&self) -> &Mutex<crate::HashMap<CompactIriKey<T, B>, Option<String>>> {
-        self.compact_iri_cache.get_or_init(|| Box::new(Mutex::new(crate::HashMap::default())))
+    pub fn compact_iri_cache(&self) -> &Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>> {
+        self.compact_iri_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
+    }
+
+    /// Returns the per-context memoization map for IRI expansion of term keys.
+    ///
+    /// Maps the input string to the resolved [`Arc<Term>`]. Populated only by
+    /// the dominant key-expansion call shape (`vocab=Some(Keep)`,
+    /// `document_relative=false`); other shapes bypass this cache. Invalidated
+    /// alongside the compact-IRI / inverse caches whenever the context's term
+    /// definitions, base IRI, vocabulary, language, or direction change.
+    pub fn term_resolution_cache(&self) -> &Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>> {
+        self.term_resolution_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
+    }
+
+    /// Returns the cached keyword aliases for this context, computing them via
+    /// `init` on first access. The closure runs once per context lifetime;
+    /// subsequent calls return the cached value.
+    pub fn keyword_aliases_or_init<F: FnOnce() -> KeywordAliases>(&self, init: F) -> &KeywordAliases {
+        self.keyword_aliases.get_or_init(init)
     }
 
     /// Drops the inverse-context and compact-IRI caches if they are populated.
     ///
-    /// Skips the `take()` round-trip for caches that have never been
-    /// initialized, which is the common case during context processing —
-    /// many `set_normal` calls run before anything triggers cache build.
+    /// Replaces each cache `Arc` with a fresh empty one.
+    ///
+    /// We can't `take()` from a shared `Arc<OnceCell<_>>` (it requires `&mut`
+    /// access to the OnceCell, which the Arc doesn't grant). Replacing the
+    /// `Arc` itself diverges this context's caches from any sharers — which
+    /// is exactly what we want: other holders had a context with the
+    /// pre-mutation state and their caches are still valid for that state.
     #[inline]
     fn invalidate_iri_caches(&mut self) {
         if self.inverse.get().is_some() {
-            self.inverse.take();
+            self.inverse = Arc::new(OnceCell::new());
         }
         if self.compact_iri_cache.get().is_some() {
-            self.compact_iri_cache.take();
+            self.compact_iri_cache = Arc::new(OnceCell::new());
+        }
+        if self.term_resolution_cache.get().is_some() {
+            self.term_resolution_cache = Arc::new(OnceCell::new());
+        }
+        if self.keyword_aliases.get().is_some() {
+            self.keyword_aliases = Arc::new(OnceCell::new());
         }
     }
 
@@ -274,7 +379,7 @@ impl<T, B> Context<T, B> {
     {
         self.invalidate_iri_caches();
         if self.prefix_terms.get().is_some() {
-            self.prefix_terms.take();
+            self.prefix_terms = Arc::new(OnceCell::new());
         }
         Arc::make_mut(&mut self.definitions).set_normal(key, definition)
     }
@@ -286,7 +391,13 @@ impl<T, B> Context<T, B> {
         B: Clone,
     {
         if self.compact_iri_cache.get().is_some() {
-            self.compact_iri_cache.take();
+            self.compact_iri_cache = Arc::new(OnceCell::new());
+        }
+        if self.term_resolution_cache.get().is_some() {
+            self.term_resolution_cache = Arc::new(OnceCell::new());
+        }
+        if self.keyword_aliases.get().is_some() {
+            self.keyword_aliases = Arc::new(OnceCell::new());
         }
         Arc::make_mut(&mut self.definitions).set_type(type_)
     }
@@ -374,9 +485,11 @@ impl<T, B> Context<T, B> {
             default_base_direction: self.default_base_direction,
             previous_context: self.previous_context.map(|c| Arc::new(Arc::unwrap_or_clone(c).map_ids_with(map_iri, map_id))),
             definitions: Arc::new(Arc::unwrap_or_clone(self.definitions).map_ids(map_iri, map_id)),
-            inverse: OnceCell::new(),
-            prefix_terms: OnceCell::new(),
-            compact_iri_cache: OnceCell::new(),
+            inverse: Arc::new(OnceCell::new()),
+            prefix_terms: Arc::new(OnceCell::new()),
+            compact_iri_cache: Arc::new(OnceCell::new()),
+            term_resolution_cache: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::new(OnceCell::new()),
         }
     }
 }
@@ -400,6 +513,11 @@ impl<T: Clone, B: Clone> IntoSyntax<T, B> for Context<T, B> {
 
 impl<T: Clone, B: Clone> Clone for Context<T, B> {
     fn clone(&self) -> Self {
+        // Share caches across clones via `Arc::clone`. Sound because processed
+        // contexts are not mutated post-processing — the only mutating APIs
+        // (`set_normal`, `set_type`, `set_base_iri`, etc.) call
+        // `invalidate_iri_caches`, which replaces the `Arc` with a fresh one
+        // so the mutated copy diverges from any sharers.
         Self {
             original_base_url: self.original_base_url.clone(),
             base_iri: self.base_iri.clone(),
@@ -408,9 +526,11 @@ impl<T: Clone, B: Clone> Clone for Context<T, B> {
             default_base_direction: self.default_base_direction,
             previous_context: self.previous_context.clone(),
             definitions: Arc::clone(&self.definitions),
-            inverse: OnceCell::default(),
-            prefix_terms: OnceCell::default(),
-            compact_iri_cache: OnceCell::default(),
+            inverse: Arc::clone(&self.inverse),
+            prefix_terms: Arc::clone(&self.prefix_terms),
+            compact_iri_cache: Arc::clone(&self.compact_iri_cache),
+            term_resolution_cache: Arc::clone(&self.term_resolution_cache),
+            keyword_aliases: Arc::clone(&self.keyword_aliases),
         }
     }
 }

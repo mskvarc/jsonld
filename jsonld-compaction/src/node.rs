@@ -1,4 +1,4 @@
-use crate::{Error, Options, add_value, compact_iri, compact_property};
+use crate::{Error, Options, add_value, compact_iri, compact_property, iri::keyword_alias};
 use contextual::WithContext;
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
 use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, Term, Type};
@@ -7,8 +7,8 @@ use mown::Mown;
 use rdf_rs::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
-fn optional_string(s: Option<String>) -> jstrict::Value {
-    s.map(Into::into).unwrap_or_else(|| jstrict::Value::Null)
+fn optional_string(s: Option<&str>) -> jstrict::Value {
+    s.map(|s| jstrict::Value::String(s.into())).unwrap_or(jstrict::Value::Null)
 }
 
 /// Compact the given indexed node.
@@ -80,7 +80,7 @@ where
         compacted_types.sort_by(|a, b| a.as_ref().unwrap().cmp(b.as_ref().unwrap()));
 
         for term in &compacted_types {
-            if let Some(term_definition) = type_scoped_context.get(term.as_ref().unwrap().as_str()) {
+            if let Some(term_definition) = type_scoped_context.get(&**term.as_ref().unwrap()) {
                 if let Some(local_context) = term_definition.context() {
                     let processing_options = ProcessingOptions::from(options).without_propagation();
                     active_context = Mown::Owned(
@@ -144,14 +144,14 @@ where
 
             if type_mapping == Some(&Type::Id) {
                 let compacted_value = compact_iri(vocabulary, active_context.as_ref(), &id, false, false, options)?;
-                return Ok(optional_string(compacted_value));
+                return Ok(optional_string(compacted_value.as_deref()));
             }
 
             // Otherwise, if the type mapping of active property is set to @vocab,
             // set result to the result of IRI compacting the value associated with the @id entry.
             if type_mapping == Some(&Type::Vocab) {
                 let compacted_value = compact_iri(vocabulary, active_context.as_ref(), &id, true, false, options)?;
-                return Ok(optional_string(compacted_value));
+                return Ok(optional_string(compacted_value.as_deref()));
             }
         }
 
@@ -160,13 +160,8 @@ where
         let compacted_value = compact_iri(vocabulary, active_context.as_ref(), &id, false, false, options)?;
 
         // Initialize alias by IRI compacting expanded property.
-        let alias = compact_iri(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Id), true, false, options)?;
-
-        // Add an entry alias to result whose value is set to compacted value and continue
-        // to the next expanded property.
-        if let Some(key) = alias {
-            result.insert(key.into(), optional_string(compacted_value));
-        }
+        let alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Id);
+        result.insert(alias.into(), optional_string(compacted_value.as_deref()));
     }
 
     compact_types(
@@ -242,10 +237,10 @@ where
 
             if !reverse_map.is_empty() {
                 // Initialize alias by IRI compacting @reverse.
-                let alias = compact_iri(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Reverse), true, false, options)?;
+                let alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Reverse);
 
                 // Set the value of the alias entry of result to compacted value.
-                result.insert(alias.unwrap().into(), reverse_map.into());
+                result.insert(alias.into(), reverse_map.into());
             }
         }
     }
@@ -266,10 +261,10 @@ where
 
         if !index_container {
             // Initialize alias by IRI compacting expanded property.
-            let alias = compact_iri(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
+            let alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Index);
 
             // Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-            result.insert(alias.unwrap().into(), index_entry.into());
+            result.insert(alias.into(), index_entry.into());
         }
     }
 
@@ -339,14 +334,8 @@ where
             // then initialize compacted value by IRI compacting expanded value using
             // type-scoped context for active context.
             let compacted_value = if types.len() == 1 {
-                optional_string(compact_iri(
-                    vocabulary,
-                    type_scoped_context,
-                    &types[0].clone().into_term(),
-                    true,
-                    false,
-                    options,
-                )?)
+                let arc = compact_iri(vocabulary, type_scoped_context, &types[0].clone().into_term(), true, false, options)?;
+                optional_string(arc.as_deref())
             } else {
                 // Otherwise, expanded value must be a @type array:
                 // Initialize compacted value to an empty array.
@@ -360,26 +349,26 @@ where
                     let compacted_ty = compact_iri(vocabulary, type_scoped_context, &ty, true, false, options)?;
 
                     // Append term, to compacted value.
-                    compacted_value.push(optional_string(compacted_ty))
+                    compacted_value.push(optional_string(compacted_ty.as_deref()))
                 }
 
                 jstrict::Value::Array(compacted_value.into_iter().collect())
             };
 
             // Initialize alias by IRI compacting expanded property.
-            let alias = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Type), true, false, options)?.unwrap();
+            let alias = keyword_alias(vocabulary, active_context, options, Keyword::Type);
 
             // Initialize as array to true if processing mode is json-ld-1.1 and the
             // container mapping for alias in the active context includes @set,
             // otherwise to the negation of compactArrays.
-            let container_mapping = match active_context.get(alias.as_str()) {
+            let container_mapping = match active_context.get(alias) {
                 Some(def) => def.container(),
                 None => Container::None,
             };
             let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerKind::Set)) || !options.compact_arrays;
 
             // Use add value to add compacted value to the alias entry in result using as array.
-            add_value(result, &alias, compacted_value, as_array)
+            add_value(result, alias, compacted_value, as_array)
         }
     }
 

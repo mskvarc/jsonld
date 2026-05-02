@@ -7,7 +7,7 @@ use crate::{
     compact_collection_with,
     compact_iri,
     compact_iri_with,
-    compact_key,
+    iri::keyword_alias,
     value_value,
 };
 
@@ -72,17 +72,17 @@ where
         // a map containing an entry where the key is the result of
         // IRI compacting @list and the value is the original
         // compacted item.
-        let key = compact_key(vocabulary, active_context, &Term::Keyword(Keyword::List), true, false, options)?;
+        let key = keyword_alias(vocabulary, active_context, options, Keyword::List);
         let mut compacted_item_list_object = jstrict::Object::default();
-        compacted_item_list_object.insert(key.unwrap(), compacted_item);
+        compacted_item_list_object.insert(key.into(), compacted_item);
 
         // If `expanded_item` contains the entry @index-value,
         // then add an entry to compacted item where the key is
         // the result of IRI compacting @index and value is value.
         if let Some(index) = expanded_index {
-            let key = compact_key(vocabulary, active_context, &Term::Keyword(Keyword::Index), true, false, options)?;
+            let key = keyword_alias(vocabulary, active_context, options, Keyword::Index);
 
-            compacted_item_list_object.insert(key.unwrap(), jstrict::Value::String(index.into()));
+            compacted_item_list_object.insert(key.into(), jstrict::Value::String(index.into()));
         }
 
         compacted_item = jstrict::Value::Object(compacted_item_list_object);
@@ -183,7 +183,7 @@ where
         // the original `compacted_item` as the value.
         compacted_item = match compacted_item {
             jstrict::Value::Array(items) if items.len() > 1 => {
-                let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Included), true, false, options)?.unwrap();
+                let key = keyword_alias(vocabulary, active_context, options, Keyword::Included);
                 let mut map = jstrict::Object::default();
                 map.insert(key.into(), jstrict::Value::Array(items));
                 jstrict::Value::Object(map)
@@ -200,7 +200,7 @@ where
 
         // Set `compacted_item` to a new map containing the key from
         // IRI compacting @graph using the original `compacted_item` as a value.
-        let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Graph), true, false, options)?.unwrap();
+        let key = keyword_alias(vocabulary, active_context, options, Keyword::Graph);
         let mut map = jstrict::Object::default();
         map.insert(key.into(), compacted_item);
 
@@ -210,13 +210,13 @@ where
         // IRI compacting the value of @id in `expanded_item` using
         // false for vocab.
         if let Some(id_entry) = &node.id {
-            let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Id), false, false, options)?.unwrap();
+            // `vocab=false` for `@id` keyword always yields the literal `"@id"`.
             let id: Term<N::Iri, N::BlankId> = id_entry.clone().into();
             let value = compact_iri(vocabulary, active_context, &id, false, false, options)?;
             map.insert(
-                key.into(),
+                Keyword::Id.into_str().into(),
                 match value {
-                    Some(s) => s.into(),
+                    Some(s) => jstrict::Value::String((&*s).into()),
                     None => jstrict::Value::Null,
                 },
             );
@@ -226,7 +226,7 @@ where
         // add an entry in `compacted_item` using the key from
         // IRI compacting @index and the value of @index in `expanded_item`.
         if let Some(index_entry) = expanded_index {
-            let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::Index), true, false, options)?.unwrap();
+            let key = keyword_alias(vocabulary, active_context, options, Keyword::Index);
             map.insert(key.into(), index_entry.into());
         }
 
@@ -392,11 +392,11 @@ where
                         // Initialize `map_object` to the value of
                         // `item_active_property` in `nest_result`,
                         // initializing it to a new empty map, if necessary.
-                        if nest_result.get_unique(item_active_property.as_str()).ok().unwrap().is_none() {
-                            nest_result.insert(item_active_property.clone().into(), jstrict::Object::default().into());
+                        if nest_result.get_unique(&*item_active_property).ok().unwrap().is_none() {
+                            nest_result.insert((&*item_active_property).into(), jstrict::Object::default().into());
                         }
 
-                        let map_object = nest_result.get_unique_mut(item_active_property.as_str()).ok().unwrap().unwrap();
+                        let map_object = nest_result.get_unique_mut(&*item_active_property).ok().unwrap().unwrap();
                         let map_object = map_object.as_object_mut().unwrap();
 
                         // Initialize container key by IRI compacting either
@@ -411,12 +411,13 @@ where
                             ContainerKind::Type
                         };
 
-                        let mut container_key = compact_iri(vocabulary, active_context, &Term::Keyword(container_type.into()), true, false, options)?;
+                        let mut container_key: String =
+                            keyword_alias(vocabulary, active_context, options, container_type.into()).to_string();
 
                         // Initialize `index_key` to the value of index mapping in
                         // the term definition associated with `item_active_property`
                         // in active context, or @index (None in our case), if no such value exists.
-                        let index_key = match active_context.get(item_active_property.as_str()) {
+                        let index_key = match active_context.get(&*item_active_property) {
                             Some(def) if def.index().is_some() => def.index(),
                             _ => None,
                         };
@@ -440,13 +441,14 @@ where
 
                                     // Reinitialize `container_key` by
                                     // IRI compacting `index_key`.
-                                    container_key =
-                                        compact_iri(vocabulary, active_context, &Term::Id(Id::Invalid(index_key.to_string())), true, false, options)?;
+                                    container_key = compact_iri(vocabulary, active_context, &Term::Id(Id::Invalid(index_key.to_string())), true, false, options)?
+                                        .expect("compact_iri for Id always yields a key")
+                                        .to_string();
 
                                     // Set `map_key` to the first value of
                                     // `container_key` in `compacted_item`, if any.
                                     let (map_key, remaining_values) = match &mut compacted_item {
-                                        jstrict::Value::Object(map) => match map.remove_unique(container_key.as_ref().unwrap().as_str()).ok().unwrap() {
+                                        jstrict::Value::Object(map) => match map.remove_unique(container_key.as_str()).ok().unwrap() {
                                             Some(entry) => match entry.value {
                                                 jstrict::Value::String(s) => (Some(s.to_string()), Vec::new()),
                                                 jstrict::Value::Array(values) => {
@@ -471,7 +473,7 @@ where
                                     if !remaining_values.is_empty() {
                                         if let Some(map) = compacted_item.as_object_mut() {
                                             for value in remaining_values {
-                                                add_value(map, container_key.as_deref().unwrap(), value, false)
+                                                add_value(map, container_key.as_str(), value, false)
                                             }
                                         }
                                     }
@@ -493,7 +495,7 @@ where
                             compacted_item
                                 .as_object_mut()
                                 .and_then(|map| {
-                                    map.remove_unique(container_key.unwrap().as_str())
+                                    map.remove_unique(container_key.as_str())
                                         .ok()
                                         .unwrap()
                                         .map(|entry| entry.value.as_str().map(ToOwned::to_owned))
@@ -505,7 +507,7 @@ where
                             // Set `map_key` to the first value of `container_key` in
                             // `compacted_item`, if any.
                             let (map_key, remaining_values) = match compacted_item.as_object_mut() {
-                                Some(map) => match map.remove_unique(container_key.as_ref().unwrap().as_str()).ok().unwrap() {
+                                Some(map) => match map.remove_unique(container_key.as_str()).ok().unwrap() {
                                     Some(entry) => match entry.value {
                                         jstrict::Value::String(s) => (Some((*s).to_string()), Vec::new()),
                                         jstrict::Value::Array(values) => {
@@ -530,7 +532,7 @@ where
                             if !remaining_values.is_empty() {
                                 if let Some(map) = compacted_item.as_object_mut() {
                                     for value in remaining_values {
-                                        add_value(map, container_key.as_deref().unwrap(), value, false)
+                                        add_value(map, container_key.as_str(), value, false)
                                     }
                                 }
                             }
@@ -564,10 +566,7 @@ where
                         // IRI compacting @none.
                         let map_key = match map_key {
                             Some(key) => key,
-                            None => {
-                                let key = compact_iri(vocabulary, active_context, &Term::Keyword(Keyword::None), true, false, options)?;
-                                key.unwrap()
-                            }
+                            None => keyword_alias(vocabulary, active_context, options, Keyword::None).to_string(),
                         };
 
                         // Use `add_value` to add `compacted_item` to

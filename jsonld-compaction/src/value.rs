@@ -1,4 +1,4 @@
-use crate::{Error, Options, compact_iri, compact_key};
+use crate::{Error, Options, compact_iri, iri::keyword_alias};
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Term, Type, Value, object};
 use jsonld_syntax::Keyword;
@@ -115,35 +115,35 @@ where
                         if ty.is_some() || (language.is_none() && direction.is_none()) {
                             return Ok(jstrict::Value::String(s.as_str().into()));
                         } else {
-                            let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
-                            result.insert(compact_key.unwrap(), jstrict::Value::String(s.as_str().into()));
+                            let compact_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
+                            result.insert(compact_key.into(), jstrict::Value::String(s.as_str().into()));
                         }
                     }
                 }
             } else {
-                let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
+                let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
                 match lit {
                     Literal::Null => {
-                        result.insert(compact_key.unwrap(), jstrict::Value::Null);
+                        result.insert(value_key.into(), jstrict::Value::Null);
                     }
                     Literal::Boolean(b) => {
-                        result.insert(compact_key.unwrap(), jstrict::Value::Boolean(*b));
+                        result.insert(value_key.into(), jstrict::Value::Boolean(*b));
                     }
                     Literal::Number(n) => {
-                        result.insert(compact_key.unwrap(), jstrict::Value::Number(n.clone()));
+                        result.insert(value_key.into(), jstrict::Value::Number(n.clone()));
                     }
                     Literal::String(s) => {
-                        result.insert(compact_key.unwrap(), jstrict::Value::String(s.as_str().into()));
+                        result.insert(value_key.into(), jstrict::Value::String(s.as_str().into()));
                     }
                 }
 
                 if let Some(ty) = ty {
-                    let compact_key = crate::compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Type), true, false, options)?;
+                    let type_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Type);
                     let compact_ty = compact_iri(vocabulary, active_context.as_ref(), &Term::Id(Id::iri(ty.clone())), true, false, options)?;
                     result.insert(
-                        compact_key.unwrap(),
+                        type_key.into(),
                         match compact_ty {
-                            Some(s) => jstrict::Value::String(s.into()),
+                            Some(s) => jstrict::Value::String((&*s).into()),
                             None => jstrict::Value::Null,
                         },
                     );
@@ -161,17 +161,17 @@ where
                 // || (ls.direction().is_none() && direction.is_none())) {
                 return Ok(jstrict::Value::String(ls.as_str().into()));
             } else {
-                let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
-                result.insert(compact_key.unwrap(), jstrict::Value::String(ls.as_str().into()));
+                let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
+                result.insert(value_key.into(), jstrict::Value::String(ls.as_str().into()));
 
                 if let Some(language) = ls.language() {
-                    let compact_key = crate::compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Language), true, false, options)?;
-                    result.insert(compact_key.unwrap(), jstrict::Value::String(language.as_str().into()));
+                    let lang_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Language);
+                    result.insert(lang_key.into(), jstrict::Value::String(language.as_str().into()));
                 }
 
                 if let Some(direction) = ls.direction() {
-                    let compact_key = crate::compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Direction), true, false, options)?;
-                    result.insert(compact_key.unwrap(), jstrict::Value::String(direction.as_str().into()));
+                    let dir_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Direction);
+                    result.insert(dir_key.into(), jstrict::Value::String(direction.as_str().into()));
                 }
             }
         }
@@ -179,27 +179,20 @@ where
             if type_mapping == Some(Type::Json) && remove_index {
                 return Ok(value.clone());
             } else {
-                let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
-                result.insert(compact_key.unwrap(), value.clone());
+                let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
+                result.insert(value_key.into(), value.clone());
 
-                let compact_key = crate::compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Type), true, false, options)?;
-
-                let compact_ty = compact_iri(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Json), true, false, options)?;
-                result.insert(
-                    compact_key.unwrap(),
-                    match compact_ty {
-                        Some(s) => jstrict::Value::String(s.into()),
-                        None => jstrict::Value::Null,
-                    },
-                );
+                let type_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Type);
+                let json_alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Json);
+                result.insert(type_key.into(), jstrict::Value::String(json_alias.into()));
             }
         }
     }
 
     if !remove_index {
         if let Some(index) = index {
-            let compact_key = compact_key(vocabulary, active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
-            result.insert(compact_key.unwrap(), jstrict::Value::String(index.into()));
+            let index_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Index);
+            result.insert(index_key.into(), jstrict::Value::String(index.into()));
         }
     }
 

@@ -132,37 +132,25 @@ where
         }
 
         Value::Object(element) => {
-            // let entries: Cow<[Entry<_, C>]> = if options.ordered {
-            // 	Cow::Owned(element.entries().iter().cloned().collect())
-            // } else {
-            // 	Cow::Borrowed(element.entries().as_slice())
-            // };
-
-            // Preliminary key expansions.
-            let mut has_value_entry = false;
-            let mut has_id_entry = false;
-            for Entry { key, value: _ } in element.entries() {
-                match expand_iri(&mut env, active_context, Nullable::Some(key.as_str().into()), false, Some(options.policy.vocab))?.as_deref() {
-                    Some(Term::Keyword(Keyword::Value)) => {
-                        has_value_entry = true;
-                    }
-                    Some(Term::Keyword(Keyword::Id)) => has_id_entry = true,
-                    _ => (),
-                }
-            }
-
             // Otherwise element is a map.
             // If `active_context` has a `previous_context`, the active context is not
-            // propagated.
+            // propagated. Compute has_value_entry / has_id_entry only when needed.
             let mut active_context = Mown::Borrowed(active_context);
-            if let Some(previous_context) = active_context.previous_context() {
-                // If `from_map` is undefined or false, and `element` does not contain an entry
-                // expanding to `@value`, and `element` does not consist of a single entry
-                // expanding to `@id` (where entries are IRI expanded), set active context to
-                // previous context from active context, as the scope of a term-scoped context
-                // does not apply when processing new Object objects.
-                if !from_map && !has_value_entry && !(element.len() == 1 && has_id_entry) {
-                    active_context = Mown::Owned(previous_context.clone())
+            if !from_map && active_context.previous_context().is_some() {
+                let mut has_value_entry = false;
+                let mut has_id_entry = false;
+                for Entry { key, value: _ } in element.entries() {
+                    match expand_iri(&mut env, active_context.as_ref(), Nullable::Some(key.as_str().into()), false, Some(options.policy.vocab))?.as_deref() {
+                        Some(Term::Keyword(Keyword::Value)) => {
+                            has_value_entry = true;
+                        }
+                        Some(Term::Keyword(Keyword::Id)) => has_id_entry = true,
+                        _ => (),
+                    }
+                }
+                if !has_value_entry && !(element.len() == 1 && has_id_entry) {
+                    let previous_context = active_context.previous_context().unwrap().clone();
+                    active_context = Mown::Owned(previous_context);
                 }
             }
 
@@ -234,8 +222,15 @@ where
                 Cow::Borrowed(element.entries())
             };
 
-            let mut type_entries: Vec<&Entry> = Vec::new();
-            for entry @ Entry { key, .. } in entries.iter() {
+            // Single sweep: expand each key with the current active context, build
+            // `expanded_entries`, and record indices of entries whose key expanded to
+            // `@type`. Replaces the prior loops 2 + 3 in the spec.
+            let mut expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>> = Vec::with_capacity(entries.len());
+            let mut type_indices: Vec<usize> = Vec::new();
+            for Entry { key, value } in entries.iter() {
+                if key.is_empty() {
+                    env.warnings.handle(env.vocabulary, Warning::EmptyTerm);
+                }
                 let expanded_key = expand_iri(
                     &mut env,
                     active_context.as_ref(),
@@ -243,45 +238,35 @@ where
                     false,
                     Some(options.policy.vocab),
                 )?;
-
-                if let Some(Term::Keyword(Keyword::Type)) = expanded_key.as_deref() {
-                    type_entries.push(entry);
+                if let Some(expanded_key) = expanded_key {
+                    if let Term::Keyword(Keyword::Type) = expanded_key.as_ref() {
+                        type_indices.push(expanded_entries.len());
+                    }
+                    expanded_entries.push(ExpandedEntry(key, expanded_key, value));
                 }
             }
 
-            type_entries.sort_unstable_by_key(|entry| &entry.key);
+            type_indices.sort_unstable_by(|&a, &b| expanded_entries[a].0.cmp(expanded_entries[b].0));
 
             // Initialize `type_scoped_context` to `active_context`.
-            // This is used for expanding values that may be relevant to any previous
-            // type-scoped context.
             let type_scoped_context = active_context.as_ref();
             let mut active_context = Mown::Borrowed(active_context.as_ref());
 
-            // For each `key` and `value` in `element` ordered lexicographically by key where
-            // key IRI expands to @type:
-            for Entry { value, .. } in &type_entries {
-                // Convert `value` into an array, if necessary.
-                let value = Value::force_as_array(value);
-
-                // For each `term` which is a value of `value` ordered lexicographically,
-                let mut sorted_value = Vec::with_capacity(value.len());
+            // For each entry whose key IRI-expands to `@type`, sorted lexicographically
+            // by key, walk the @type values in lex order and apply any associated
+            // type-scoped contexts to `active_context`.
+            for &i in &type_indices {
+                let value = Value::force_as_array(expanded_entries[i].2);
+                let mut sorted_value: Vec<&str> = Vec::with_capacity(value.len());
                 for term in value {
                     if let Some(s) = term.as_string() {
                         sorted_value.push(s);
                     }
                 }
-
                 sorted_value.sort_unstable();
-
-                // if `term` is a string, and `term`'s term definition in `type_scoped_context`
-                // has a `local_context`,
                 for term in sorted_value {
                     if let Some(term_definition) = type_scoped_context.get(term) {
                         if let Some(local_context) = term_definition.context() {
-                            // set `active_context` to the result of
-                            // Context Processing algorithm, passing `active_context`, the value of the
-                            // `term`'s local context as `local_context`, `base_url` from the term
-                            // definition for value in `active_context`, and `false` for `propagate`.
                             let base_url = term_definition.base_url().cloned();
                             let options: ProcessingOptions = options.into();
                             let processed = match cache {
@@ -308,12 +293,10 @@ where
                 }
             }
 
-            // Initialize `input_type` to expansion of the last value of the first entry in
-            // `element` expanding to `@type` (if any), ordering entries lexicographically by
-            // key.
-            // Both the key and value of the matched entry are IRI expanded.
-            let input_type = if let Some(Entry { value, .. }) = type_entries.first() {
-                let value = Value::force_as_array(value);
+            // `input_type`: expansion of the last value of the lexicographically first
+            // `@type` entry, IRI-expanded with the (possibly type-scoped) active context.
+            let input_type = if let Some(&i) = type_indices.first() {
+                let value = Value::force_as_array(expanded_entries[i].2);
                 if let Some(input_type) = value.last() {
                     input_type
                         .as_string()
@@ -335,39 +318,42 @@ where
                 None
             };
 
-            let mut expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>> = Vec::with_capacity(element.len());
+            // If type-scoped processing replaced `active_context`, the cached expansions
+            // in `expanded_entries` may be stale w.r.t. the final context — refresh them.
+            if active_context.is_owned() {
+                expanded_entries.clear();
+                for Entry { key, value } in entries.iter() {
+                    let expanded_key = expand_iri(
+                        &mut env,
+                        active_context.as_ref(),
+                        Nullable::Some(key.as_str().into()),
+                        false,
+                        Some(options.policy.vocab),
+                    )?;
+                    if let Some(expanded_key) = expanded_key {
+                        expanded_entries.push(ExpandedEntry(key, expanded_key, value));
+                    }
+                }
+            }
+
+            // Detect list/set/value entries and emit blank-node-id warnings from the
+            // final `expanded_entries`.
             let mut list_entry: Option<&Value> = None;
             let mut set_entry: Option<&Value> = None;
             let mut value_entry: Option<&Value> = None;
-            for Entry { key, value } in entries.iter() {
-                if key.is_empty() {
-                    env.warnings.handle(env.vocabulary, Warning::EmptyTerm);
-                }
-
-                let expanded_key = expand_iri(
-                    &mut env,
-                    active_context.as_ref(),
-                    Nullable::Some(key.as_str().into()),
-                    false,
-                    Some(options.policy.vocab),
-                )?;
-
-                if let Some(expanded_key) = expanded_key {
-                    match expanded_key.as_ref() {
-                        Term::Keyword(Keyword::Value) => value_entry = Some(value),
-                        Term::Keyword(Keyword::List) => {
-                            if active_property.is_some() && active_property != Keyword::Graph {
-                                list_entry = Some(value)
-                            }
+            for ExpandedEntry(_, expanded_key, value) in expanded_entries.iter() {
+                match expanded_key.as_ref() {
+                    Term::Keyword(Keyword::Value) => value_entry = Some(*value),
+                    Term::Keyword(Keyword::List) => {
+                        if active_property.is_some() && active_property != Keyword::Graph {
+                            list_entry = Some(*value)
                         }
-                        Term::Keyword(Keyword::Set) => set_entry = Some(value),
-                        Term::Id(Id::Valid(ValidId::Blank(id))) => {
-                            env.warnings.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));
-                        }
-                        _ => (),
                     }
-
-                    expanded_entries.push(ExpandedEntry(key, expanded_key, value))
+                    Term::Keyword(Keyword::Set) => set_entry = Some(*value),
+                    Term::Id(Id::Valid(ValidId::Blank(id))) => {
+                        env.warnings.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));
+                    }
+                    _ => (),
                 }
             }
 
