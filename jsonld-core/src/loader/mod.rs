@@ -1,6 +1,15 @@
 use crate::HashSet;
 use iri_rs::{Iri, IriBuf, iri};
-use mime::Mime;
+use mediatype::{
+    MediaType, MediaTypeBuf,
+    names::{APPLICATION, JSON, LD},
+};
+
+/// `application/ld+json` media type.
+pub const LD_JSON_MEDIA_TYPE: MediaType<'static> = MediaType::from_parts(APPLICATION, LD, Some(JSON), &[]);
+
+/// `application/json` media type.
+pub const JSON_MEDIA_TYPE: MediaType<'static> = MediaType::new(APPLICATION, JSON);
 use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{borrow::Cow, hash::Hash};
 
@@ -134,7 +143,7 @@ pub struct RemoteDocument<I = IriBuf, T = jstrict::Value> {
 
     /// The HTTP `Content-Type` header value of the loaded document, exclusive
     /// of any optional parameters.
-    pub content_type: Option<Mime>,
+    pub content_type: Option<MediaTypeBuf>,
 
     /// If available, the value of the HTTP `Link Header` [RFC 8288] using the
     /// `http://www.w3.org/ns/json-ld#context` link relation in the response.
@@ -162,7 +171,7 @@ impl<I, T> RemoteDocument<I, T> {
     /// redirection.
     /// `content_type` is the HTTP `Content-Type` header value of the loaded
     /// document, exclusive of any optional parameters.
-    pub fn new(url: Option<I>, content_type: Option<Mime>, document: T) -> Self {
+    pub fn new(url: Option<I>, content_type: Option<MediaTypeBuf>, document: T) -> Self {
         Self::new_full(url, content_type, None, HashSet::new(), document)
     }
 
@@ -179,7 +188,7 @@ impl<I, T> RemoteDocument<I, T> {
     /// original contentType.
     ///
     /// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
-    pub fn new_full(url: Option<I>, content_type: Option<Mime>, context_url: Option<I>, profile: HashSet<Profile<I>>, document: T) -> Self {
+    pub fn new_full(url: Option<I>, content_type: Option<MediaTypeBuf>, context_url: Option<I>, profile: HashSet<Profile<I>>, document: T) -> Self {
         Self {
             url,
             content_type,
@@ -232,7 +241,7 @@ impl<I, T> RemoteDocument<I, T> {
 
     /// Returns the HTTP `Content-Type` header value of the loaded document,
     /// exclusive of any optional parameters.
-    pub fn content_type(&self) -> Option<&Mime> {
+    pub fn content_type(&self) -> Option<&MediaTypeBuf> {
         self.content_type.as_ref()
     }
 
@@ -283,7 +292,7 @@ impl<I> RemoteDocument<I, jstrict::Value> {
     /// With the `serde_json` feature enabled, this also accepts
     /// [`serde_json::Value`] thanks to the `From<serde_json::Value>`
     /// implementation provided by `jstrict`.
-    pub fn from_value(url: Option<I>, content_type: Option<Mime>, document: impl Into<jstrict::Value>) -> Self {
+    pub fn from_value(url: Option<I>, content_type: Option<MediaTypeBuf>, document: impl Into<jstrict::Value>) -> Self {
         Self::new(url, content_type, document.into())
     }
 }
@@ -291,7 +300,7 @@ impl<I> RemoteDocument<I, jstrict::Value> {
 #[cfg(feature = "serde_json")]
 impl<I> RemoteDocument<I, jstrict::Value> {
     /// Creates a remote document from a [`serde_json::Value`].
-    pub fn from_serde_json(url: Option<I>, content_type: Option<Mime>, document: serde_json::Value) -> Self {
+    pub fn from_serde_json(url: Option<I>, content_type: Option<MediaTypeBuf>, document: serde_json::Value) -> Self {
         Self::new(url, content_type, jstrict::Value::from_serde_json(document))
     }
 
@@ -560,7 +569,7 @@ mod serde_json_tests {
     #[test]
     fn from_serde_json_preserves_url_and_content_type() {
         let url = IriBuf::from(iri!("https://example.com/sample.jsonld"));
-        let mime: Mime = "application/ld+json".parse().unwrap();
+        let mime: MediaTypeBuf = LD_JSON_MEDIA_TYPE.into();
         let value = serde_json::json!({"foo": "bar"});
 
         let doc = RemoteDocument::from_serde_json(Some(url.clone()), Some(mime.clone()), value);

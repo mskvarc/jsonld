@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
-use crate::HashMap;
-use mime::Mime;
+use crate::{HashMap, loader::{JSON_MEDIA_TYPE, LD_JSON_MEDIA_TYPE}};
+use mediatype::MediaTypeBuf;
 use reqwest::header::HeaderValue;
 
 pub struct ContentType {
-    media_type: Mime,
+    media_type: MediaTypeBuf,
     params: HashMap<Vec<u8>, Vec<u8>>,
 }
 
@@ -88,21 +88,21 @@ impl ContentType {
             }
         }
 
-        match Mime::from_str(std::str::from_utf8(&mime).ok()?) {
+        match MediaTypeBuf::from_str(std::str::from_utf8(&mime).ok()?) {
             Ok(media_type) => Some(Self { media_type, params }),
             Err(_) => None,
         }
     }
 
     pub fn is_json_ld(&self) -> bool {
-        self.media_type == "application/json" || self.media_type == "application/ld+json"
+        self.media_type == JSON_MEDIA_TYPE || self.media_type == LD_JSON_MEDIA_TYPE
     }
 
-    pub fn media_type(&self) -> &Mime {
+    pub fn media_type(&self) -> &MediaTypeBuf {
         &self.media_type
     }
 
-    pub fn into_media_type(self) -> Mime {
+    pub fn into_media_type(self) -> MediaTypeBuf {
         self.media_type
     }
 
@@ -119,14 +119,14 @@ mod tests {
     #[test]
     fn parse_content_type_1() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json;profile=http://www.w3.org/ns/json-ld#expanded").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
     }
 
     #[test]
     fn parse_content_type_2() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json; profile=http://www.w3.org/ns/json-ld#expanded").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
     }
 
@@ -134,7 +134,7 @@ mod tests {
     fn parse_content_type_3() {
         let content_type =
             ContentType::new(&HeaderValue::from_str("application/ld+json; profile=http://www.w3.org/ns/json-ld#expanded; q=1").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
     }
 
@@ -142,14 +142,14 @@ mod tests {
     fn parse_content_type_4() {
         let content_type =
             ContentType::new(&HeaderValue::from_str("application/ld+json; profile=\"http://www.w3.org/ns/json-ld#expanded\"; q=1").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
     }
 
     #[test]
     fn parse_content_type_5() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json; profile=\"http://www.w3.org/ns/json-ld#expanded\"").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
     }
 
@@ -157,7 +157,7 @@ mod tests {
     fn parse_content_type_6() {
         let content_type =
             ContentType::new(&HeaderValue::from_str("application/ld+json;profile=\"http://www.w3.org/ns/json-ld#expanded\"; q=1").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
     }
 
@@ -168,7 +168,7 @@ mod tests {
                 .unwrap(),
         )
         .unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
         assert_eq!(
             content_type.profile(),
             Some(b"http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted".as_slice())
@@ -178,6 +178,6 @@ mod tests {
     #[test]
     fn parse_content_type_8() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json").unwrap()).unwrap();
-        assert_eq!(*content_type.media_type(), "application/ld+json");
+        assert_eq!(content_type.media_type().as_str(), "application/ld+json");
     }
 }

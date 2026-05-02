@@ -2,7 +2,7 @@
 #![cfg(feature = "serde_json")]
 
 use iri_rs::{IriBuf, iri};
-use jsonld::{JsonLdProcessor, RemoteContextReference, RemoteDocument};
+use jsonld::{JsonLdProcessor, LD_JSON_MEDIA_TYPE, RemoteContextReference, RemoteDocument};
 
 fn input_value() -> serde_json::Value {
     serde_json::json!({
@@ -23,8 +23,7 @@ fn foaf_name() -> &'static str {
 #[async_std::test]
 async fn expand_serde_json_input() {
     let url = IriBuf::from(iri!("https://example.com/sample.jsonld"));
-    let mime = "application/ld+json".parse().unwrap();
-    let doc = RemoteDocument::from_serde_json(Some(url), Some(mime), input_value());
+    let doc = RemoteDocument::from_serde_json(Some(url), Some(LD_JSON_MEDIA_TYPE.into()), input_value());
     let expanded = doc.expand(&jsonld::NoLoader).await.expect("expansion failed");
 
     assert_eq!(expanded.len(), 1);

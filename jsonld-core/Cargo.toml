@@ -41,7 +41,7 @@ jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git", features = ["conte
 langtag = "1.1.0"
 ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
 log = "0.4.29"
-mime = "0.3.17"
+mediatype = "0.21"
 once_cell = "1.21.4"
 parking_lot = "0.12"
 permutohedron = "0.2.4"

@@ -1,8 +1,8 @@
-use super::{Loader, RemoteDocument};
+use super::{LD_JSON_MEDIA_TYPE, Loader, RemoteDocument};
 use crate::LoadError;
 use iri_rs::{Iri, IriBuf};
 use jstrict::Parse;
-use mime::Mime;
+use mediatype::MediaTypeBuf;
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -26,13 +26,9 @@ pub enum Error {
     Parse(jstrict::parse::Error),
 }
 
-fn ld_json_mime() -> Mime {
-    static MIME: OnceLock<Mime> = OnceLock::new();
-    MIME.get_or_init(|| {
-        // SAFETY: `application/ld+json` is a valid MIME literal.
-        unsafe { "application/ld+json".parse().unwrap_unchecked() }
-    })
-    .clone()
+fn ld_json_mime() -> MediaTypeBuf {
+    static MIME: OnceLock<MediaTypeBuf> = OnceLock::new();
+    MIME.get_or_init(|| LD_JSON_MEDIA_TYPE.into()).clone()
 }
 
 /// File-system loader.

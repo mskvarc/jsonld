@@ -22,7 +22,7 @@ iri-rs = { version = "3.3.4", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
 jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 log = "0.4.29"
-mime = "0.3"
+mediatype = "0.21"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
 stderrlog = "0.6.0"
 thiserror = "2.0.18"

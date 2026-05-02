@@ -3,7 +3,7 @@ use std::{path::PathBuf, str::FromStr};
 use clap::Parser;
 use contextual::WithContext;
 use iri_rs::IriBuf;
-use jsonld::{JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference, syntax::Parse};
+use jsonld::{JsonLdProcessor, LD_JSON_MEDIA_TYPE, Print, RemoteDocument, RemoteDocumentReference, syntax::Parse};
 use rdf_rs::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
@@ -93,9 +93,6 @@ enum CliError {
     #[error("JSON parse error: {0}")]
     Parse(#[from] jstrict::parse::Error),
 
-    #[error("invalid mime: {0}")]
-    Mime(#[from] mime::FromStrError),
-
     #[error("invalid blank id prefix: {0}")]
     BlankPrefix(#[from] rdf_rs::generator::InvalidBlankPrefix),
 
@@ -115,8 +112,8 @@ enum CliError {
     GeneratedId(#[from] jsonld::id::GeneratedIdError),
 }
 
-fn ld_json_mime() -> Result<mime::Mime, CliError> {
-    "application/ld+json".parse().map_err(CliError::from)
+fn ld_json_mime() -> mediatype::MediaTypeBuf {
+    LD_JSON_MEDIA_TYPE.into()
 }
 
 #[tokio::main]
@@ -215,13 +212,13 @@ fn get_remote_document(
             let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
             let content = std::fs::read_to_string(path)?;
             let (document, _) = jsonld::syntax::Value::parse_str(&content)?;
-            Ok(RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()?), document)))
+            Ok(RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()), document)))
         }
         None => {
             let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
             let content = std::io::read_to_string(std::io::stdin())?;
             let (document, _) = jsonld::syntax::Value::parse_str(&content)?;
-            Ok(RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()?), document)))
+            Ok(RemoteDocumentReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()), document)))
         }
     }
 }

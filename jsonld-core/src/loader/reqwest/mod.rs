@@ -1,7 +1,7 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
 use crate::{LoadError, Profile};
 
-use super::{Loader, RemoteDocument};
+use super::{LD_JSON_MEDIA_TYPE, Loader, RemoteDocument};
 use crate::HashSet;
 use iri_rs::{Iri, IriBuf};
 use jstrict::Parse;
@@ -163,7 +163,7 @@ impl Loader for ReqwestLoader {
                     match content_types.find(ContentType::is_json_ld) {
                         Some(content_type) => {
                             let mut context_url = None;
-                            if *content_type.media_type() != "application/ld+json" {
+                            if *content_type.media_type() != LD_JSON_MEDIA_TYPE {
                                 for link in response.headers().get_all(LINK).into_iter() {
                                     if let Some(link) = Link::new(link) {
                                         if link.rel() == Some(b"http://www.w3.org/ns/json-ld#context") {
