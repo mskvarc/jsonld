@@ -1,0 +1,5 @@
+error: unknown jsonld field attribute `proprety`
+ --> tests/expand/fail_unknown_attr.rs:9:14
+  |
+9 |     #[jsonld(proprety = "https://example.com/name")]
+  |              ^^^^^^^^

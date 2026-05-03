@@ -366,6 +366,14 @@ pub use compaction::Compact;
 pub use context_processing::Process;
 pub use expansion::Expand;
 
+#[cfg(feature = "expandable")]
+pub use jsonld_expandable::Expandable;
+#[cfg(feature = "expandable")]
+pub use jsonld_expandable_core::{
+    self as expandable_core, Expandable, ExpandableLanguageMap, ExpandableTypeValue, JsonValue,
+    ToJsonValue,
+};
+
 mod processor;
 pub use processor::*;
 

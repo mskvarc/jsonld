@@ -32,6 +32,10 @@ parallel = [
     "jsonld-expansion/parallel",
     "jsonld-compaction/parallel",
 ]
+expandable = ["dep:jsonld-expandable", "dep:jsonld-expandable-core"]
+expandable-serde_json = ["expandable", "jsonld-expandable-core/serde_json"]
+expandable-sonic_rs = ["expandable", "jsonld-expandable-core/sonic_rs"]
+expandable-jstrict = ["expandable", "jsonld-expandable-core/jstrict"]
 
 [dependencies]
 contextual = "0.1.6"
@@ -40,6 +44,8 @@ iri-rs = "3.3.4"
 jsonld-compaction.workspace = true
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
+jsonld-expandable = { workspace = true, optional = true }
+jsonld-expandable-core = { workspace = true, optional = true }
 jsonld-expansion.workspace = true
 jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true

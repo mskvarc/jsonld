@@ -1,0 +1,5 @@
+error: Expandable requires `#[jsonld(type = "...")]`, a `type_value` field, or `#[jsonld(fragment)]`
+ --> tests/expand/fail_missing_type.rs:4:12
+  |
+4 | pub struct MissingType {
+  |            ^^^^^^^^^^^

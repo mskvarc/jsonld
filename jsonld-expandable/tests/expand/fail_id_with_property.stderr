@@ -1,0 +1,5 @@
+error: `id` cannot be combined with property, nested, coerce, container, or flatten
+ --> tests/expand/fail_id_with_property.rs:6:5
+  |
+6 |     #[jsonld(id, property = "https://example.com/id")]
+  |     ^

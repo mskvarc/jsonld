@@ -5,6 +5,8 @@ members = [
     "jsonld-compaction",
     "jsonld-context-processing",
     "jsonld-core",
+    "jsonld-expandable",
+    "jsonld-expandable-core",
     "jsonld-expansion",
     "jsonld-serialization",
     "jsonld-syntax",
@@ -43,6 +45,8 @@ jsonld = { path = "jsonld", version = "0.22.0" }
 jsonld-compaction = { path = "jsonld-compaction", version = "0.22.0" }
 jsonld-context-processing = { path = "jsonld-context-processing", version = "0.22.0" }
 jsonld-core = { path = "jsonld-core", version = "0.22.0" }
+jsonld-expandable = { path = "jsonld-expandable", version = "0.22.0" }
+jsonld-expandable-core = { path = "jsonld-expandable-core", version = "0.22.0" }
 jsonld-expansion = { path = "jsonld-expansion", version = "0.22.0" }
 jsonld-serialization = { path = "jsonld-serialization", version = "0.22.0" }
 jsonld-syntax = { path = "jsonld-syntax", version = "0.22.0" }

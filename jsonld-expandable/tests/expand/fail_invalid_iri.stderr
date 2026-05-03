@@ -1,0 +1,5 @@
+error: invalid IRI "NotAnIRI": expected a full IRI with a scheme (e.g. "https://example.com/Type") or a CURIE (e.g. "ex:Type") backed by a `prefix(...)` entry
+ --> tests/expand/fail_invalid_iri.rs:4:17
+  |
+4 | #[jsonld(type = "NotAnIRI")]
+  |                 ^^^^^^^^^^

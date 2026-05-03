@@ -1,0 +1,5 @@
+error: `vec` requires `nested` (or a value coercion that iterates)
+ --> tests/expand/fail_vec_without_nested.rs:9:5
+  |
+9 |     #[jsonld(property = "https://example.com/items", vec)]
+  |     ^

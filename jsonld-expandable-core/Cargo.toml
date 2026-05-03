@@ -1,0 +1,28 @@
+[package]
+name = "jsonld-expandable-core"
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+description = "Runtime traits, attribute parser, and codegen for the JSON-LD `Expandable` derive"
+
+[features]
+default = []
+serde_json = ["dep:serde_json"]
+sonic_rs = ["dep:sonic-rs"]
+jstrict = ["dep:jstrict"]
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+serde_json = { version = "1.0", optional = true }
+sonic-rs = { version = "0.5", optional = true }
+jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git", optional = true }
+
+[lints]
+workspace = true

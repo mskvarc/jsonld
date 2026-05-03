@@ -1,0 +1,5 @@
+error: `nested` and `coerce` are mutually exclusive
+ --> tests/expand/fail_conflicting_attrs.rs:9:5
+  |
+9 |     #[jsonld(property = "https://example.com/value", nested, vocab)]
+  |     ^

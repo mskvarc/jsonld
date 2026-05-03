@@ -1,0 +1,63 @@
+//! Intermediate representation that the attribute parser produces and the
+//! codegen consumes. Keeping this typed and separate from the `syn` AST makes
+//! it possible to unit-test the parser and snapshot codegen output without
+//! reaching for `trybuild`.
+
+use proc_macro2::TokenStream;
+
+#[derive(Debug, Default)]
+pub struct ContainerIr {
+    /// Static `@type` IRI. Mutually exclusive with `type_field` and `fragment`.
+    pub type_iri: Option<String>,
+    /// Field marked `#[jsonld(type_value)]` providing a dynamic `@type`.
+    pub type_field: Option<syn::Ident>,
+    /// Emit object without `@type` (sub-fragment).
+    pub fragment: bool,
+    /// Override of the runtime crate path (default `::jsonld_expandable_core`).
+    pub crate_path: Option<TokenStream>,
+    /// Local CURIE prefix table.
+    pub prefixes: Vec<(String, String)>,
+    /// Print generated code as a compile error.
+    pub debug: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Coerce {
+    Id,
+    Vocab,
+    Json,
+    Datatype(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContainerKind {
+    List,
+    Set,
+    Language,
+    Index,
+    Id,
+    Type,
+    Graph,
+}
+
+#[derive(Debug, Default)]
+pub struct FieldIr {
+    /// Field is the `@id` of the surrounding node.
+    pub is_id: bool,
+    /// Field provides the dynamic `@type` (matches container.type_field).
+    pub is_type_value: bool,
+    /// Skip this field entirely.
+    pub skip: bool,
+    /// Property IRI (or CURIE pre-expansion).
+    pub property: Option<String>,
+    /// Coercion mode.
+    pub coerce: Option<Coerce>,
+    /// Container mode.
+    pub container: Option<ContainerKind>,
+    /// Field is a nested `Expandable`.
+    pub nested: bool,
+    /// Field is a `Vec<_>` (used with `nested`).
+    pub is_vec: bool,
+    /// Merge expanded properties into parent.
+    pub flatten: bool,
+}
