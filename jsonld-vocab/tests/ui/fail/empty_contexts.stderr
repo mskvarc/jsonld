@@ -1,0 +1,5 @@
+error: `contexts` must contain at least one path
+ --> tests/ui/fail/empty_contexts.rs:2:5
+  |
+2 |     contexts: []
+  |     ^^^^^^^^

@@ -1,0 +1,7 @@
+{
+    "@context": {
+        "ex": "https://example.org/ns#",
+        "fooBar": "ex:fooBar",
+        "foo_bar": "ex:foo_bar"
+    }
+}

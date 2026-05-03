@@ -36,6 +36,7 @@ expandable = ["dep:jsonld-expandable", "dep:jsonld-expandable-core"]
 expandable-serde_json = ["expandable", "jsonld-expandable-core/serde_json"]
 expandable-sonic_rs = ["expandable", "jsonld-expandable-core/sonic_rs"]
 expandable-jstrict = ["expandable", "jsonld-expandable-core/jstrict"]
+vocab = ["dep:jsonld-vocab", "iri-rs/static"]
 
 [dependencies]
 contextual = "0.1.6"
@@ -49,6 +50,7 @@ jsonld-expandable-core = { workspace = true, optional = true }
 jsonld-expansion.workspace = true
 jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true
+jsonld-vocab = { workspace = true, optional = true }
 jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
 locspan = "0.8.2"
 rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }

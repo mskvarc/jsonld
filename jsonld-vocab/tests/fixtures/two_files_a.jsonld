@@ -1,0 +1,6 @@
+{
+    "@context": {
+        "ex": "https://example.org/ns#",
+        "name": "ex:name"
+    }
+}

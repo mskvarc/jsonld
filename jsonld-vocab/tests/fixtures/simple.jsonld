@@ -1,0 +1,10 @@
+{
+    "@context": {
+        "id": "@id",
+        "type": "@type",
+        "ex": "https://example.org/ns#",
+        "name": "ex:name",
+        "createdAt": "ex:createdAt",
+        "value": "ex:value"
+    }
+}

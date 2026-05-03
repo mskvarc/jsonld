@@ -1,0 +1,5 @@
+error: prefix ex in $DIR/tests/fixtures/conflicting_prefix_b.jsonld conflicts with https://example.org/ns# from $DIR/tests/fixtures/conflicting_prefix_a.jsonld
+ --> tests/ui/fail/conflicting_prefix.rs:4:9
+  |
+4 |         "tests/fixtures/conflicting_prefix_b.jsonld",
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

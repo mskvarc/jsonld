@@ -1,0 +1,28 @@
+[package]
+name = "jsonld-vocab"
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+description = "Proc-macro that generates typed JSON-LD vocabulary constants from local JSON-LD context files"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+heck = "0.5.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+serde_json = "1.0"
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+
+[dev-dependencies]
+iri-rs = { version = "3.3.4", features = ["static"] }
+trybuild = { version = "1.0", features = ["diff"] }
+
+[lints]
+workspace = true

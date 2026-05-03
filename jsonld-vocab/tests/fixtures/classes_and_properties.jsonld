@@ -1,0 +1,12 @@
+{
+    "@context": {
+        "ex": "https://example.org/ns#",
+        "Property": "ex:Property",
+        "GeoProperty": "ex:GeoProperty",
+        "Relationship": "ex:Relationship",
+        "property": "ex:property",
+        "createdAt": "ex:createdAt",
+        "observedAt": "ex:observedAt",
+        "value": "ex:value"
+    }
+}

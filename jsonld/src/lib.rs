@@ -374,6 +374,9 @@ pub use jsonld_expandable_core::{
     ToJsonValue,
 };
 
+#[cfg(feature = "vocab")]
+pub use jsonld_vocab::generate as vocab;
+
 mod processor;
 pub use processor::*;
 

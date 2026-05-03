@@ -11,6 +11,7 @@ members = [
     "jsonld-serialization",
     "jsonld-syntax",
     "jsonld-testing",
+    "jsonld-vocab",
 ]
 resolver = "3"
 
@@ -51,6 +52,7 @@ jsonld-expansion = { path = "jsonld-expansion", version = "0.22.0" }
 jsonld-serialization = { path = "jsonld-serialization", version = "0.22.0" }
 jsonld-syntax = { path = "jsonld-syntax", version = "0.22.0" }
 jsonld-testing = { path = "jsonld-testing", version = "0.22.0" }
+jsonld-vocab = { path = "jsonld-vocab", version = "0.22.0" }
 
 [profile.release]
 lto = "thin"
