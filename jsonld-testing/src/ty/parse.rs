@@ -68,15 +68,16 @@ fn parse_multiple(ty: syn::Type) -> Result<Type, UnknownType> {
 fn parse_reference(r: syn::TypeReference) -> Result<Type, UnknownType> {
     if r.mutability.is_none()
         && let Some(lft) = r.lifetime
-            && lft.ident == "static" {
-                if is_str(&r.elem) {
-                    return Ok(Type::String);
-                }
+        && lft.ident == "static"
+    {
+        if is_str(&r.elem) {
+            return Ok(Type::String);
+        }
 
-                if is_iri(&r.elem) {
-                    return Ok(Type::Iri);
-                }
-            }
+        if is_iri(&r.elem) {
+            return Ok(Type::Iri);
+        }
+    }
 
     Err(UnknownType)
 }
@@ -84,12 +85,14 @@ fn parse_reference(r: syn::TypeReference) -> Result<Type, UnknownType> {
 fn reference_into_multiple(r: syn::TypeReference) -> Result<syn::Type, syn::TypeReference> {
     if r.mutability.is_none()
         && let Some(lft) = &r.lifetime
-            && lft.ident == "static" && matches!(r.elem.as_ref(), syn::Type::Slice(_)) {
-                match *r.elem {
-                    syn::Type::Slice(e) => return Ok(*e.elem),
-                    _ => unreachable!(),
-                }
-            }
+        && lft.ident == "static"
+        && matches!(r.elem.as_ref(), syn::Type::Slice(_))
+    {
+        match *r.elem {
+            syn::Type::Slice(e) => return Ok(*e.elem),
+            _ => unreachable!(),
+        }
+    }
 
     Err(r)
 }

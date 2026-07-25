@@ -2,7 +2,7 @@
 use contextual::WithContext;
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
-use rdf_rs::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
+use rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 
 #[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/compact-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]

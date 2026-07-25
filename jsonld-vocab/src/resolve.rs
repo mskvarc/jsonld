@@ -1,6 +1,15 @@
 use crate::model::{
-    ContextModel, DefinitionSource, InputContextFile, InputContexts, ParsedDocument,
-    PrefixDefinition, ResolvedModel, ResolvedPrefix, ResolvedTerm, TermDefinition, TermTarget,
+    ContextModel,
+    DefinitionSource,
+    InputContextFile,
+    InputContexts,
+    ParsedDocument,
+    PrefixDefinition,
+    ResolvedModel,
+    ResolvedPrefix,
+    ResolvedTerm,
+    TermDefinition,
+    TermTarget,
 };
 use heck::ToShoutySnakeCase;
 use proc_macro::Span as ProcMacroSpan;
@@ -12,11 +21,7 @@ use std::{
 
 /// Read, merge, and resolve the input contexts into a canonical vocabulary model.
 pub fn load_contexts(inputs: &InputContexts) -> syn::Result<ResolvedModel> {
-    let documents = inputs
-        .iter()
-        .cloned()
-        .map(read_document)
-        .collect::<syn::Result<Vec<_>>>()?;
+    let documents = inputs.iter().cloned().map(read_document).collect::<syn::Result<Vec<_>>>()?;
 
     let mut model = ContextModel::default();
     for document in &documents {
@@ -40,46 +45,24 @@ pub fn load_contexts(inputs: &InputContexts) -> syn::Result<ResolvedModel> {
 
 fn read_document(input: InputContextFile) -> syn::Result<ParsedDocument> {
     let input = InputContextFile {
-        resolved_path: std::fs::canonicalize(&input.resolved_path)
-            .unwrap_or(input.resolved_path.clone()),
+        resolved_path: std::fs::canonicalize(&input.resolved_path).unwrap_or(input.resolved_path.clone()),
         ..input
     };
-    let json = std::fs::read_to_string(&input.resolved_path).map_err(|error| {
-        syn::Error::new(
-            input.span,
-            format!(
-                "cannot read context file {}: {error}",
-                input.resolved_path.display()
-            ),
-        )
-    })?;
-    let root = serde_json::from_str(&json).map_err(|error| {
-        syn::Error::new(
-            input.span,
-            format!(
-                "invalid JSON in context file {}: {error}",
-                input.resolved_path.display()
-            ),
-        )
-    })?;
+    let json = std::fs::read_to_string(&input.resolved_path)
+        .map_err(|error| syn::Error::new(input.span, format!("cannot read context file {}: {error}", input.resolved_path.display())))?;
+    let root = serde_json::from_str(&json)
+        .map_err(|error| syn::Error::new(input.span, format!("invalid JSON in context file {}: {error}", input.resolved_path.display())))?;
 
     Ok(ParsedDocument { input, root })
 }
 
-fn collect_context_object(
-    context: &Map<String, Value>,
-    file: &InputContextFile,
-    model: &mut ContextModel,
-) -> syn::Result<()> {
+fn collect_context_object(context: &Map<String, Value>, file: &InputContextFile, model: &mut ContextModel) -> syn::Result<()> {
     for (compact, value) in context {
         if compact.starts_with('@') {
             continue;
         }
 
-        if let Some(prefix_iri) = value
-            .as_str()
-            .filter(|candidate| is_prefix_namespace(candidate))
-        {
+        if let Some(prefix_iri) = value.as_str().filter(|candidate| is_prefix_namespace(candidate)) {
             insert_prefix(model, compact, prefix_iri, file)?;
             continue;
         }
@@ -94,11 +77,7 @@ fn collect_context_object(
     Ok(())
 }
 
-fn collect_nested_contexts(
-    value: &Value,
-    file: &InputContextFile,
-    model: &mut ContextModel,
-) -> syn::Result<()> {
+fn collect_nested_contexts(value: &Value, file: &InputContextFile, model: &mut ContextModel) -> syn::Result<()> {
     match value {
         Value::Object(object) => {
             if let Some(nested) = object.get("@context") {
@@ -116,11 +95,7 @@ fn collect_nested_contexts(
     Ok(())
 }
 
-fn collect_context_value(
-    value: &Value,
-    file: &InputContextFile,
-    model: &mut ContextModel,
-) -> syn::Result<()> {
+fn collect_context_value(value: &Value, file: &InputContextFile, model: &mut ContextModel) -> syn::Result<()> {
     match value {
         Value::Object(object) => collect_context_object(object, file, model),
         Value::Array(items) => {
@@ -186,12 +161,7 @@ fn parse_term_target(compact: &str, raw: &str) -> syn::Result<Option<TermTarget>
     Ok(Some(TermTarget::LocalReference(raw.to_string())))
 }
 
-fn insert_prefix(
-    model: &mut ContextModel,
-    compact: &str,
-    expanded: &str,
-    file: &InputContextFile,
-) -> syn::Result<()> {
+fn insert_prefix(model: &mut ContextModel, compact: &str, expanded: &str, file: &InputContextFile) -> syn::Result<()> {
     let definition = PrefixDefinition {
         compact: compact.to_string(),
         expanded: expanded.to_string(),
@@ -216,12 +186,7 @@ fn insert_prefix(
     }
 }
 
-fn insert_term(
-    model: &mut ContextModel,
-    compact: &str,
-    target: TermTarget,
-    file: &InputContextFile,
-) -> syn::Result<()> {
+fn insert_term(model: &mut ContextModel, compact: &str, target: TermTarget, file: &InputContextFile) -> syn::Result<()> {
     let definition = TermDefinition {
         compact: compact.to_string(),
         target,
@@ -245,9 +210,7 @@ fn insert_term(
     }
 }
 
-fn resolve_prefixes(
-    prefixes: BTreeMap<String, PrefixDefinition>,
-) -> syn::Result<Vec<ResolvedPrefix>> {
+fn resolve_prefixes(prefixes: BTreeMap<String, PrefixDefinition>) -> syn::Result<Vec<ResolvedPrefix>> {
     let mut resolved = Vec::with_capacity(prefixes.len());
     let mut names = HashMap::<String, String>::new();
 
@@ -256,10 +219,7 @@ fn resolve_prefixes(
         if let Some(previous) = names.insert(const_name.clone(), prefix.compact.clone()) {
             return Err(syn::Error::new(
                 ProcMacroSpan::call_site().into(),
-                format!(
-                    "prefix naming collision: {previous} and {} both map to {const_name}",
-                    prefix.compact
-                ),
+                format!("prefix naming collision: {previous} and {} both map to {const_name}", prefix.compact),
             ));
         }
         resolved.push(ResolvedPrefix {
@@ -272,10 +232,7 @@ fn resolve_prefixes(
     Ok(resolved)
 }
 
-fn partition_terms(
-    terms: BTreeMap<String, TermDefinition>,
-    prefixes: &[ResolvedPrefix],
-) -> syn::Result<(Vec<ResolvedTerm>, Vec<ResolvedTerm>)> {
+fn partition_terms(terms: BTreeMap<String, TermDefinition>, prefixes: &[ResolvedPrefix]) -> syn::Result<(Vec<ResolvedTerm>, Vec<ResolvedTerm>)> {
     let prefix_map = prefixes
         .iter()
         .map(|prefix| (prefix.compact.as_str(), prefix.expanded.as_str()))
@@ -288,23 +245,14 @@ fn partition_terms(
     let mut property_names = HashMap::<String, String>::new();
 
     for compact in terms.keys() {
-        let expanded = resolve_term(
-            compact,
-            &terms,
-            &prefix_map,
-            &mut cache,
-            &mut Vec::new(),
-            &mut HashSet::new(),
-        )?;
+        let expanded = resolve_term(compact, &terms, &prefix_map, &mut cache, &mut Vec::new(), &mut HashSet::new())?;
         let const_name = compact.to_shouty_snake_case();
 
         if starts_with_uppercase(compact) {
             if let Some(previous) = class_names.insert(const_name.clone(), compact.clone()) {
                 return Err(syn::Error::new(
                     ProcMacroSpan::call_site().into(),
-                    format!(
-                        "class term naming collision: {previous} and {compact} both map to {const_name}"
-                    ),
+                    format!("class term naming collision: {previous} and {compact} both map to {const_name}"),
                 ));
             }
             classes.push(ResolvedTerm {
@@ -316,9 +264,7 @@ fn partition_terms(
             if let Some(previous) = property_names.insert(const_name.clone(), compact.clone()) {
                 return Err(syn::Error::new(
                     ProcMacroSpan::call_site().into(),
-                    format!(
-                        "property term naming collision: {previous} and {compact} both map to {const_name}"
-                    ),
+                    format!("property term naming collision: {previous} and {compact} both map to {const_name}"),
                 ));
             }
             properties.push(ResolvedTerm {
@@ -347,20 +293,14 @@ fn resolve_term(
         stack.push(compact.to_string());
         return Err(syn::Error::new(
             ProcMacroSpan::call_site().into(),
-            format!(
-                "cycle detected while resolving local term references: {}",
-                stack.join(" -> ")
-            ),
+            format!("cycle detected while resolving local term references: {}", stack.join(" -> ")),
         ));
     }
     stack.push(compact.to_string());
 
-    let definition = terms.get(compact).ok_or_else(|| {
-        syn::Error::new(
-            ProcMacroSpan::call_site().into(),
-            format!("unresolved local term reference: {compact}"),
-        )
-    })?;
+    let definition = terms
+        .get(compact)
+        .ok_or_else(|| syn::Error::new(ProcMacroSpan::call_site().into(), format!("unresolved local term reference: {compact}")))?;
 
     let expanded = match &definition.target {
         TermTarget::Absolute(iri) => iri.clone(),
@@ -377,18 +317,16 @@ fn resolve_term(
             })?;
             format!("{namespace}{suffix}")
         }
-        TermTarget::LocalReference(target) => {
-            resolve_term(target, terms, prefixes, cache, stack, visiting).map_err(|_| {
-                syn::Error::new(
-                    ProcMacroSpan::call_site().into(),
-                    format!(
-                        "unable to resolve local term reference {target} while resolving {} from {}",
-                        definition.compact,
-                        definition.source.path.display()
-                    ),
-                )
-            })?
-        }
+        TermTarget::LocalReference(target) => resolve_term(target, terms, prefixes, cache, stack, visiting).map_err(|_| {
+            syn::Error::new(
+                ProcMacroSpan::call_site().into(),
+                format!(
+                    "unable to resolve local term reference {target} while resolving {} from {}",
+                    definition.compact,
+                    definition.source.path.display()
+                ),
+            )
+        })?,
     };
 
     stack.pop();
@@ -484,9 +422,6 @@ mod tests {
         assert_eq!("createdAt".to_shouty_snake_case(), "CREATED_AT");
         assert_eq!("GeoProperty".to_shouty_snake_case(), "GEO_PROPERTY");
         assert_eq!("ngsi-ld".to_shouty_snake_case(), "NGSI_LD");
-        assert_eq!(
-            "jsonldContextRel".to_shouty_snake_case(),
-            "JSONLD_CONTEXT_REL"
-        );
+        assert_eq!("jsonldContextRel".to_shouty_snake_case(), "JSONLD_CONTEXT_REL");
     }
 }

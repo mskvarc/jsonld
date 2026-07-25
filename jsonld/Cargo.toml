@@ -9,7 +9,7 @@ license.workspace = true
 rust-version.workspace = true
 version.workspace = true
 description = "JSON-LD implementation"
-readme = "README.md"
+readme.workspace = true
 
 [features]
 default = ["fast-hash"]
@@ -24,7 +24,7 @@ fast-hash = [
 ]
 reqwest = ["jsonld-core/reqwest"]
 serde = ["jsonld-syntax/serde", "jsonld-core/serde"]
-serde_json = ["jsonld-syntax/serde_json", "jsonld-core/serde_json"]
+serde-json = ["jsonld-syntax/serde-json", "jsonld-core/serde-json"]
 ahash = ["jsonld-core/ahash"]
 gxhash = ["jsonld-core/gxhash"]
 parallel = [
@@ -33,8 +33,8 @@ parallel = [
     "jsonld-compaction/parallel",
 ]
 expandable = ["dep:jsonld-expandable", "dep:jsonld-expandable-core"]
-expandable-serde_json = ["expandable", "jsonld-expandable-core/serde_json"]
-expandable-sonic_rs = ["expandable", "jsonld-expandable-core/sonic_rs"]
+expandable-serde-json = ["expandable", "jsonld-expandable-core/serde-json"]
+expandable-sonic-rs = ["expandable", "jsonld-expandable-core/sonic-rs"]
 expandable-jstrict = ["expandable", "jsonld-expandable-core/jstrict"]
 expandable-chrono = ["expandable", "jsonld-expandable-core/chrono"]
 vocab = ["dep:jsonld-vocab", "iri-rs/static"]
@@ -52,9 +52,9 @@ jsonld-expansion.workspace = true
 jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true
 jsonld-vocab = { workspace = true, optional = true }
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
+jstrict = "0.13.0"
 locspan = "0.8.2"
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+rdfx = "0.23.1"
 thiserror = "2.0.18"
 
 [dev-dependencies]
@@ -65,7 +65,7 @@ iri-rs = { version = "3.3.4", features = ["static"] }
 jsonld-testing.workspace = true
 log = "0.4.29"
 mimalloc = { version = "0.1", default-features = false }
-n-quads = { git = "ssh://git@github.com/mskvarc/n-quads.git" }
+n-quads = "0.20.0"
 stacker = "0.1.24"
 
 [[bench]]

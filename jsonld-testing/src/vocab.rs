@@ -1,15 +1,15 @@
 use contextual::DisplayWithContext;
 use iri_rs::IriEnum;
 use jsonld::ValidId;
-pub use rdf_rs::vocabulary::{BlankIdIndex, IriIndex, LiteralIndex};
-use rdf_rs::{
+pub use rdfx::vocabulary::{BlankIdIndex, IriIndex, LiteralIndex};
+use rdfx::{
     impl_resource,
     vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary},
 };
 use std::fmt;
 
 /// Quad shape stored by the proc-macro's working dataset.
-pub type IndexQuad = rdf_rs::Quad<IndexTerm, IndexTerm, IndexTerm, IndexTerm>;
+pub type IndexQuad = rdfx::Quad<IndexTerm, IndexTerm, IndexTerm, IndexTerm>;
 
 /// Uniform resource type used for every position of a quad in the
 /// proc-macro-internal dataset. `impl_resource!` opts it into all four

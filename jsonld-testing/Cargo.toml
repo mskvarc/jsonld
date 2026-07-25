@@ -2,13 +2,17 @@
 name = "jsonld-testing"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
 description = "Testing library for the `jsonld` library"
-readme = "README.md"
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 proc-macro = true
@@ -22,7 +26,7 @@ litrs = "1.0.0"
 proc-macro2 = "1.0.106"
 proc-macro-error = "1.0.4"
 quote = "1.0.45"
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git", features = [
+rdfx = { version = "0.23.1", features = [
     "contextual",
 ] }
 syn = { version = "2.0.117", features = ["full"] }

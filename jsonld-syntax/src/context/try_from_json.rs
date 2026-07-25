@@ -10,27 +10,35 @@ use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson};
 use iri_rs::IriRefBuf;
 
 #[derive(Debug, Clone, thiserror::Error)]
+/// Error raised when a JSON value is not a valid context.
 pub enum InvalidContext {
     #[error("Invalid IRI reference: {0}")]
+    /// Invalid IRI reference: the given value.
     InvalidIriRef(String),
 
     #[error("Unexpected {0}")]
+    /// Unexpected the given value.
     Unexpected(jstrict::Kind, &'static [jstrict::Kind]),
 
     #[error("Invalid `@direction`")]
+    /// Invalid `@direction`.
     InvalidDirection,
 
     #[error("Duplicate key")]
+    /// Duplicate key.
     DuplicateKey,
 
     #[error("Invalid term definition")]
+    /// Invalid term definition.
     InvalidTermDefinition,
 
     #[error("Invalid `@nest` value `{0}`")]
+    /// Invalid `@nest` value `the given value`.
     InvalidNestValue(String),
 }
 
 impl InvalidContext {
+    /// Returns the code of this `InvalidContext`.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidIriRef(_) => ErrorCode::InvalidIriMapping,
@@ -88,10 +96,7 @@ impl TryFromJson for TermDefinition {
 
                 Ok(Self::Expanded(Box::new(def)))
             }
-            unexpected => Err(InvalidContext::Unexpected(
-                unexpected.kind(),
-                &[jstrict::Kind::String, jstrict::Kind::Object],
-            )),
+            unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String, jstrict::Kind::Object])),
         }
     }
 }

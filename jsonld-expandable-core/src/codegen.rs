@@ -1,12 +1,15 @@
 //! IR → `TokenStream` lowering, parametric over `V: JsonValue`.
 
-use crate::attrs::{parse_container, parse_field};
-use crate::ir::{Coerce, ContainerKind, FieldIr};
-use crate::iri::expand_curie;
+use crate::{
+    attrs::{parse_container, parse_field},
+    ir::{Coerce, ContainerKind, FieldIr},
+    iri::expand_curie,
+};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type};
 
+/// Generates the `Expandable` implementation for a derive input.
 pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -17,24 +20,15 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
         Data::Struct(s) => match &s.fields {
             Fields::Named(named) => &named.named,
             _ => {
-                return Err(syn::Error::new_spanned(
-                    name,
-                    "Expandable only supports structs with named fields",
-                ));
+                return Err(syn::Error::new_spanned(name, "Expandable only supports structs with named fields"));
             }
         },
         _ => {
-            return Err(syn::Error::new_spanned(
-                name,
-                "Expandable only supports structs",
-            ));
+            return Err(syn::Error::new_spanned(name, "Expandable only supports structs"));
         }
     };
 
-    let crate_path = container
-        .crate_path
-        .clone()
-        .unwrap_or_else(|| quote!(::jsonld_expandable_core));
+    let crate_path = container.crate_path.clone().unwrap_or_else(|| quote!(::jsonld_expandable_core));
 
     let mut id_stmt: Option<TokenStream> = None;
     let mut type_stmt: Option<TokenStream> = None;
@@ -51,10 +45,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
                 .clone()
                 .ok_or_else(|| syn::Error::new_spanned(field, "type_value requires named field"))?;
             if dynamic_type_field.is_some() {
-                return Err(syn::Error::new_spanned(
-                    field,
-                    "only one field may carry `type_value`",
-                ));
+                return Err(syn::Error::new_spanned(field, "only one field may carry `type_value`"));
             }
             dynamic_type_field = Some(ident);
         }
@@ -215,12 +206,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
     Ok(body)
 }
 
-fn build_field_expr(
-    field_ident: &syn::Ident,
-    f: &FieldIr,
-    is_option: bool,
-    crate_path: &TokenStream,
-) -> syn::Result<TokenStream> {
+fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crate_path: &TokenStream) -> syn::Result<TokenStream> {
     // Source expression: `__val` when wrapped in Option, else `&self.field`.
     let src: TokenStream = if is_option {
         quote!(__val)
@@ -299,11 +285,7 @@ fn build_field_expr(
     if let Some(coerce) = &f.coerce {
         return Ok(match coerce {
             Coerce::Id | Coerce::Vocab => {
-                let key = if matches!(coerce, Coerce::Id) {
-                    "@id"
-                } else {
-                    "@vocab"
-                };
+                let key = if matches!(coerce, Coerce::Id) { "@id" } else { "@vocab" };
                 if f.is_vec {
                     quote! {
                         <V as #crate_path::JsonValue>::array(
@@ -457,4 +439,3 @@ fn is_option_type(ty: &Type) -> bool {
     }
     false
 }
-

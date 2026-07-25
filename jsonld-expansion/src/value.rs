@@ -2,7 +2,7 @@ use crate::{Action, ExpandedEntry, Warning, WarningHandler, expand_iri};
 use jsonld_context_processing::algorithm::RejectVocab;
 use jsonld_core::{Context, Environment, Id, Indexed, IndexedObject, LangString, Object, Term, ValidId, Value, object::value::Literal};
 use jsonld_syntax::{Direction, ErrorCode, Keyword, LenientLangTagBuf, Nullable};
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidValue {

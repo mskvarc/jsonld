@@ -2,65 +2,86 @@ use jsonld_context_processing::algorithm::RejectVocab;
 use jsonld_syntax::ErrorCode;
 
 #[derive(Debug, thiserror::Error)]
+/// Error raised while expanding a document.
 pub enum Error<E = std::convert::Infallible> {
     #[error("Invalid context: {0}")]
+    /// Invalid context: the given value.
     ContextSyntax(#[from] jsonld_syntax::context::InvalidContext),
 
     #[error("Context processing failed: {0}")]
+    /// Context processing failed: the given value.
     ContextProcessing(jsonld_context_processing::Error<E>),
 
     #[error("Invalid `@index` value")]
+    /// Invalid `@index` value.
     InvalidIndexValue,
 
     #[error("Invalid set or list object")]
+    /// Invalid set or list object.
     InvalidSetOrListObject,
 
     #[error("Invalid `@reverse` property map")]
+    /// Invalid `@reverse` property map.
     InvalidReversePropertyMap,
 
     #[error("Invalid `@type` value")]
+    /// Invalid `@type` value.
     InvalidTypeValue,
 
     #[error("Key `{0}` expansion failed")]
+    /// Key `the given value` expansion failed.
     KeyExpansionFailed(String),
 
     #[error("Invalid `@reverse` property value")]
+    /// Invalid `@reverse` property value.
     InvalidReversePropertyValue,
 
     #[error("Invalid `@language` map value")]
+    /// Invalid `@language` map value.
     InvalidLanguageMapValue,
 
     #[error("Colliding keywords")]
+    /// Colliding keywords.
     CollidingKeywords,
 
     #[error("Invalid `@id` value")]
+    /// Invalid `@id` value.
     InvalidIdValue,
 
     #[error("Invalid `@included` value")]
+    /// Invalid `@included` value.
     InvalidIncludedValue,
 
     #[error("Invalid `@reverse` value")]
+    /// Invalid `@reverse` value.
     InvalidReverseValue,
 
     #[error("Invalid `@nest` value")]
+    /// Invalid `@nest` value.
     InvalidNestValue,
 
     #[error("Duplicate key `{0}`")]
+    /// Duplicate key `the given value`.
     DuplicateKey(jstrict::object::Key),
 
     #[error(transparent)]
+    /// An RDF literal.
     Literal(crate::LiteralExpansionError),
 
     #[error(transparent)]
+    /// A value object.
     Value(crate::InvalidValue),
 
     #[error("Forbidden use of `@vocab`")]
+    /// Forbidden use of `@vocab`.
     ForbiddenVocab,
 
     #[error("IRI expansion produced no result")]
+    /// IRI expansion produced no result.
     IdExpansionEmpty,
 
     #[error("Empty expansion result")]
+    /// Empty expansion result.
     EmptyExpansion,
 }
 
@@ -71,6 +92,7 @@ impl<E> From<RejectVocab> for Error<E> {
 }
 
 impl<E> Error<E> {
+    /// Returns the code of this `Error`.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::ContextSyntax(e) => e.code(),
@@ -98,6 +120,7 @@ impl<E> Error<E> {
 }
 
 impl<E> Error<E> {
+    /// Builds a duplicate-key error from the duplicate `jstrict` reports.
     pub fn duplicate_key_ref(jstrict::object::Duplicate(a, _b): jstrict::object::Duplicate<&jstrict::object::Entry>) -> Self {
         Self::DuplicateKey(a.key.clone())
     }

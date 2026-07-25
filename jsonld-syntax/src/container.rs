@@ -2,38 +2,49 @@ use crate::Keyword;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// A single `@container` value.
 pub enum ContainerKind {
     #[cfg_attr(feature = "serde", serde(rename = "@graph"))]
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph,
 
     #[cfg_attr(feature = "serde", serde(rename = "@id"))]
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id,
 
     #[cfg_attr(feature = "serde", serde(rename = "@index"))]
+    /// The `@index` entry, indexing the value within its container.
     Index,
 
     #[cfg_attr(feature = "serde", serde(rename = "@language"))]
+    /// The `@language` entry, tagging string values with a language.
     Language,
 
     #[cfg_attr(feature = "serde", serde(rename = "@list"))]
+    /// The `@list` entry, marking the values as an ordered list.
     List,
 
     #[cfg_attr(feature = "serde", serde(rename = "@set"))]
+    /// The `@set` entry, marking the values as an unordered set.
     Set,
 
     #[cfg_attr(feature = "serde", serde(rename = "@type"))]
+    /// The `@type` entry, giving the type of the node or the values.
     Type,
 }
 
 impl ContainerKind {
+    /// Consumes this `ContainerKind`, returning its keyword.
     pub fn into_keyword(self) -> Keyword {
         self.into()
     }
 
+    /// Returns the keyword of this `ContainerKind`.
     pub fn keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         self.into_keyword().into_str()
     }
@@ -98,16 +109,21 @@ impl From<ContainerKind> for Container {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
+/// The `@container` entry: one value, or an array of them.
 pub enum Container {
+    /// Exactly one value.
     One(ContainerKind),
+    /// Several values.
     Many(Vec<ContainerKind>),
 }
 
 impl Container {
+    /// Checks whether this `Container` is array.
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
+    /// Returns the sub fragments of this `Container`.
     pub fn sub_fragments(&self) -> SubValues<'_> {
         match self {
             Self::One(_) => SubValues::None,
@@ -116,8 +132,11 @@ impl Container {
     }
 }
 
+/// Iterator over the values of a `@container` entry.
 pub enum SubValues<'a> {
+    /// No value.
     None,
+    /// Several values.
     Many(std::slice::Iter<'a, ContainerKind>),
 }
 

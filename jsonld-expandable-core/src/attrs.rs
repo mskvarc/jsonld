@@ -4,11 +4,14 @@
 //! NGSI-flavored names from the original `json-ld-expandable` crate, lowering
 //! both to the same [`crate::ir`] form.
 
-use crate::ir::{Coerce, ContainerIr, ContainerKind, FieldIr};
-use crate::iri::looks_like_iri;
+use crate::{
+    ir::{Coerce, ContainerIr, ContainerKind, FieldIr},
+    iri::looks_like_iri,
+};
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
+/// Parses the `#[jsonld(...)]` attributes carried by a type.
 pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
     let mut out = ContainerIr::default();
 
@@ -36,7 +39,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
                 // Marker only; the actual ident comes from a field attr.
                 // Container holds it after field parsing.
                 out.fragment = false; // explicit reset for clarity
-                // Nothing more to do here; codegen will discover it.
+            // Nothing more to do here; codegen will discover it.
             } else if meta.path.is_ident("fragment") {
                 out.fragment = true;
             } else if meta.path.is_ident("crate") {
@@ -47,11 +50,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
                 out.debug = true;
             } else if meta.path.is_ident("prefix") {
                 meta.parse_nested_meta(|sub| {
-                    let name = sub
-                        .path
-                        .get_ident()
-                        .ok_or_else(|| sub.error("expected `name = \"iri\"`"))?
-                        .to_string();
+                    let name = sub.path.get_ident().ok_or_else(|| sub.error("expected `name = \"iri\"`"))?.to_string();
                     let lit: syn::LitStr = sub.value()?.parse()?;
                     out.prefixes.push((name, lit.value()));
                     Ok(())
@@ -70,6 +69,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
     Ok(out)
 }
 
+/// Parses the `#[jsonld(...)]` attributes carried by a field.
 pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
     let mut out = FieldIr::default();
     let mut span: Option<Span> = None;
@@ -124,10 +124,7 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
                     "type" => ContainerKind::Type,
                     "graph" => ContainerKind::Graph,
                     other => {
-                        return Err(syn::Error::new(
-                            lit.span(),
-                            format!("unknown container `{other}`"),
-                        ));
+                        return Err(syn::Error::new(lit.span(), format!("unknown container `{other}`")));
                     }
                 });
             } else if meta.path.is_ident("flatten") {
@@ -164,9 +161,7 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
             } else if meta.path.is_ident("json_value") {
                 out.coerce = Some(Coerce::Json);
             } else if meta.path.is_ident("vocab_polymorphic") {
-                return Err(meta.error(
-                    "`vocab_polymorphic` is no longer supported; use a concrete enum",
-                ));
+                return Err(meta.error("`vocab_polymorphic` is no longer supported; use a concrete enum"));
             } else {
                 return Err(meta.error(format!(
                     "unknown jsonld field attribute `{}`",
@@ -199,38 +194,17 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
 fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
     let span = span_hint.unwrap_or_else(Span::call_site);
 
-    if f.is_id
-        && (f.property.is_some()
-            || f.nested
-            || f.coerce.is_some()
-            || f.container.is_some()
-            || f.flatten
-            || f.flatten_map)
-    {
+    if f.is_id && (f.property.is_some() || f.nested || f.coerce.is_some() || f.container.is_some() || f.flatten || f.flatten_map) {
         return Err(syn::Error::new(
             span,
             "`id` cannot be combined with property, nested, coerce, container, or flatten",
         ));
     }
-    if f.skip
-        && (f.is_id
-            || f.nested
-            || f.coerce.is_some()
-            || f.container.is_some()
-            || f.flatten
-            || f.flatten_map
-            || f.property.is_some())
-    {
-        return Err(syn::Error::new(
-            span,
-            "`skip` cannot be combined with other attributes",
-        ));
+    if f.skip && (f.is_id || f.nested || f.coerce.is_some() || f.container.is_some() || f.flatten || f.flatten_map || f.property.is_some()) {
+        return Err(syn::Error::new(span, "`skip` cannot be combined with other attributes"));
     }
     if f.flatten && f.flatten_map {
-        return Err(syn::Error::new(
-            span,
-            "`flatten` / `flatten_object` and `flatten_map` are mutually exclusive",
-        ));
+        return Err(syn::Error::new(span, "`flatten` / `flatten_object` and `flatten_map` are mutually exclusive"));
     }
     if (f.flatten || f.flatten_map) && f.property.is_some() {
         return Err(syn::Error::new(
@@ -238,22 +212,13 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
             "`flatten` / `flatten_object` / `flatten_map` cannot be combined with `property`",
         ));
     }
-    if (f.flatten || f.flatten_map)
-        && (f.coerce.is_some() || f.container.is_some() || f.nested)
-    {
+    if (f.flatten || f.flatten_map) && (f.coerce.is_some() || f.container.is_some() || f.nested) {
         return Err(syn::Error::new(
             span,
             "`flatten` / `flatten_map` cannot be combined with coerce, container, or nested",
         ));
     }
-    if f.passthrough
-        && (f.coerce.is_some()
-            || f.container.is_some()
-            || f.nested
-            || f.flatten
-            || f.flatten_map
-            || f.is_id)
-    {
+    if f.passthrough && (f.coerce.is_some() || f.container.is_some() || f.nested || f.flatten || f.flatten_map || f.is_id) {
         return Err(syn::Error::new(
             span,
             "`custom` / `passthrough` cannot be combined with coerce, container, \
@@ -261,22 +226,13 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
         ));
     }
     if f.is_vec && !f.nested && !matches!(f.coerce, Some(Coerce::Id)) {
-        return Err(syn::Error::new(
-            span,
-            "`vec` requires `nested` (or a value coercion that iterates)",
-        ));
+        return Err(syn::Error::new(span, "`vec` requires `nested` (or a value coercion that iterates)"));
     }
     if f.nested && f.coerce.is_some() {
-        return Err(syn::Error::new(
-            span,
-            "`nested` and `coerce` are mutually exclusive",
-        ));
+        return Err(syn::Error::new(span, "`nested` and `coerce` are mutually exclusive"));
     }
     if matches!(f.container, Some(ContainerKind::Language)) && f.coerce.is_some() {
-        return Err(syn::Error::new(
-            span,
-            "`container = \"language\"` and `coerce` are mutually exclusive",
-        ));
+        return Err(syn::Error::new(span, "`container = \"language\"` and `coerce` are mutually exclusive"));
     }
 
     Ok(())

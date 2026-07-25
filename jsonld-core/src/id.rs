@@ -7,7 +7,7 @@ use crate::{
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use iri_rs::{Iri, IriBuf};
 use jsonld_syntax::IntoJsonWithContext;
-use rdf_rs::{
+use rdfx::{
     BlankId,
     BlankIdBuf,
     InvalidBlankId,
@@ -21,15 +21,19 @@ use std::{convert::TryFrom, fmt, hash::Hash};
 /// Valid node identifier (IRI or blank node).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum ValidId<I = IriBuf, B = BlankIdBuf> {
+    /// An IRI.
     Iri(I),
+    /// A blank node identifier.
     Blank(B),
 }
 
 impl<I, B> ValidId<I, B> {
+    /// Rewrites this identifier with the given function.
     pub fn map<J, C>(self, f: impl FnOnce(Self) -> ValidId<J, C>) -> ValidId<J, C> {
         f(self)
     }
 
+    /// Borrows this `ValidId`.
     pub fn as_ref(&self) -> ValidId<&I, &B> {
         match self {
             Self::Iri(i) => ValidId::Iri(i),
@@ -37,16 +41,19 @@ impl<I, B> ValidId<I, B> {
         }
     }
 
+    /// Checks whether this `ValidId` is blank.
     pub fn is_blank(&self) -> bool {
         matches!(self, Self::Blank(_))
     }
 
+    /// Checks whether this `ValidId` is IRI.
     pub fn is_iri(&self) -> bool {
         matches!(self, Self::Iri(_))
     }
 }
 
 impl<I: AsRef<str>, B: AsRef<str>> ValidId<I, B> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Iri(i) => i.as_ref(),
@@ -79,7 +86,7 @@ impl<V: IriVocabulary + BlankIdVocabulary> DisplayWithContext<V> for ValidId<V::
     }
 }
 
-impl<I: rdf_rs::Interpretation, T, B> ld_core::LinkedDataResource<I> for ValidId<T, B>
+impl<I: rdfx::Interpretation, T, B> ld_core::LinkedDataResource<I> for ValidId<T, B>
 where
     T: ld_core::LinkedDataResource<I>,
     B: ld_core::LinkedDataResource<I>,
@@ -92,7 +99,7 @@ where
     }
 }
 
-impl<I: rdf_rs::Interpretation, T, B> ld_core::LinkedDataSubject<I> for ValidId<T, B>
+impl<I: rdfx::Interpretation, T, B> ld_core::LinkedDataSubject<I> for ValidId<T, B>
 where
     T: ld_core::LinkedDataSubject<I>,
     B: ld_core::LinkedDataSubject<I>,
@@ -108,8 +115,10 @@ where
     }
 }
 
+/// Valid identifier drawn from the terms of a vocabulary.
 pub type ValidVocabularyId<V> = ValidId<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
 
+/// Identifier drawn from the terms of a vocabulary, valid or not.
 pub type VocabularyId<V> = Id<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
 
 /// Node identifier.
@@ -205,6 +214,8 @@ impl<I, B> TryFromJson<I, B> for Id<I, B> {
 }
 
 impl<I: From<IriBuf>, B: From<BlankIdBuf>> Id<I, B> {
+    /// Parses an identifier from a string, keeping it as invalid if it is
+    /// neither an IRI nor a blank node identifier.
     pub fn from_string(s: String) -> Self {
         match IriBuf::new(s) {
             Ok(iri) => Self::Valid(ValidId::Iri(iri.into())),
@@ -217,18 +228,22 @@ impl<I: From<IriBuf>, B: From<BlankIdBuf>> Id<I, B> {
 }
 
 impl<I, B> Id<I, B> {
+    /// Builds an identifier from an IRI.
     pub fn iri(iri: I) -> Self {
         Self::Valid(ValidId::Iri(iri))
     }
 
+    /// Builds an identifier from a blank node identifier.
     pub fn blank(b: B) -> Self {
         Self::Valid(ValidId::Blank(b))
     }
 
+    /// Parses an identifier from a string, interning it in the given
+    /// vocabulary.
     pub fn from_string_in(vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>, s: String) -> Self {
         thread_local! {
             static VALIDATED_IRIS: std::cell::RefCell<HashSet<String>> =
-                std::cell::RefCell::new(HashSet::new());
+                std::cell::RefCell::new(HashSet::default());
         }
 
         let cached = VALIDATED_IRIS.with(|c| c.borrow().contains(&s));
@@ -257,6 +272,7 @@ impl<I, B> Id<I, B> {
         !matches!(self, Self::Invalid(_))
     }
 
+    /// Consumes this `Id`, returning its blank.
     pub fn into_blank(self) -> Option<B> {
         match self {
             Self::Valid(ValidId::Blank(b)) => Some(b),
@@ -265,11 +281,13 @@ impl<I, B> Id<I, B> {
     }
 
     #[inline(always)]
+    /// Checks whether this `Id` is blank.
     pub fn is_blank(&self) -> bool {
         matches!(self, Id::Valid(ValidId::Blank(_)))
     }
 
     #[inline(always)]
+    /// Borrows this `Id` as blank, if it is one.
     pub fn as_blank(&self) -> Option<&B> {
         match self {
             Id::Valid(ValidId::Blank(k)) => Some(k),
@@ -278,11 +296,13 @@ impl<I, B> Id<I, B> {
     }
 
     #[inline(always)]
+    /// Checks whether this `Id` is IRI.
     pub fn is_iri(&self) -> bool {
         matches!(self, Id::Valid(ValidId::Iri(_)))
     }
 
     #[inline(always)]
+    /// Borrows this `Id` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<&I> {
         match self {
             Id::Valid(ValidId::Iri(k)) => Some(k),
@@ -291,10 +311,12 @@ impl<I, B> Id<I, B> {
     }
 
     #[inline(always)]
+    /// Consumes this `Id`, returning its term.
     pub fn into_term(self) -> Term<I, B> {
         Term::Id(self)
     }
 
+    /// Borrows this `Id`.
     pub fn as_ref(&self) -> Ref<'_, I, B> {
         match self {
             Self::Valid(ValidId::Iri(t)) => Ref::Iri(t),
@@ -303,6 +325,8 @@ impl<I, B> Id<I, B> {
         }
     }
 
+    /// Rewrites this identifier with the given function, leaving invalid ones
+    /// untouched.
     pub fn map<J, C>(self, f: impl FnOnce(ValidId<I, B>) -> ValidId<J, C>) -> Id<J, C> {
         match self {
             Self::Valid(id) => Id::Valid(f(id)),
@@ -313,6 +337,7 @@ impl<I, B> Id<I, B> {
 
 impl<I: AsRef<str>, B: AsRef<str>> Id<I, B> {
     #[inline(always)]
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Id::Valid(ValidId::Iri(id)) => id.as_ref(),
@@ -499,6 +524,7 @@ pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum GeneratedIdError {
     #[error("generator yielded unsupported term type")]
+    /// Generator yielded unsupported term type.
     UnsupportedTerm,
 }
 
@@ -525,7 +551,7 @@ where
 ///
 /// `generator.next_local_term()` must yield either [`LocalTerm::BlankId`] or
 /// [`LocalTerm::Named`] wrapping an IRI. The two stock generators provided by
-/// `rdf_rs` (the blank-id generator and the UUID-based generator) satisfy this
+/// `rdfx` (the blank-id generator and the UUID-based generator) satisfy this
 /// contract.
 #[inline]
 pub unsafe fn generator_next_id_unchecked<V, G>(vocabulary: &mut V, generator: &mut G) -> ValidId<V::Iri, V::BlankId>
@@ -541,23 +567,34 @@ where
     }
 }
 
+/// Fragments whose anonymous nodes can all be given identifiers.
 pub trait IdentifyAll<T, B> {
-    fn identify_all_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(&mut self, vocabulary: &mut N, generator: &mut G) -> Result<(), GeneratedIdError>
+    /// Assigns an identifier to every anonymous node, interning them in the
+    /// given vocabulary.
+    fn identify_all_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
+        &mut self,
+        vocabulary: &mut N,
+        generator: &mut G,
+    ) -> Result<(), GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash;
 
+    /// Assigns an identifier to every anonymous node.
     fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), GeneratedIdError>
     where
         T: Eq + Hash,
         B: Eq + Hash,
         (): Vocabulary<Iri = T, BlankId = B>,
     {
-        self.identify_all_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
+        self.identify_all_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 }
 
+/// Fragments whose blank node identifiers can be renamed.
 pub trait Relabel<T, B> {
+    /// Relabels every blank node, recording the mapping so shared nodes keep
+    /// the same new identifier.
     fn relabel_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
@@ -568,12 +605,13 @@ pub trait Relabel<T, B> {
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash;
 
+    /// Relabels every blank node, recording the mapping.
     fn relabel<G: LocalGenerator>(&mut self, generator: &mut G, relabeling: &mut HashMap<B, ValidId<T, B>>) -> Result<(), GeneratedIdError>
     where
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
         (): Vocabulary<Iri = T, BlankId = B>,
     {
-        self.relabel_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator, relabeling)
+        self.relabel_with(rdfx::vocabulary::no_vocabulary_mut(), generator, relabeling)
     }
 }

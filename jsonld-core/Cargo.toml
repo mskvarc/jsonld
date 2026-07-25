@@ -2,6 +2,7 @@
 name = "jsonld-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
@@ -9,17 +10,20 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD core types and traits"
 documentation = "https://docs.rs/jsonld-core"
-readme = "README.md"
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["fast-hash"]
 fast-hash = ["iri-rs/fast-hash", "jsonld-syntax/fast-hash"]
 reqwest = ["bytes", "dep:reqwest", "utf8-decode", "reqwest-middleware"]
 serde = ["dep:serde", "jstrict/serde"]
-serde_json = [
+serde-json = [
     "dep:serde_json",
     "jstrict/serde_json",
-    "jsonld-syntax/serde_json",
+    "jsonld-syntax/serde-json",
 ]
 ahash = ["dep:ahash", "jsonld-syntax/ahash"]
 gxhash = ["dep:gxhash", "jsonld-syntax/gxhash"]
@@ -37,16 +41,16 @@ hashbrown = "0.17.0"
 indexmap = "2.14.0"
 iri-rs = { version = "3.3.4", features = ["static"] }
 jsonld-syntax.workspace = true
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git", features = ["contextual", "canonicalize"] }
+jstrict = { version = "0.13.0", features = ["contextual", "canonicalize"] }
 langtag = "1.1.0"
-ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
+ld-core = "0.2.0"
 log = "0.4.29"
 mediatype = "0.21"
 once_cell = "1.21.4"
 parking_lot = "0.12"
 permutohedron = "0.2.4"
 pretty_dtoa = "0.3.0"
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+rdfx = "0.23.1"
 reqwest = { version = "0.13.2", optional = true }
 reqwest-middleware = { version = "0.5.1", optional = true }
 ryu-js = "1.0.2"

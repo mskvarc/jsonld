@@ -11,7 +11,7 @@ use crate::{
 };
 use iri_rs::IriBuf;
 use jsonld_core::{ContextLoadError, Document, LoadError, RdfQuads, RemoteContextReference, rdf::RdfDirection};
-use rdf_rs::{
+use rdfx::{
     BlankIdBuf,
     LocalGenerator,
     vocabulary::{self, Vocabulary, VocabularyMut},
@@ -165,6 +165,7 @@ pub enum ExpandError<E = std::convert::Infallible> {
     Loading(#[from] LoadError<E>),
 
     #[error(transparent)]
+    /// A context referenced by the document could not be loaded.
     ContextLoading(ContextLoadError<E>),
 }
 
@@ -224,6 +225,7 @@ pub enum CompactError<E = std::convert::Infallible> {
     Loading(#[from] LoadError<E>),
 
     #[error(transparent)]
+    /// A context referenced by the document could not be loaded.
     ContextLoading(ContextLoadError<E>),
 }
 
@@ -271,21 +273,27 @@ pub type CompactResult<E> = Result<jstrict::Value, CompactError<E>>;
 #[derive(Debug, thiserror::Error)]
 pub enum FlattenError<I, B, E = std::convert::Infallible> {
     #[error("Expansion failed: {0}")]
+    /// Expansion failed: the given value.
     Expand(ExpandError<E>),
 
     #[error("Compaction failed: {0}")]
+    /// Compaction failed: the given value.
     Compact(CompactError<E>),
 
     #[error("Conflicting indexes: {0}")]
+    /// Conflicting indexes: the given value.
     ConflictingIndexes(ConflictingIndexes<I, B>),
 
     #[error("Generated id failure: {0}")]
+    /// Generated id failure: the given value.
     GeneratedId(jsonld_core::id::GeneratedIdError),
 
     #[error(transparent)]
+    /// The document itself could not be loaded.
     Loading(#[from] LoadError<E>),
 
     #[error(transparent)]
+    /// A context referenced by the document could not be loaded.
     ContextLoading(ContextLoadError<E>),
 }
 
@@ -366,15 +374,19 @@ pub type CompareResult<E> = Result<bool, ExpandError<E>>;
 #[derive(Debug, thiserror::Error)]
 pub enum JsonLdError<E = std::convert::Infallible> {
     #[error(transparent)]
+    /// Expansion failed.
     Expand(#[from] ExpandError<E>),
 
     #[error(transparent)]
+    /// Compaction failed.
     Compact(#[from] CompactError<E>),
 
     #[error(transparent)]
-    Flatten(#[from] FlattenError<iri_rs::IriBuf, rdf_rs::BlankIdBuf, E>),
+    /// Flattening failed.
+    Flatten(#[from] FlattenError<iri_rs::IriBuf, rdfx::BlankIdBuf, E>),
 
     #[error(transparent)]
+    /// RDF serialization failed.
     ToRdf(#[from] ToRdfError<E>),
 }
 
@@ -401,8 +413,8 @@ pub enum JsonLdError<E = std::convert::Infallible> {
 ///     [`BlankIdBuf`] must be used as IRI and blank node id respectively.
 ///
 /// [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
-/// [`BlankIdBuf`]: rdf_rs::BlankIdBuf
-/// [`Vocabulary`]: rdf_rs::vocabulary::Vocabulary
+/// [`BlankIdBuf`]: rdfx::BlankIdBuf
+/// [`Vocabulary`]: rdfx::vocabulary::Vocabulary
 ///
 /// # Example
 ///
@@ -433,7 +445,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
@@ -467,8 +479,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: Clone + Eq + Hash, L: Loader;
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader;
 
     /// Compare this document against `other` with a custom vocabulary using the
     /// given `options`.
@@ -480,7 +494,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
@@ -506,8 +520,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compare_with_using<'a, N, L>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.compare_full(other, vocabulary, loader, options, ()).await
     }
@@ -522,7 +538,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// use locspan::Meta;
     ///
     /// # #[async_std::main]
@@ -548,8 +564,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compare_with<'a, N, L>(&'a self, other: &'a Self, vocabulary: &'a mut N, loader: &'a L) -> CompareResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.compare_with_using(other, vocabulary, loader, Options::default()).await
     }
@@ -586,9 +604,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compare_using<'a, L>(&'a self, other: &'a Self, loader: &'a L, options: Options<Iri>) -> CompareResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
-        self.compare_with_using(other, rdf_rs::vocabulary::no_vocabulary_mut(), loader, options).await
+        self.compare_with_using(other, rdfx::vocabulary::no_vocabulary_mut(), loader, options).await
     }
 
     /// Compare this document against `other` with a custom vocabulary.
@@ -623,9 +642,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compare<'a, L>(&'a self, other: &'a Self, loader: &'a L) -> CompareResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
-        self.compare_with(other, rdf_rs::vocabulary::no_vocabulary_mut(), loader).await
+        self.compare_with(other, rdfx::vocabulary::no_vocabulary_mut(), loader).await
     }
 
     /// Expand the document with the given `vocabulary` and `loader`, using
@@ -638,10 +658,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -673,8 +693,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: Clone + Eq + Hash, L: Loader;
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader;
 
     /// Expand the document with the given `vocabulary` and `loader`, using
     /// the given `options`.
@@ -687,10 +709,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -715,8 +737,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn expand_with_using<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.expand_full(vocabulary, loader, options, ()).await
     }
@@ -732,10 +756,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -759,8 +783,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpandResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.expand_with_using(vocabulary, loader, Options::default()).await
     }
@@ -798,7 +824,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn expand_using<'a, L>(&'a self, loader: &'a L, options: Options<Iri>) -> ExpandResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
         self.expand_with_using(vocabulary::no_vocabulary_mut(), loader, options).await
     }
@@ -834,11 +861,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpandResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
         self.expand_with(vocabulary::no_vocabulary_mut(), loader).await
     }
 
+    /// Consumes this `JsonLdProcessor`, returning its document full.
     async fn into_document_full<'a, N, L>(
         self,
         vocabulary: &'a mut N,
@@ -848,31 +877,45 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: 'a + Clone + Eq + Hash,
+        L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
-    async fn into_document_with_using<'a, N, L>(self, vocabulary: &'a mut N, loader: &'a L, options: Options<Iri>) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
+    /// Consumes this `JsonLdProcessor`, returning its document with using.
+    async fn into_document_with_using<'a, N, L>(
+        self,
+        vocabulary: &'a mut N,
+        loader: &'a L,
+        options: Options<Iri>,
+    ) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: 'a + Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: 'a + Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.into_document_full(vocabulary, loader, options, ()).await
     }
 
+    /// Consumes this `JsonLdProcessor`, returning its document with.
     async fn into_document_with<'a, N, L>(self, vocabulary: &'a mut N, loader: &'a L) -> IntoDocumentResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: 'a + Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: 'a + Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.into_document_with_using(vocabulary, loader, Options::default()).await
     }
 
+    /// Consumes this `JsonLdProcessor`, returning its document.
     async fn into_document<'a, L>(self, loader: &'a L) -> IntoDocumentResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.into_document_with(vocabulary::no_vocabulary_mut(), loader).await
     }
@@ -887,10 +930,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -927,7 +970,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
     /// Compact the document relative to `context` with the given `vocabulary`
@@ -941,10 +985,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -979,8 +1023,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.compact_full(vocabulary, context, loader, options, ()).await
     }
@@ -997,10 +1043,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1028,8 +1074,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compact_with<'a, N, L>(&'a self, vocabulary: &'a mut N, context: RemoteContextReference<Iri>, loader: &'a L) -> CompactResult<L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.compact_with_using(vocabulary, context, loader, Options::default()).await
     }
@@ -1072,7 +1120,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compact_using<'a, L>(&'a self, context: RemoteContextReference<Iri>, loader: &'a L, options: Options<Iri>) -> CompactResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
         self.compact_with_using(vocabulary::no_vocabulary_mut(), context, loader, options).await
     }
@@ -1114,7 +1163,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn compact<'a, L>(&'a self, context: RemoteContextReference<Iri>, loader: &'a L) -> CompactResult<L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
         self.compact_with(vocabulary::no_vocabulary_mut(), context, loader).await
     }
@@ -1125,10 +1175,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// An optional `context` can be given to compact the document.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::Generator`]
+    /// which is why the flattening functions take an [`rdfx::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
-    /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
+    /// [`rdfx::generator::Blank`] that creates blank node identifiers.
     ///
     /// On success, the result is a
     /// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
@@ -1139,11 +1189,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1155,7 +1205,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let nodes = input
     ///   .flatten_full(
@@ -1181,17 +1231,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> FlattenResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash;
 
     /// Flatten the document with the given `vocabulary`, `generator`
     /// and `loader`, using the given `options`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::Generator`]
+    /// which is why the flattening functions take an [`rdfx::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
-    /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
+    /// [`rdfx::generator::Blank`] that creates blank node identifiers.
     ///
     /// Warnings are ignored.
     /// On success, the result is a
@@ -1203,11 +1254,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1219,7 +1270,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let nodes = input
     ///   .flatten_with_using(
@@ -1241,8 +1292,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> FlattenResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.flatten_full(vocabulary, generator, None, loader, options, ()).await
     }
@@ -1251,10 +1304,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// and `loader`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::Generator`]
+    /// which is why the flattening functions take an [`rdfx::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
-    /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
+    /// [`rdfx::generator::Blank`] that creates blank node identifiers.
     ///
     /// Default options are used.
     /// Warnings are ignored.
@@ -1267,11 +1320,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+    /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1283,7 +1336,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let nodes = input
     ///   .flatten_with(
@@ -1303,8 +1356,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> FlattenResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         self.flatten_with_using(vocabulary, generator, loader, Options::default()).await
     }
@@ -1313,10 +1368,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// given `options`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::Generator`]
+    /// which is why the flattening functions take an [`rdfx::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
-    /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
+    /// [`rdfx::generator::Blank`] that creates blank node identifiers.
     ///
     /// Warnings are ignored.
     /// On success, the result is a
@@ -1339,7 +1394,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let nodes = input
     ///   .flatten_using(
@@ -1359,7 +1414,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> FlattenResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
         self.flatten_with_using(vocabulary::no_vocabulary_mut(), generator, loader, options).await
     }
@@ -1367,10 +1423,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// Flatten the document with the given `generator` and `loader`.
     ///
     /// Flattening requires assigning an identifier to nested anonymous nodes,
-    /// which is why the flattening functions take an [`rdf_rs::Generator`]
+    /// which is why the flattening functions take an [`rdfx::Generator`]
     /// as parameter. This generator is in charge of creating new fresh identifiers
     /// (with their metadata). The most common generator is
-    /// [`rdf_rs::generator::Blank`] that creates blank node identifiers.
+    /// [`rdfx::generator::Blank`] that creates blank node identifiers.
     ///
     /// Default options are used.
     /// Warnings are ignored.
@@ -1394,7 +1450,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let nodes = input
     ///   .flatten(
@@ -1408,7 +1464,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn flatten<'a, L>(&'a self, generator: &'a mut impl LocalGenerator, loader: &'a L) -> FlattenResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
     {
         self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader).await
     }
@@ -1435,11 +1492,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+    /// use rdfx::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1451,7 +1508,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let mut rdf = input
     ///   .to_rdf_full(
@@ -1479,8 +1536,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     ) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
         G: LocalGenerator,
     {
         let rdf_direction = options.rdf_direction;
@@ -1514,11 +1573,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+    /// use rdfx::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1530,7 +1589,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let mut rdf = input
     ///   .to_rdf_with_using(
@@ -1550,8 +1609,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn to_rdf_with_using<N, G, L>(&self, vocabulary: N, generator: G, loader: &L, options: Options<Iri>) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_full(vocabulary, generator, loader, options, ()).await
@@ -1580,11 +1641,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+    /// use rdfx::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
     ///
     /// # #[async_std::main]
     /// # async fn main() {
-    /// // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+    /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -1596,7 +1657,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let mut rdf = input
     ///   .to_rdf_with(
@@ -1615,8 +1676,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn to_rdf_with<N, G, L>(&self, vocabulary: N, generator: G, loader: &L) -> ToRdfResult<N, G, L::Error>
     where
         N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
-        Iri: Clone + Eq + Hash, L: Loader,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_full(vocabulary, generator, loader, Options::default(), ()).await
@@ -1643,7 +1706,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::GeneralizedQuad;
+    /// use rdfx::GeneralizedQuad;
     /// use locspan::{Location, Span};
     ///
     /// # #[async_std::main]
@@ -1656,7 +1719,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let mut rdf = input
     ///   .to_rdf_using(
@@ -1681,7 +1744,8 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn to_rdf_using<G, L>(&self, generator: G, loader: &L, options: Options<Iri>) -> ToRdfResult<(), G, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_with_using((), generator, loader, options).await
@@ -1710,7 +1774,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-    /// use rdf_rs::GeneralizedQuad;
+    /// use rdfx::GeneralizedQuad;
     /// use locspan::{Location, Span};
     ///
     /// # #[async_std::main]
@@ -1723,7 +1787,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// let mut loader = jsonld::FsLoader::default();
     /// loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
     ///
-    /// let mut generator = rdf_rs::generator::Blank::new();
+    /// let mut generator = rdfx::generator::Blank::new();
     ///
     /// let mut rdf = input
     ///   .to_rdf(
@@ -1747,13 +1811,16 @@ pub trait JsonLdProcessor<Iri>: Sized {
     async fn to_rdf<G, L>(&self, generator: G, loader: &L) -> ToRdfResult<(), G, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
-        Iri: Clone + Eq + Hash, L: Loader,
+        Iri: Clone + Eq + Hash,
+        L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_using(generator, loader, Options::default()).await
     }
 }
 
+/// Expanded document paired with the vocabulary and generator used to turn
+/// it into RDF quads.
 pub struct ToRdf<V: Vocabulary, G> {
     vocabulary: V,
     generator: G,
@@ -1762,7 +1829,7 @@ pub struct ToRdf<V: Vocabulary, G> {
     produce_generalized_rdf: bool,
 }
 
-impl<V: Vocabulary, G: rdf_rs::LocalGenerator> ToRdf<V, G> {
+impl<V: Vocabulary, G: rdfx::LocalGenerator> ToRdf<V, G> {
     fn new(
         mut vocabulary: V,
         mut generator: G,
@@ -1786,48 +1853,61 @@ impl<V: Vocabulary, G: rdf_rs::LocalGenerator> ToRdf<V, G> {
         }
     }
 
+    /// Returns an iterator over the RDF quads of the document, borrowing their
+    /// terms.
     pub fn quads(&mut self) -> jsonld_core::rdf::Quads<'_, V, G> {
         self.doc
             .rdf_quads_full(&mut self.vocabulary, &mut self.generator, self.rdf_direction, self.produce_generalized_rdf)
     }
 
     #[inline(always)]
+    /// Returns an iterator over the RDF quads of the document, cloning their
+    /// terms.
     pub fn cloned_quads(&mut self) -> jsonld_core::rdf::ClonedQuads<'_, V, G> {
         self.quads().cloned()
     }
 
+    /// Returns the vocabulary of this `ToRdf`.
     pub fn vocabulary(&self) -> &V {
         &self.vocabulary
     }
 
+    /// Mutably borrows the vocabulary.
     pub fn vocabulary_mut(&mut self) -> &mut V {
         &mut self.vocabulary
     }
 
+    /// Consumes this `ToRdf`, returning its vocabulary.
     pub fn into_vocabulary(self) -> V {
         self.vocabulary
     }
 
+    /// Returns the generator of this `ToRdf`.
     pub fn generator(&self) -> &G {
         &self.generator
     }
 
+    /// Mutably borrows the blank node generator.
     pub fn generator_mut(&mut self) -> &mut G {
         &mut self.generator
     }
 
+    /// Consumes this `ToRdf`, returning its generator.
     pub fn into_generator(self) -> G {
         self.generator
     }
 
+    /// Returns the document of this `ToRdf`.
     pub fn document(&self) -> &ExpandedDocument<V::Iri, V::BlankId> {
         &self.doc
     }
 
+    /// Mutably borrows the expanded document.
     pub fn document_mut(&mut self) -> &mut ExpandedDocument<V::Iri, V::BlankId> {
         &mut self.doc
     }
 
+    /// Consumes this `ToRdf`, returning its document.
     pub fn into_document(self) -> ExpandedDocument<V::Iri, V::BlankId> {
         self.doc
     }
@@ -1887,9 +1967,9 @@ where
 #[cfg(test)]
 mod tests {
     use futures::Future;
-    use jstrict::Value;
     use jsonld_core::{NoLoader, RemoteDocument};
-    use rdf_rs::generator;
+    use jstrict::Value;
+    use rdfx::generator;
 
     use crate::JsonLdProcessor;
 

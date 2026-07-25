@@ -1,6 +1,6 @@
 use jsonld_core::{Direction, LangString, Value, object::Literal};
 use ld_core::RdfLiteral;
-use rdf_rs::{LiteralType, vocabulary::IriVocabularyMut};
+use rdfx::{LiteralType, vocabulary::IriVocabularyMut};
 use xsd_rs::XSD_STRING;
 
 pub fn literal_to_value<V: IriVocabularyMut>(vocabulary: &mut V, lit: RdfLiteral) -> Value<V::Iri> {
@@ -18,8 +18,8 @@ pub fn literal_to_value<V: IriVocabularyMut>(vocabulary: &mut V, lit: RdfLiteral
             LiteralType::LangString(language) => Value::LangString(LangString::with_language(s.into(), language.into())),
             LiteralType::DirLangString { tag, direction } => {
                 let dir = match direction {
-                    rdf_rs::Direction::Ltr => Direction::Ltr,
-                    rdf_rs::Direction::Rtl => Direction::Rtl,
+                    rdfx::Direction::Ltr => Direction::Ltr,
+                    rdfx::Direction::Rtl => Direction::Rtl,
                 };
                 Value::LangString(LangString::with_language_and_direction(s.into(), tag.into(), dir))
             }

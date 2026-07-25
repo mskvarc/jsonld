@@ -1,6 +1,6 @@
 use jsonld_core::{ExpandedDocument, Indexed, Node, Object};
 use ld_core::{CowRdfTerm, OwnedRdfTerm};
-use rdf_rs::{
+use rdfx::{
     Interpretation,
     interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
     vocabulary::Vocabulary,
@@ -41,7 +41,7 @@ impl<'a, I, V: Vocabulary> SerializeExpandedDocument<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::Visitor<I> for SerializeExpandedDocument<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,

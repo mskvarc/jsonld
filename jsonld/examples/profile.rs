@@ -60,7 +60,12 @@ async fn prepare(scenarios: Vec<Scenario>) -> Vec<Prepared> {
         let expanded = pre_expand(&remote).await;
         let ctx = parse_syntax_context(&s.context);
         let processed = pre_process_context(ctx).await;
-        out.push(Prepared { name: s.name, remote, expanded, processed });
+        out.push(Prepared {
+            name: s.name,
+            remote,
+            expanded,
+            processed,
+        });
     }
     out
 }
@@ -79,7 +84,7 @@ async fn run_compact(p: &Prepared, iters: usize) {
         let out = p
             .expanded
             .compact_full(
-                jsonld::rdf_rs::vocabulary::no_vocabulary_mut(),
+                jsonld::rdfx::vocabulary::no_vocabulary_mut(),
                 p.processed.as_ref(),
                 &loader,
                 jsonld::compaction::Options::default(),

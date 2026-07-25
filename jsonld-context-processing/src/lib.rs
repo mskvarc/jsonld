@@ -3,9 +3,10 @@ use algorithm::{Action, RejectVocab};
 pub use jsonld_core::{Context, ProcessingMode, warning};
 use jsonld_core::{ExtractContextError, LoadError, Loader};
 use jsonld_syntax::ErrorCode;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::{fmt, hash::Hash};
 
+/// The context processing algorithm itself.
 pub mod algorithm;
 mod cache;
 mod processed;
@@ -17,8 +18,11 @@ pub use stack::ProcessingStack;
 
 /// Warnings that can be raised during context processing.
 pub enum Warning {
+    /// A term looks like a keyword and was ignored.
     KeywordLikeTerm(String),
+    /// A value looks like a keyword and was ignored.
     KeywordLikeValue(String),
+    /// A term expanded to a malformed IRI.
     MalformedIri(String),
 }
 
@@ -38,6 +42,7 @@ impl<N> contextual::DisplayWithContext<N> for Warning {
     }
 }
 
+/// Handlers collecting the warnings raised by context processing.
 pub trait WarningHandler<N>: jsonld_core::warning::Handler<N, Warning> {}
 
 impl<N, H> WarningHandler<N> for H where H: jsonld_core::warning::Handler<N, Warning> {}
@@ -46,69 +51,91 @@ impl<N, H> WarningHandler<N> for H where H: jsonld_core::warning::Handler<N, War
 #[derive(Debug, thiserror::Error)]
 pub enum Error<E = std::convert::Infallible> {
     #[error("Invalid context nullification")]
+    /// Invalid context nullification.
     InvalidContextNullification,
 
     #[error("Remote document loading failed")]
+    /// Remote document loading failed.
     LoadingDocumentFailed,
 
     #[error("Processing mode conflict")]
+    /// Processing mode conflict.
     ProcessingModeConflict,
 
     #[error("Invalid `@context` entry")]
+    /// Invalid `@context` entry.
     InvalidContextEntry,
 
     #[error("Invalid `@import` value")]
+    /// Invalid `@import` value.
     InvalidImportValue,
 
     #[error("Invalid remote context")]
+    /// Invalid remote context.
     InvalidRemoteContext,
 
     #[error("Invalid base IRI")]
+    /// Invalid base IRI.
     InvalidBaseIri,
 
     #[error("Invalid vocabulary mapping")]
+    /// Invalid vocabulary mapping.
     InvalidVocabMapping,
 
     #[error("Cyclic IRI mapping")]
+    /// Cyclic IRI mapping.
     CyclicIriMapping,
 
     #[error("Invalid term definition")]
+    /// Invalid term definition.
     InvalidTermDefinition,
 
     #[error("Keyword redefinition")]
+    /// Keyword redefinition.
     KeywordRedefinition,
 
     #[error("Invalid `@protected` value")]
+    /// Invalid `@protected` value.
     InvalidProtectedValue,
 
     #[error("Invalid type mapping")]
+    /// Invalid type mapping.
     InvalidTypeMapping,
 
     #[error("Invalid reverse property")]
+    /// Invalid reverse property.
     InvalidReverseProperty,
 
     #[error("Invalid IRI mapping")]
+    /// Invalid IRI mapping.
     InvalidIriMapping,
 
     #[error("Invalid keyword alias")]
+    /// Invalid keyword alias.
     InvalidKeywordAlias,
 
     #[error("Invalid container mapping")]
+    /// Invalid container mapping.
     InvalidContainerMapping,
 
     #[error("Invalid scoped context")]
+    /// Invalid scoped context.
     InvalidScopedContext,
 
     #[error("Protected term redefinition")]
+    /// Protected term redefinition.
     ProtectedTermRedefinition,
 
     #[error(transparent)]
+    /// A referenced context could not be loaded.
     ContextLoadingFailed(#[from] LoadError<E>),
 
     #[error("Unable to extract JSON-LD context: {0}")]
+    /// Unable to extract JSON-LD context: the given value.
     ContextExtractionFailed(ExtractContextError),
 
     #[error("Use of forbidden `@vocab`")]
+    /// Use of forbidden `@vocab`.
     ForbiddenVocab,
 }
 
@@ -119,6 +146,7 @@ impl<E> From<RejectVocab> for Error<E> {
 }
 
 impl<E> Error<E> {
+    /// Returns the code of this `Error`.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
@@ -150,6 +178,7 @@ impl<E> Error<E> {
 /// Result of context processing functions.
 pub type ProcessingResult<'a, T, B, E> = Result<Processed<'a, T, B>, Error<E>>;
 
+/// Contexts that can be processed into an active context.
 pub trait Process {
     /// Process the local context with specific options.
     async fn process_full<N, L, W>(

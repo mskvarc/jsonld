@@ -16,9 +16,12 @@ use jstrict::print::{
 
 use crate::{ExpandedDocument, Id, Indexed, Object, object};
 use contextual::WithContext;
-use rdf_rs::vocabulary::{IriVocabulary, Vocabulary};
+use rdfx::vocabulary::{IriVocabulary, Vocabulary};
 
+/// Values printable through a vocabulary, given the size of what surrounds
+/// them.
 pub trait PrintWithSizeAndVocabulary<V> {
+    /// Prints this value through the given vocabulary and layout options.
     fn fmt_with_size_and(
         &self,
         vocabulary: &V,

@@ -14,7 +14,6 @@ use crate::{
     filter_top_level_item,
 };
 use contextual::WithContext;
-use jstrict::object::Entry;
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
 use jsonld_core::{
     Container,
@@ -36,8 +35,9 @@ use jsonld_core::{
     object::value::Literal,
 };
 use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
+use jstrict::object::Entry;
 use mown::Mown;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
 use std::{hash::Hash, sync::Arc};
 
@@ -207,7 +207,9 @@ where
                         // context, and true for document relative.
                         for ty in value {
                             if let Some(str_ty) = ty.as_str() {
-                                if let Some(ty_arc) = expand_iri(&mut env, type_scoped_context, Nullable::Some(str_ty.into()), true, Some(options.policy.vocab))? {
+                                if let Some(ty_arc) =
+                                    expand_iri(&mut env, type_scoped_context, Nullable::Some(str_ty.into()), true, Some(options.policy.vocab))?
+                                {
                                     let ty = Arc::try_unwrap(ty_arc).unwrap_or_else(|a| (*a).clone());
                                     if let Ok(ty) = ty.try_into() {
                                         if let Id::Invalid(_) = &ty {
@@ -335,8 +337,7 @@ where
                                     false,
                                     Some(options.policy.vocab),
                                 )?;
-                                let reverse_expanded = reverse_expanded_arc
-                                    .map(|arc| Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()));
+                                let reverse_expanded = reverse_expanded_arc.map(|arc| Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()));
                                 match reverse_expanded {
                                     Some(Term::Keyword(_)) => {
                                         return Err(Error::InvalidReversePropertyMap);
@@ -387,9 +388,7 @@ where
                                                 }
                                             }
 
-                                            result
-                                                .reverse_properties_or_default()
-                                                .insert_all(reverse_prop, reverse_expanded_nodes)
+                                            result.reverse_properties_or_default().insert_all(reverse_prop, reverse_expanded_nodes)
                                         }
                                     }
                                     _ => {
@@ -558,9 +557,10 @@ where
                             // If key's term definition in active context has a
                             // direction mapping, update direction with that value.
                             if let Some(key_definition) = key_definition
-                                && let Some(key_direction) = key_definition.direction() {
-                                    direction = key_direction.option()
-                                }
+                                && let Some(key_direction) = key_definition.direction()
+                            {
+                                direction = key_direction.option()
+                            }
 
                             // For each key-value pair language-language value in
                             // value, ordered lexicographically by language if ordered is true:
@@ -597,7 +597,9 @@ where
                                                 Nullable::Some(language.as_str().into()),
                                                 false,
                                                 Some(options.policy.vocab),
-                                            )?.as_deref() == Some(&Term::Keyword(Keyword::None))
+                                            )?
+                                            .as_deref()
+                                                == Some(&Term::Keyword(Keyword::None))
                                             {
                                                 None
                                             } else {
@@ -679,9 +681,10 @@ where
                                 // `map_context` to `active_context`.
                                 let mut map_context = Mown::Borrowed(active_context);
                                 if (container_mapping.contains(ContainerKind::Type) || container_mapping.contains(ContainerKind::Id))
-                                    && let Some(previous_context) = active_context.previous_context() {
-                                        map_context = Mown::Borrowed(previous_context)
-                                    }
+                                    && let Some(previous_context) = active_context.previous_context()
+                                {
+                                    map_context = Mown::Borrowed(previous_context)
+                                }
 
                                 // If container mapping includes @type and
                                 // index's term definition in map context has a
@@ -692,28 +695,29 @@ where
                                 // from the term definition for index in map context.
                                 if container_mapping.contains(ContainerKind::Type)
                                     && let Some(index_definition) = map_context.get(index.as_str())
-                                        && let Some(local_context) = index_definition.context() {
-                                            let base_url = index_definition.base_url().cloned();
-                                            let processed = match cache {
-                                                Some(cache) => local_context
-                                                    .process_full_with_cache(
-                                                        env.vocabulary,
-                                                        map_context.as_ref(),
-                                                        env.loader,
-                                                        base_url,
-                                                        options.into(),
-                                                        jsonld_core::warning::Print,
-                                                        cache,
-                                                    )
-                                                    .await?
-                                                    .into_processed(),
-                                                None => local_context
-                                                    .process_with(env.vocabulary, map_context.as_ref(), env.loader, base_url, options.into())
-                                                    .await?
-                                                    .into_processed(),
-                                            };
-                                            map_context = Mown::Owned(processed)
-                                        }
+                                    && let Some(local_context) = index_definition.context()
+                                {
+                                    let base_url = index_definition.base_url().cloned();
+                                    let processed = match cache {
+                                        Some(cache) => local_context
+                                            .process_full_with_cache(
+                                                env.vocabulary,
+                                                map_context.as_ref(),
+                                                env.loader,
+                                                base_url,
+                                                options.into(),
+                                                jsonld_core::warning::Print,
+                                                cache,
+                                            )
+                                            .await?
+                                            .into_processed(),
+                                        None => local_context
+                                            .process_with(env.vocabulary, map_context.as_ref(), env.loader, base_url, options.into())
+                                            .await?
+                                            .into_processed(),
+                                    };
+                                    map_context = Mown::Owned(processed)
+                                }
 
                                 // Otherwise, set map context to active context.
                                 // TODO What?

@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
-#![cfg(feature = "serde_json")]
+#![cfg(feature = "serde-json")]
 
 use iri_rs::{IriBuf, iri};
 use jsonld::{JsonLdProcessor, LD_JSON_MEDIA_TYPE, RemoteContextReference, RemoteDocument};
@@ -48,11 +48,7 @@ async fn expand_via_from_value_with_serde_json() {
 #[async_std::test]
 async fn compact_output_into_serde_json() {
     let doc: RemoteDocument<IriBuf> = RemoteDocument::from_value(None, None, input_value());
-    let context = RemoteContextReference::Loaded(RemoteDocument::new(
-        None,
-        None,
-        jsonld_syntax::context::Context::default(),
-    ));
+    let context = RemoteContextReference::Loaded(RemoteDocument::new(None, None, jsonld_syntax::context::Context::default()));
     let compact = doc.compact(context, &jsonld::NoLoader).await.expect("compaction failed");
 
     let serde_v: serde_json::Value = compact.clone().into_serde_json();
@@ -63,7 +59,7 @@ async fn compact_output_into_serde_json() {
 #[async_std::test]
 async fn flatten_output_into_serde_json() {
     let doc: RemoteDocument<IriBuf> = RemoteDocument::from_value(None, None, input_value());
-    let mut generator = rdf_rs::generator::Blank::new();
+    let mut generator = rdfx::generator::Blank::new();
     let flattened = doc.flatten(&mut generator, &jsonld::NoLoader).await.expect("flatten failed");
 
     let serde_v: serde_json::Value = flattened.clone().into_serde_json();

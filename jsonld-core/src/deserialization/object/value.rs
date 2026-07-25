@@ -1,5 +1,5 @@
 use ld_core::{LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject, ResourceInterpretation};
-use rdf_rs::Interpretation;
+use rdfx::Interpretation;
 
 use crate::Value;
 

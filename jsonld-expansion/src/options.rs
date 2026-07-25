@@ -19,6 +19,7 @@ pub struct Options {
 }
 
 impl Options {
+    /// Returns these options with ordering switched off.
     pub fn unordered(self) -> Self {
         Self { ordered: false, ..self }
     }

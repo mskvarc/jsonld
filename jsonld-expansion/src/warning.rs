@@ -1,14 +1,19 @@
 use contextual::DisplayWithContext;
 use jsonld_context_processing::algorithm::MalformedIri;
 use langtag::InvalidLangTag;
-use rdf_rs::vocabulary::BlankIdVocabulary;
+use rdfx::vocabulary::BlankIdVocabulary;
 use std::fmt;
 
 #[derive(Debug)]
+/// Warning raised while expanding a document.
 pub enum Warning<B> {
+    /// A term expanded to a malformed IRI.
     MalformedIri(String),
+    /// An entry key expanded to the empty term.
     EmptyTerm,
+    /// A blank node identifier was used as a property.
     BlankNodeIdProperty(B),
+    /// A language tag is not well-formed.
     MalformedLanguageTag(String, InvalidLangTag<String>),
 }
 

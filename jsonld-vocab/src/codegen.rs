@@ -4,10 +4,7 @@ use quote::quote;
 use syn::Ident;
 
 /// Generate the final Rust token stream for the resolved vocabulary model.
-pub fn generate_tokens(
-    inputs: &crate::model::InputContexts,
-    model: &ResolvedModel,
-) -> syn::Result<TokenStream> {
+pub fn generate_tokens(inputs: &crate::model::InputContexts, model: &ResolvedModel) -> syn::Result<TokenStream> {
     let _ = inputs;
 
     let include_paths = model

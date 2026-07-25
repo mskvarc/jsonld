@@ -1,324 +1,165 @@
-# A JSON-LD implementation for Rust
+# jsonld
 
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/timothee-haudebourg/json-ld/ci.yml?style=flat-square&logo=github)](https://github.com/timothee-haudebourg/json-ld/actions)
-[![Crate informations](https://img.shields.io/crates/v/json-ld.svg?style=flat-square)](https://crates.io/crates/json-ld)
-[![Crates.io MSRV](https://img.shields.io/crates/msrv/json-ld?style=flat-square)](https://crates.io/crates/json-ld)
-[![License](https://img.shields.io/crates/l/json-ld.svg?style=flat-square)](https://github.com/timothee-haudebourg/json-ld#license)
-[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/json-ld)
+[![Crate](https://img.shields.io/crates/v/jsonld.svg?style=flat-square)](https://crates.io/crates/jsonld)
+[![Docs](https://img.shields.io/docsrs/jsonld?style=flat-square)](https://docs.rs/jsonld)
+[![MSRV](https://img.shields.io/crates/msrv/jsonld?style=flat-square)](https://crates.io/crates/jsonld)
+[![License](https://img.shields.io/crates/l/jsonld.svg?style=flat-square)](#license)
 
-
-<!-- cargo-rdme start -->
-
-This crate is a Rust implementation of the
-[JSON-LD](https://www.w3.org/TR/json-ld/)
-data interchange format.
-
-[Linked Data (LD)](https://www.w3.org/standards/semanticweb/data)
-is a [World Wide Web Consortium (W3C)](https://www.w3.org/)
-initiative built upon standard Web technologies to create an
-interrelated network of datasets across the Web.
-The [JavaScript Object Notation (JSON)](https://tools.ietf.org/html/rfc7159) is
-a widely used, simple, unstructured data serialization format to describe
-data objects in a human readable way.
-JSON-LD brings these two technologies together, adding semantics to JSON
-to create a lightweight data serialization format that can organize data and
-help Web applications to inter-operate at a large scale.
-
-## Usage
-
-The entry point for this library is the `JsonLdProcessor` trait
-that provides an access to all the JSON-LD transformation algorithms
-(context processing, expansion, compaction, etc.).
-If you want to explore and/or transform `ExpandedDocument`s, you may also
-want to check out the [`Object`] type representing a JSON object.
-
-
-### Expansion
-
-If you want to expand a JSON-LD document, first describe the document to
-be expanded using either `RemoteDocument` or `RemoteDocumentReference`:
-  - `RemoteDocument` wraps the JSON representation of the document
-    alongside its remote URL.
-  - `RemoteDocumentReference` may represent only an URL, letting
-    some loader fetching the remote document by dereferencing the URL.
-
-After that, you can simply use the [`JsonLdProcessor::expand`] function on
-the remote document.
-
-[`JsonLdProcessor::expand`]: JsonLdProcessor::expand
-
-#### Example
+A [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) implementation for Rust: context processing, expansion, compaction, flattening and RDF serialization, plus a derive macro that expands your own types straight into JSON-LD.
 
 ```rust
-use iri_rs::IriBuf;
 use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
+use jsonld::{JsonLdProcessor, RemoteDocument, syntax::{Parse, Value}};
 
-// Create a "remote" document by parsing a file manually.
 let input = RemoteDocument::new(
-  // We use `IriBuf` as IRI type.
-  Some(iri!("https://example.com/sample.jsonld").to_owned()),
-
-  // Optional content type.
-  Some("application/ld+json".parse().unwrap()),
-  
-  // Parse the file.
-  Value::parse_str(r#"
-    {
-      "@context": {
-        "name": "http://xmlns.com/foaf/0.1/name"
-      },
-      "@id": "https://www.rust-lang.org",
-      "name": "Rust Programming Language"
-    }"#).expect("unable to parse file").0
+    Some(iri!("https://example.com/sample.jsonld").to_owned()),
+    Some("application/ld+json".parse().unwrap()),
+    Value::parse_str(r#"{
+        "@context": { "name": "https://schema.org/name" },
+        "@id": "https://example.com/alice",
+        "name": "Alice"
+    }"#).expect("parse error").0,
 );
 
-// Use `NoLoader` as we won't need to load any remote document.
-let mut loader = jsonld::NoLoader;
-
-// Expand the "remote" document.
-let expanded = input
-  .expand(&mut loader)
-  .await
-  .expect("expansion failed");
-
-for object in expanded {
-  if let Some(id) = object.id() {
-    let name = object.as_node().unwrap()
-      .get_any(&iri!("http://xmlns.com/foaf/0.1/name")).unwrap()
-      .as_str().unwrap();
-
-    println!("id: {id}");
-    println!("name: {name}");
-  }
-}
+let expanded = input.expand(&jsonld::NoLoader).await?;
 ```
 
-Here is another example using `RemoteDocumentReference`.
+The entry point is the `JsonLdProcessor` trait, which carries every transformation algorithm. Documents arrive as `RemoteDocument` (JSON already in hand) or `RemoteDocumentReference` (a URL for a loader to dereference).
 
-```rust
-use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
+---
 
-let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
+## Why this fork
 
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = jsonld::FsLoader::default();
-loader.mount(iri!("https://example.com/").to_owned(), "examples");
+Fork of [`json-ld`](https://crates.io/crates/json-ld) by [Timothée Haudebourg](https://github.com/timothee-haudebourg/json-ld). The algorithms and their spec conformance are upstream's — the W3C JSON-LD API test suite still governs this repo. The fork changes three things: the dependency stack, the performance profile, and what you can do with your own Rust types.
 
-let expanded = input.expand(&mut loader)
-  .await
-  .expect("expansion failed");
-```
+### A different dependency stack
 
-Lastly, the same example replacing [`IriBuf`] with the lightweight
-[`rdf_rs::vocabulary::Index`] type.
+Upstream builds on `rdf-types`, `xsd-types`, `iref`, `static-iref` and `json-syntax`. This fork retargets every one of them:
 
-[`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
+| Upstream | Here | Why |
+| --- | --- | --- |
+| `rdf-types` | [`rdfx`](https://crates.io/crates/rdfx) | RDF 1.2 model: triple terms, directional language strings |
+| `json-syntax` | [`jstrict`](https://crates.io/crates/jstrict) | strict JSON parsing and canonicalization |
+| `iref` / `static-iref` | [`iri-rs`](https://crates.io/crates/iri-rs) | allocation-conscious IRI parsing, compile-time literals |
+| `xsd-types` | [`xsd-rs`](https://crates.io/crates/xsd-rs) | SIMD-backed `base64Binary` / `hexBinary` |
+| `linked-data` | [`ld-core`](https://crates.io/crates/ld-core) | follows the same stack |
 
-```rust
-use rdf_rs::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
-use contextual::WithContext;
-// Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
-// to an actual `IriBuf`.
-let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
+The crate names moved with the dependencies — `json-ld` became `jsonld`, and every member crate followed.
 
-let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
-let input = RemoteDocumentReference::iri(iri_index);
+The workspace is Rust 2024 with MSRV 1.85, uses `mediatype` for content negotiation instead of hand-rolled parsing, and carries a reworked error surface.
 
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = jsonld::FsLoader::default();
-loader.mount(iri!("https://example.com/").to_owned(), "examples");
+### Performance
 
-let expanded = input
-  .expand_with(&mut vocabulary, &mut loader)
-  .await
-  .expect("expansion failed");
+The performance work concentrates on context processing and compaction — the parts of JSON-LD that dominate real workloads:
 
-// `foaf:name` property identifier.
-let name_id = Subject::Iri(vocabulary.insert(iri!("http://xmlns.com/foaf/0.1/name")));
+- **Context memoization.** Processed contexts are cached rather than reprocessed per document, and a synchronous fast path skips the async machinery entirely when a context needs no remote loads.
+- **Inverse contexts.** The inverse context is rebuilt lazily instead of on every mutation, and its construction is cheaper.
+- **Interning.** Term keys and strings are interned, so comparison and hashing work on handles instead of string data.
+- **Compaction.** Compact IRI results are memoized per compaction call, the prefix list is cached instead of rebuilt each iteration, and sort comparators no longer materialise strings through the vocabulary.
+- **Hashing.** SipHash gave way to hashbrown's default hasher, with `ahash` and `gxhash` as opt-in alternatives.
+- **Allocation.** Contexts are borrowed rather than cloned on hot paths, and clones were stripped out of expansion and compaction.
+- **Parallel expansion.** An optional `parallel` feature expands a batch of documents concurrently, each task owning its own vocabulary clone.
 
-for object in expanded {
-  if let Some(id) = object.id() {
-    let name = object.as_node().unwrap()
-      .get_any(&name_id).unwrap()
-      .as_value().unwrap()
-      .as_str().unwrap();
+Criterion benchmarks for expansion and compaction live in `jsonld/benches`, so the claims are measurable rather than asserted:
 
-    println!("id: {}", id.with(&vocabulary));
-    println!("name: {name}");
-  }
-}
-```
-
-### Compaction
-
-The JSON-LD Compaction is a transformation that consists in applying a
-context to a given JSON-LD document reducing its size.
-There are two ways to get a compact JSON-LD document with this library
-depending on your starting point:
-  - If you want to get a compact representation for an arbitrary remote
-    document, simply use the `JsonLdProcessor::compact`
-    (or `JsonLdProcessor::compact_with`) method.
-  - Otherwise to compact an `ExpandedDocument` you can use the
-    `Compact::compact` method.
-
-
-#### Example
-
-Here is an example compaction an arbitrary `RemoteDocumentReference`
-using `JsonLdProcessor::compact`.
-
-```rust
-use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
-
-let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
-
-let context = RemoteContextReference::iri(iri!("https://example.com/context.jsonld").to_owned());
-
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = jsonld::FsLoader::default();
-loader.mount(iri!("https://example.com/").to_owned(), "examples");
-
-let compact = input
-  .compact(context, &mut loader)
-  .await
-  .expect("compaction failed");
-
-println!("output: {}", compact.pretty_print());
-```
-
-### Flattening
-
-The JSON-LD Flattening is a transformation that consists in moving nested
-nodes out. The result is a list of all the nodes declared in the document.
-There are two ways to flatten JSON-LD document with this library
-depending on your starting point:
-  - If you want to get a compact representation for an arbitrary remote
-    document, simply use the `JsonLdProcessor::flatten`
-    (or `JsonLdProcessor::flatten_with`) method.
-    This will return a JSON-LD document.
-  - Otherwise to compact an `ExpandedDocument` you can use the
-    `Flatten::flatten` (or `Flatten::flatten_with`) method.
-    This will return the list of nodes as a `FlattenedDocument`.
-
-Flattening requires assigning an identifier to nested anonymous nodes,
-which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
-as parameter. This generator is in charge of creating new fresh identifiers
-(with their metadata). The most common generator is
-[`rdf_rs::generator::Blank`] that creates blank node identifiers.
-
-[`rdf_rs::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
-[`rdf_rs::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
-
-#### Example
-
-Here is an example compaction an arbitrary `RemoteDocumentReference`
-using `JsonLdProcessor::flatten`.
-
-```rust
-use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
-
-let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
-
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = jsonld::FsLoader::default();
-loader.mount(iri!("https://example.com/").to_owned(), "examples");
-
-let mut generator = rdf_rs::generator::Blank::new();
-
-let nodes = input
-  .flatten(&mut generator, &mut loader)
-  .await
-  .expect("flattening failed");
-
-println!("output: {}", nodes.pretty_print());
-```
-
-## Fast IRIs and Blank Node Identifiers
-
-This library gives you the opportunity to use any datatype you want to
-represent IRIs an Blank Node Identifiers. Most types have them
-parameterized.
-To avoid unnecessary allocations and expensive comparisons, it is highly
-recommended to use a cheap, lightweight datatype such as
-[`rdf_rs::vocabulary::Index`]. This type will represent each distinct
-IRI/blank node identifier with a unique index. In this case a
-[`rdf_rs::IndexVocabulary`] that maps each index back/to its
-original IRI/Blank identifier representation can be passed to every
-function.
-
-You can also use your own index type, with your own
-[`rdf_rs::Vocabulary`] implementation.
-
-[`rdf_rs::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
-[`rdf_rs::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
-[`rdf_rs::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
-
-### Displaying vocabulary-dependent values
-
-Since using vocabularies separates IRIs and Blank ids from their textual
-representation, it complicates displaying data using them.
-Fortunately many types defined by `json-ld` implement the
-[`contextual::DisplayWithContext`] trait that allow displaying value with
-a "context", which here would be the vocabulary.
-By importing the [`contextual::WithContext`] which provides the `with`
-method you can display such value like this:
-```rust
-use iri_rs::iri;
-use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
-use contextual::WithContext;
-
-let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
-let value = rdf_rs::Subject::Iri(i);
-
-println!("{}", value.with(&vocabulary))
-```
-
-[`contextual::DisplayWithContext`]: https://docs.rs/contextual/latest/contextual/trait.DisplayWithContext.html
-[`contextual::WithContext`]: https://docs.rs/contextual/latest/contextual/trait.WithContext.html
-
-<!-- cargo-rdme end -->
-
-## Testing
-
-To run the tests for the first time use the following commands in a shell:
 ```sh
-git submodule init
-git submodule update
-cargo test
+cargo bench -p jsonld
 ```
 
-This will clone the
-[W3C JSON-LD API repository](https://github.com/w3c/json-ld-api) containing the
-official test suite, generate the associated Rust tests using the procedural
-macros provided by the [`json-ld-testing`](crates/testing) crate and run the
-tests.
+### Working with your own types
 
-Afterward a simple `cargo test` will rerun the tests.
+Two additions have no upstream counterpart.
 
-## Sponsor
+**`Expandable`** derives JSON-LD expansion for a Rust type, skipping the intermediate JSON value entirely:
 
-Many thanks to [SpruceID](https://www.spruceid.com/) for sponsoring this project!
+```rust
+use jsonld_expandable::Expandable;
+
+#[derive(Expandable)]
+#[jsonld(type = "https://example.com/Parent")]
+pub struct Parent {
+    #[jsonld(property = "https://example.com/name")]
+    pub name: String,
+
+    #[jsonld(flatten_map)]
+    pub subs: BTreeMap<String, Sub>,
+}
+
+let expanded: serde_json::Value = parent.expand();
+```
+
+The attribute vocabulary covers `property`, `id`, `type`, `nested`, `vec`, `list`, `language_map`, `typed_value`, `vocab` / `id_ref`, `flatten_object`, `flatten_map`, `passthrough` and `skip`. Output goes to whichever backend you enable — `serde-json`, `sonic-rs` or `jstrict` — and the `chrono` feature lets temporal types take part without a newtype wrapper.
+
+**`jsonld-vocab`** reads your context files at compile time and generates typed constants from them:
+
+```rust
+jsonld_vocab::generate! {
+    contexts: ["contexts/core.jsonld"]
+}
+```
+
+Paths resolve against `CARGO_MANIFEST_DIR`, so a mistyped term becomes a compile error rather than a runtime surprise.
+
+Credit and history preserved — see [Attribution](#attribution).
+
+## Install
+
+```sh
+cargo add jsonld
+```
+
+## Crates
+
+| Crate | Purpose |
+| --- | --- |
+| `jsonld` | Umbrella crate: `JsonLdProcessor` and the transformation algorithms |
+| `jsonld-core` | Core types: objects, nodes, values, documents, loaders |
+| `jsonld-syntax` | Syntax layer: contexts, term definitions, keywords |
+| `jsonld-context-processing` | Context processing algorithm |
+| `jsonld-expansion` | Expansion algorithm |
+| `jsonld-compaction` | Compaction algorithm |
+| `jsonld-serialization` | Serialization of expanded documents |
+| `jsonld-expandable` / `jsonld-expandable-core` | `Expandable` derive and its runtime |
+| `jsonld-vocab` | Compile-time vocabulary generation |
+| `jsonld-testing` | Test-suite harness |
+| `jsonld-cli` | Command line interface |
+
+## Feature flags
+
+| Flag | Default | Enables |
+| --- | :---: | --- |
+| `fast-hash` | yes | hashbrown's default hasher across the workspace |
+| `ahash` | | `ahash` as the hasher instead |
+| `gxhash` | | `gxhash` as the hasher; wins if both end up enabled |
+| `serde` | | `Serialize` / `Deserialize` for syntax and core types |
+| `serde-json` | | `serde_json` interop |
+| `reqwest` | | HTTP document loader |
+| `parallel` | | concurrent batch expansion; needs a `Clone` vocabulary |
+| `expandable` | | the `Expandable` derive |
+| `expandable-serde-json`, `-sonic-rs`, `-jstrict` | | output backend for `Expandable` |
+| `expandable-chrono` | | `chrono` temporal types in `Expandable` types |
+| `vocab` | | compile-time vocabulary generation |
+
+## Conformance
+
+The W3C JSON-LD API test suite is a git submodule. A fresh clone needs it before the conformance tests will run:
+
+```sh
+git submodule update --init
+cargo test -p jsonld
+```
+
+## MSRV
+
+Rust 1.85 (edition 2024).
+
+## Attribution
+
+Original crates: [`json-ld`](https://crates.io/crates/json-ld) and its members by [Timothée Haudebourg](https://github.com/timothee-haudebourg/json-ld). Upstream commits are preserved in this repo's history under their original authorship, and the bulk of this repository remains their work. This fork is a dependency-stack swap, a layer of performance work, and the `Expandable` and `jsonld-vocab` additions on top of their implementation.
 
 ## License
 
-Licensed under either of
+Dual-licensed, same as upstream. Pick whichever fits:
 
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
-
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
-additional terms or conditions.
+- [Apache-2.0](https://github.com/mskvarc/jsonld/blob/master/LICENSE-APACHE)
+- [MIT](https://github.com/mskvarc/jsonld/blob/master/LICENSE-MIT)

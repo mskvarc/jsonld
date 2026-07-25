@@ -1,7 +1,7 @@
 //! Flattening algorithm and related types.
 use crate::{ExpandedDocument, FlattenedDocument, IndexedNode, IndexedObject, Object, flattened::UnorderedFlattenedDocument};
 use contextual::WithContext;
-use rdf_rs::{
+use rdfx::{
     LocalGenerator,
     vocabulary::{Vocabulary, VocabularyMut},
 };
@@ -13,33 +13,42 @@ mod node_map;
 pub use environment::Environment;
 pub use node_map::*;
 
+/// Result of flattening a document into an ordered list of nodes.
 pub type FlattenResult<I, B> = Result<FlattenedDocument<I, B>, NodeMapError<I, B>>;
 
+/// Result of flattening a document into an unordered set of nodes.
 pub type FlattenUnorderedResult<I, B> = Result<UnorderedFlattenedDocument<I, B>, NodeMapError<I, B>>;
 
+/// Documents that can be flattened into node objects.
 pub trait Flatten<I, B> {
+    /// Flattens this document using the given vocabulary and blank node
+    /// generator.
     fn flatten_with<V, G: LocalGenerator>(self, vocabulary: &mut V, generator: G, ordered: bool) -> FlattenResult<I, B>
     where
         V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut;
 
+    /// Flattens this document into an unordered set, using the given
+    /// vocabulary and generator.
     fn flatten_unordered_with<V, G: LocalGenerator>(self, vocabulary: &mut V, generator: G) -> FlattenUnorderedResult<I, B>
     where
         V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut;
 
+    /// Flattens this document, sorting the result when `ordered` is set.
     fn flatten<G: LocalGenerator>(self, generator: G, ordered: bool) -> FlattenResult<I, B>
     where
         (): Vocabulary<Iri = I, BlankId = B>,
         Self: Sized,
     {
-        self.flatten_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator, ordered)
+        self.flatten_with(rdfx::vocabulary::no_vocabulary_mut(), generator, ordered)
     }
 
+    /// Flattens this document into an unordered set.
     fn flatten_unordered<G: LocalGenerator>(self, generator: G) -> FlattenUnorderedResult<I, B>
     where
         (): Vocabulary<Iri = I, BlankId = B>,
         Self: Sized,
     {
-        self.flatten_unordered_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
+        self.flatten_unordered_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 }
 
@@ -75,6 +84,8 @@ fn filter_sub_graph<T, B>(mut node: IndexedNode<T, B>) -> Option<IndexedObject<T
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
+    /// Flattens this node map into a list of nodes, sorted when `ordered` is
+    /// set.
     pub fn flatten(self, ordered: bool) -> FlattenedDocument<T, B>
     where
         (): Vocabulary<Iri = T, BlankId = B>,
@@ -82,6 +93,8 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
         self.flatten_with(&(), ordered)
     }
 
+    /// Flattens this node map into a list of nodes, sorting through the given
+    /// vocabulary when `ordered` is set.
     pub fn flatten_with<V>(self, vocabulary: &V, ordered: bool) -> FlattenedDocument<T, B>
     where
         V: Vocabulary<Iri = T, BlankId = B>,
@@ -107,7 +120,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
                     .into_nodes()
                     .map(|n| {
                         // SAFETY: every node in a node-map graph has an `id`.
-                    let key = unsafe { n.id.as_ref().unwrap_unchecked() }.with(vocabulary).as_str().to_string();
+                        let key = unsafe { n.id.as_ref().unwrap_unchecked() }.with(vocabulary).as_str().to_string();
                         (key, n)
                     })
                     .collect();
@@ -138,6 +151,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
         nodes
     }
 
+    /// Flattens this node map into an unordered set of nodes.
     pub fn flatten_unordered(self) -> HashSet<IndexedNode<T, B>> {
         let (mut default_graph, named_graphs) = self.into_parts();
 

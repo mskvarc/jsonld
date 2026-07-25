@@ -8,18 +8,27 @@ use std::hash::Hash;
 /// A JSON-LD Quad can correspond to multiple RDF Quads.
 pub struct QuadRef<'a, T, B>(pub Option<&'a Id<T, B>>, pub &'a Id<T, B>, pub PropertyRef<'a, T, B>, pub ObjectRef<'a, T, B>);
 
+/// Property of a quad drawn from a JSON-LD document.
 pub enum PropertyRef<'a, T, B> {
+    /// The `rdf:type` property, from an `@type` entry.
     Type,
+    /// A property given by a node identifier.
     Ref(&'a Id<T, B>),
 }
 
+/// Object of a quad drawn from a JSON-LD document.
 pub enum ObjectRef<'a, T, B> {
+    /// A JSON object.
     Object(&'a Object<T, B>),
+    /// A node object.
     Node(&'a Node<T, B>),
+    /// An object given by a node identifier.
     Ref(&'a Id<T, B>),
 }
 
+/// Documents whose node objects can be read as quads.
 pub trait LdQuads<T, B> {
+    /// Returns the quads of this `LdQuads`.
     fn quads(&self) -> Quads<'_, T, B>;
 }
 
@@ -53,6 +62,7 @@ impl<T: Eq + Hash, B: Eq + Hash> LdQuads<T, B> for NodeMap<T, B> {
 
 const STACK_LEN: usize = 6;
 
+/// Iterator over the quads of a document.
 pub struct Quads<'a, T, B> {
     stack: SmallVec<[QuadsFrame<'a, T, B>; STACK_LEN]>,
 }

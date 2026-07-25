@@ -1,10 +1,13 @@
+//! Command line interface for the `jsonld` crate: fetch, expand, compact
+//! and flatten JSON-LD documents from the shell.
+
 use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
 use contextual::WithContext;
 use iri_rs::IriBuf;
 use jsonld::{JsonLdProcessor, LD_JSON_MEDIA_TYPE, Print, RemoteDocument, RemoteDocumentReference, syntax::Parse};
-use rdf_rs::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
+use rdfx::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
 #[command(name="json-ld", author, version, about, long_about = None)]
@@ -18,9 +21,13 @@ struct Args {
 }
 
 #[derive(clap::Subcommand)]
+/// Sub-command the CLI was invoked with.
 pub enum Command {
     /// Download the document behind the given URL.
-    Fetch { url: IriBuf },
+    Fetch {
+        /// URL of the document to fetch.
+        url: IriBuf,
+    },
 
     /// Expand the given JSON-LD document.
     Expand {
@@ -45,12 +52,15 @@ pub enum Command {
         canonicalize: bool,
 
         #[arg(long = "no-vocab")]
+        /// Do not report terms expanded through `@vocab`.
         no_vocab: bool,
 
         #[arg(long = "no-undef")]
+        /// Do not report undefined terms.
         no_undef: bool,
     },
 
+    /// Flatten a document into node objects.
     Flatten {
         /// URL or file path of the document to flatten.
         ///
@@ -64,8 +74,11 @@ pub enum Command {
 }
 
 #[derive(Clone)]
+/// Document location given either as an IRI or as a local path.
 pub enum IriOrPath {
+    /// An IRI.
     Iri(IriBuf),
+    /// A path on the local file system.
     Path(PathBuf),
 }
 
@@ -94,7 +107,7 @@ enum CliError {
     Parse(#[from] jstrict::parse::Error),
 
     #[error("invalid blank id prefix: {0}")]
-    BlankPrefix(#[from] rdf_rs::generator::InvalidBlankPrefix),
+    BlankPrefix(#[from] rdfx::generator::InvalidBlankPrefix),
 
     #[error("loading failed: {0}")]
     Loading(#[from] jsonld::LoadError<ReqwestLoaderError>),
@@ -106,7 +119,7 @@ enum CliError {
     Compact(#[from] jsonld::CompactError<ReqwestLoaderError>),
 
     #[error(transparent)]
-    Flatten(#[from] jsonld::FlattenError<IriIndex, rdf_rs::vocabulary::BlankIdIndex, ReqwestLoaderError>),
+    Flatten(#[from] jsonld::FlattenError<IriIndex, rdfx::vocabulary::BlankIdIndex, ReqwestLoaderError>),
 
     #[error(transparent)]
     GeneratedId(#[from] jsonld::id::GeneratedIdError),
@@ -131,7 +144,7 @@ async fn run() -> Result<(), CliError> {
     // Init logger.
     stderrlog::new().verbosity(args.verbosity as usize).init()?;
 
-    let mut vocabulary: rdf_rs::vocabulary::IndexVocabulary = rdf_rs::vocabulary::IndexVocabulary::new();
+    let mut vocabulary: rdfx::vocabulary::IndexVocabulary = rdfx::vocabulary::IndexVocabulary::new();
     let loader = jsonld::loader::ReqwestLoader::new();
 
     match args.command {
@@ -139,9 +152,10 @@ async fn run() -> Result<(), CliError> {
             let url = vocabulary.insert(url.as_ref());
             let remote_document = RemoteDocumentReference::iri(url).load_with(&mut vocabulary, &loader).await?;
             if let Some(remote_url) = remote_document.url()
-                && let Some(iri) = vocabulary.iri(remote_url) {
-                    log::info!("document URL: {iri}");
-                }
+                && let Some(iri) = vocabulary.iri(remote_url)
+            {
+                log::info!("document URL: {iri}");
+            }
 
             println!("{}", remote_document.document().pretty_print());
         }
@@ -171,7 +185,7 @@ async fn run() -> Result<(), CliError> {
             let mut expanded = remote_document.expand_with_using(&mut vocabulary, &loader, options).await?;
 
             if relabel {
-                let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string())?;
+                let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string())?;
 
                 if canonicalize {
                     expanded.relabel_and_canonicalize_with(&mut vocabulary, &mut generator)?;
@@ -187,7 +201,7 @@ async fn run() -> Result<(), CliError> {
         Command::Flatten { url_or_path, base_url } => {
             let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url)?;
 
-            let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string())?;
+            let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string())?;
 
             let flattened = remote_document.flatten_with(&mut vocabulary, &mut generator, &loader).await?;
             println!("{}", flattened.with(&vocabulary).pretty_print());

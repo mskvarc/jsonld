@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 use contextual::WithContext;
-use jstrict::Print;
 use jsonld_serialization::serialize;
+use jstrict::Print;
 
 #[derive(ld_core::Serialize)]
 #[ld(prefix("ex" = "http://example.org/"))]

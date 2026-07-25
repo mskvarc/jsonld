@@ -2,6 +2,7 @@
 name = "jsonld-serialization"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
@@ -9,7 +10,10 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD serialization"
 documentation = "https://docs.rs/jsonld-serialization"
-readme = "README.md"
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["fast-hash"]
@@ -19,16 +23,16 @@ fast-hash = ["iri-rs/fast-hash", "jsonld-core/fast-hash"]
 indexmap = "2.14.0"
 iri-rs = "3.3.4"
 jsonld-core.workspace = true
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
-ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git" }
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+jstrict = "0.13.0"
+ld-core = "0.2.0"
+rdfx = "0.23.1"
 thiserror = "2.0.18"
-xsd-rs = { git = "ssh://git@github.com/mskvarc/xsd-rs.git" }
+xsd-rs = "0.10.0"
 
 [dev-dependencies]
 contextual = "0.1.6"
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
-ld-core = { git = "ssh://git@github.com/mskvarc/ld-core.git", features = [
+jstrict = "0.13.0"
+ld-core = { version = "0.2.0", features = [
     "derive",
 ] }
 

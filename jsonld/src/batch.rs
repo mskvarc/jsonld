@@ -13,18 +13,14 @@ use crate::{
 };
 use futures::stream::{FuturesOrdered, StreamExt};
 use jsonld_core::ParallelSafeVocabulary;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Expand a batch of remote documents concurrently.
 ///
 /// Vocabulary is cloned once per document; loader is shared by reference.
 /// Returns one result per input document, in input order.
-pub async fn batch_expand<'a, I, N, L>(
-    docs: Vec<RemoteDocument<I>>,
-    vocabulary: &'a N,
-    loader: &'a L,
-) -> Vec<ExpansionResult<I, N::BlankId>>
+pub async fn batch_expand<'a, I, N, L>(docs: Vec<RemoteDocument<I>>, vocabulary: &'a N, loader: &'a L) -> Vec<ExpansionResult<I, N::BlankId, L::Error>>
 where
     N: VocabularyMut<Iri = I> + ParallelSafeVocabulary,
     I: Clone + Eq + Hash,

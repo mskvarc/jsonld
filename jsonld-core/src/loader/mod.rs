@@ -1,7 +1,8 @@
 use crate::HashSet;
 use iri_rs::{Iri, IriBuf, iri};
 use mediatype::{
-    MediaType, MediaTypeBuf,
+    MediaType,
+    MediaTypeBuf,
     names::{APPLICATION, JSON, LD},
 };
 
@@ -10,12 +11,16 @@ pub const LD_JSON_MEDIA_TYPE: MediaType<'static> = MediaType::from_parts(APPLICA
 
 /// `application/json` media type.
 pub const JSON_MEDIA_TYPE: MediaType<'static> = MediaType::new(APPLICATION, JSON);
-use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};
+use rdfx::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{borrow::Cow, hash::Hash};
 
+/// Loader combining two loaders, trying each in turn.
 pub mod chain;
+/// Loader reading documents from the file system.
 pub mod fs;
+/// Loader serving documents from an in-memory map.
 pub mod map;
+/// Loader that refuses every request.
 pub mod none;
 
 pub use chain::ChainLoader;
@@ -28,8 +33,10 @@ pub mod reqwest;
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::ReqwestLoader;
 
+/// Result of loading a remote document.
 pub type LoadingResult<I, E> = Result<RemoteDocument<I>, LoadError<E>>;
 
+/// Reference to a remote context, either inline or by URL.
 pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, jsonld_syntax::Context>;
 
 /// Remote document, loaded or not.
@@ -91,11 +98,14 @@ impl<I> RemoteDocumentReference<I> {
 }
 
 #[derive(Debug, thiserror::Error)]
+/// Error raised while loading a remote context.
 pub enum ContextLoadError<E> {
     #[error(transparent)]
+    /// The document carrying the context could not be loaded.
     LoadingDocumentFailed(#[from] LoadError<E>),
 
     #[error("context extraction failed")]
+    /// Context extraction failed.
     ContextExtractionFailed(#[from] ExtractContextError),
 }
 
@@ -156,12 +166,14 @@ pub struct RemoteDocument<I = IriBuf, T = jstrict::Value> {
     /// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
     pub context_url: Option<I>,
 
+    /// Profiles advertised by the document's media type.
     pub profile: HashSet<Profile<I>>,
 
     /// The retrieved document.
     pub document: T,
 }
 
+/// Remote document holding a context.
 pub type RemoteContext<I = IriBuf> = RemoteDocument<I, jsonld_syntax::context::Context>;
 
 impl<I, T> RemoteDocument<I, T> {
@@ -172,7 +184,7 @@ impl<I, T> RemoteDocument<I, T> {
     /// `content_type` is the HTTP `Content-Type` header value of the loaded
     /// document, exclusive of any optional parameters.
     pub fn new(url: Option<I>, content_type: Option<MediaTypeBuf>, document: T) -> Self {
-        Self::new_full(url, content_type, None, HashSet::new(), document)
+        Self::new_full(url, content_type, None, HashSet::default(), document)
     }
 
     /// Creates a new remote document.
@@ -297,7 +309,7 @@ impl<I> RemoteDocument<I, jstrict::Value> {
     }
 }
 
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 impl<I> RemoteDocument<I, jstrict::Value> {
     /// Creates a remote document from a [`serde_json::Value`].
     pub fn from_serde_json(url: Option<I>, content_type: Option<MediaTypeBuf>, document: serde_json::Value) -> Self {
@@ -333,7 +345,9 @@ pub enum StandardProfile {
     Framed,
 }
 
+/// Standard JSON-LD profiles, as registered by the specification.
 impl StandardProfile {
+    /// Returns the standard profile denoted by `iri`, if any.
     pub fn from_iri(iri: Iri<&str>) -> Option<Self> {
         if iri == iri!("http://www.w3.org/ns/json-ld#expanded") {
             Some(Self::Expanded)
@@ -350,6 +364,7 @@ impl StandardProfile {
         }
     }
 
+    /// Returns the IRI of this `StandardProfile`.
     pub fn iri(&self) -> Iri<&'static str> {
         match self {
             Self::Expanded => iri!("http://www.w3.org/ns/json-ld#expanded"),
@@ -368,12 +383,16 @@ impl StandardProfile {
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Profile parameter of a JSON-LD media type.
 pub enum Profile<I = IriBuf> {
+    /// A profile registered by the JSON-LD specification.
     Standard(StandardProfile),
+    /// A profile outside the ones the specification registers.
     Custom(I),
 }
 
 impl Profile {
+    /// Creates a new `Profile`.
     pub fn new(iri: Iri<&str>) -> Self {
         match StandardProfile::from_iri(iri) {
             Some(p) => Self::Standard(p),
@@ -381,6 +400,7 @@ impl Profile {
         }
     }
 
+    /// Returns the IRI of this `Profile`.
     pub fn iri(&self) -> Iri<&str> {
         match self {
             Self::Standard(s) => s.iri(),
@@ -390,6 +410,7 @@ impl Profile {
 }
 
 impl<I> Profile<I> {
+    /// Builds a profile from an IRI, interning it in the given vocabulary.
     pub fn new_with(iri: Iri<&str>, vocabulary: &mut impl IriVocabularyMut<Iri = I>) -> Self {
         match StandardProfile::from_iri(iri) {
             Some(p) => Self::Standard(p),
@@ -406,6 +427,7 @@ impl<I> Profile<I> {
         }
     }
 
+    /// Rewrites the IRI of a custom profile.
     pub fn map_iri<J>(self, f: impl FnOnce(I) -> J) -> Profile<J> {
         match self {
             Self::Standard(p) => Profile::Standard(p),
@@ -418,17 +440,22 @@ impl<I> Profile<I> {
 /// load.
 #[derive(Debug, thiserror::Error)]
 #[error("loading document `{target}` failed: {source}")]
+/// Error raised while loading a remote document, with the URL that failed.
 pub struct LoadError<E> {
+    /// URL whose loading failed.
     pub target: IriBuf,
     #[source]
+    /// Underlying loader error.
     pub source: E,
 }
 
 impl<E> LoadError<E> {
+    /// Creates a new `LoadError`.
     pub fn new(target: IriBuf, source: E) -> Self {
         Self { target, source }
     }
 
+    /// Rewrites the underlying error, keeping the URL that failed.
     pub fn map_source<F, U>(self, f: F) -> LoadError<U>
     where
         F: FnOnce(E) -> U,
@@ -539,7 +566,9 @@ impl ExtractContextError {
     }
 }
 
+/// Documents from which a JSON-LD context can be extracted.
 pub trait ExtractContext {
+    /// Consumes this `ExtractContext`, returning its LD context.
     fn into_ld_context(self) -> Result<jsonld_syntax::context::Context, ExtractContextError>;
 }
 
@@ -558,7 +587,7 @@ impl ExtractContext for jstrict::Value {
     }
 }
 
-#[cfg(all(test, feature = "serde_json"))]
+#[cfg(all(test, feature = "serde-json"))]
 mod serde_json_tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;

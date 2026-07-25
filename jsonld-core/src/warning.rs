@@ -53,6 +53,7 @@ impl<W> Default for WarningBuf<W> {
 }
 
 impl<W> WarningBuf<W> {
+    /// Creates a new `WarningBuf`.
     pub fn new() -> Self {
         Self::default()
     }

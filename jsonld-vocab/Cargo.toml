@@ -6,9 +6,13 @@ categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
+readme.workspace = true
 rust-version.workspace = true
 version.workspace = true
 description = "Proc-macro that generates typed JSON-LD vocabulary constants from local JSON-LD context files"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 proc-macro = true

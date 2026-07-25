@@ -1,5 +1,7 @@
 use crate::{
+    HashMap,
     Id,
+    IndexSet,
     Indexed,
     IndexedObject,
     Node,
@@ -8,9 +10,8 @@ use crate::{
     TryFromJson,
     object::{FragmentRef, InvalidExpandedJson, Traverse},
 };
-use crate::{HashMap, IndexSet};
 use iri_rs::IriBuf;
-use rdf_rs::{
+use rdfx::{
     BlankIdBuf,
     LocalGenerator,
     vocabulary::{Vocabulary, VocabularyMut},
@@ -32,41 +33,49 @@ impl<T, B> Default for ExpandedDocument<T, B> {
 
 impl<T, B> ExpandedDocument<T, B> {
     #[inline(always)]
+    /// Creates a new `ExpandedDocument`.
     pub fn new() -> Self {
         Self::default()
     }
 
     #[inline(always)]
+    /// Returns the number of entries of this `ExpandedDocument`.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     #[inline(always)]
+    /// Checks whether this `ExpandedDocument` is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     #[inline(always)]
+    /// Returns the objects of this `ExpandedDocument`.
     pub fn objects(&self) -> &IndexSet<IndexedObject<T, B>> {
         &self.0
     }
 
     #[inline(always)]
+    /// Consumes this `ExpandedDocument`, returning its objects.
     pub fn into_objects(self) -> IndexSet<IndexedObject<T, B>> {
         self.0
     }
 
     #[inline(always)]
+    /// Returns an iterator over the entries of this `ExpandedDocument`.
     pub fn iter(&self) -> indexmap::set::Iter<'_, IndexedObject<T, B>> {
         self.0.iter()
     }
 
     #[inline(always)]
+    /// Returns the traverse of this `ExpandedDocument`.
     pub fn traverse(&self) -> Traverse<'_, T, B> {
         Traverse::new(self.iter().map(|o| FragmentRef::IndexedObject(o)))
     }
 
     #[inline(always)]
+    /// Checks whether this `ExpandedDocument` count.
     pub fn count(&self, f: impl FnMut(&FragmentRef<T, B>) -> bool) -> usize {
         self.traverse().filter(f).count()
     }
@@ -100,7 +109,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Eq + Hash,
         (): Vocabulary<Iri = T, BlankId = B>,
     {
-        self.identify_all_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
+        self.identify_all_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 
     /// Give an identifier (`@id`) to every nodes and canonicalize every
@@ -117,7 +126,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Clone + Eq + Hash,
     {
         let objects = std::mem::take(&mut self.0);
-        let mut relabeling = HashMap::new();
+        let mut relabeling = HashMap::default();
         let mut buffer = ryu_js::Buffer::new();
         for mut object in objects {
             object.relabel_with(vocabulary, generator, &mut relabeling)?;
@@ -137,7 +146,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Clone + Eq + Hash,
         (): Vocabulary<Iri = T, BlankId = B>,
     {
-        self.relabel_and_canonicalize_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
+        self.relabel_and_canonicalize_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 
     /// Relabels nodes.
@@ -152,7 +161,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Clone + Eq + Hash,
     {
         let objects = std::mem::take(&mut self.0);
-        let mut relabeling = HashMap::new();
+        let mut relabeling = HashMap::default();
         for mut object in objects {
             object.relabel_with(vocabulary, generator, &mut relabeling)?;
             self.0.insert(object);
@@ -168,7 +177,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Clone + Eq + Hash,
         (): Vocabulary<Iri = T, BlankId = B>,
     {
-        self.relabel_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator)
+        self.relabel_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 
     /// Puts this document literals into canonical form using the given
@@ -257,6 +266,7 @@ impl<T, B> ExpandedDocument<T, B> {
 
 impl<T: Hash + Eq, B: Hash + Eq> ExpandedDocument<T, B> {
     #[inline(always)]
+    /// Inserts an entry into this `ExpandedDocument`, returning the entry it replaced.
     pub fn insert(&mut self, object: IndexedObject<T, B>) -> bool {
         self.0.insert(object)
     }
@@ -317,6 +327,7 @@ impl<'a, T, B> IntoIterator for &'a ExpandedDocument<T, B> {
         self.iter()
     }
 }
+/// Owning iterator over the objects of an expanded document.
 pub struct IntoIter<T, B>(indexmap::set::IntoIter<IndexedObject<T, B>>);
 
 impl<T, B> Iterator for IntoIter<T, B> {
@@ -351,7 +362,9 @@ impl<T: Hash + Eq, B: Hash + Eq> From<Vec<IndexedObject<T, B>>> for ExpandedDocu
     }
 }
 
-#[cfg(all(test, feature = "serde_json"))]
+#[cfg(all(test, feature = "serde-json"))]
+// Test code may panic on failure; that is the point of a test.
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod serde_json_tests {
     use super::*;
     use crate::Id;
@@ -370,7 +383,7 @@ mod serde_json_tests {
     }
 }
 
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 impl<T, B> ExpandedDocument<T, B> {
     /// Converts the expanded document into a [`serde_json::Value`] using the
     /// given `vocabulary`.
@@ -383,7 +396,7 @@ impl<T, B> ExpandedDocument<T, B> {
     }
 }
 
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 impl<T, B> ExpandedDocument<T, B>
 where
     (): Vocabulary<Iri = T, BlankId = B>,
@@ -391,6 +404,6 @@ where
     /// Converts the expanded document into a [`serde_json::Value`] using the
     /// default no-vocabulary.
     pub fn into_serde_json(self) -> serde_json::Value {
-        self.into_serde_json_with(rdf_rs::vocabulary::no_vocabulary())
+        self.into_serde_json_with(rdfx::vocabulary::no_vocabulary())
     }
 }

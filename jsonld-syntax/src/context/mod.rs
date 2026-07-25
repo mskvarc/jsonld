@@ -1,8 +1,10 @@
 use iri_rs::{Iri, IriRef, IriRefBuf};
 use smallvec::SmallVec;
 
+/// Context definitions and their bindings.
 pub mod definition;
 mod print;
+/// Term definitions, simple and expanded.
 pub mod term_definition;
 mod try_from_json;
 
@@ -18,7 +20,9 @@ pub use try_from_json::InvalidContext;
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(clippy::large_enum_variant)]
 pub enum Context {
+    /// Exactly one value.
     One(ContextEntry),
+    /// Several values.
     Many(Vec<ContextEntry>),
 }
 
@@ -51,6 +55,7 @@ impl Context {
 }
 
 impl Context {
+    /// Returns the number of entries of this `Context`.
     pub fn len(&self) -> usize {
         match self {
             Self::One(_) => 1,
@@ -58,6 +63,7 @@ impl Context {
         }
     }
 
+    /// Checks whether this `Context` is empty.
     pub fn is_empty(&self) -> bool {
         match self {
             Self::One(_) => false,
@@ -65,6 +71,7 @@ impl Context {
         }
     }
 
+    /// Borrows this `Context` as slice, if it is one.
     pub fn as_slice(&self) -> &[ContextEntry] {
         match self {
             Self::One(c) => std::slice::from_ref(c),
@@ -72,6 +79,7 @@ impl Context {
         }
     }
 
+    /// Checks whether this `Context` is object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::One(c) => c.is_object(),
@@ -79,10 +87,12 @@ impl Context {
         }
     }
 
+    /// Checks whether this `Context` is array.
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
+    /// Returns the traverse of this `Context`.
     pub fn traverse(&self) -> Traverse<'_> {
         match self {
             Self::One(c) => Traverse::new(FragmentRef::Context(c)),
@@ -90,13 +100,17 @@ impl Context {
         }
     }
 
+    /// Returns an iterator over the entries of this `Context`.
     pub fn iter(&self) -> std::slice::Iter<'_, ContextEntry> {
         self.as_slice().iter()
     }
 }
 
+/// Owning iterator over the entries of a context.
 pub enum IntoIter {
+    /// Exactly one value.
     One(Option<ContextEntry>),
+    /// Several values.
     Many(std::vec::IntoIter<ContextEntry>),
 }
 
@@ -172,8 +186,11 @@ impl From<Definition> for Context {
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
 pub enum ContextEntry {
+    /// The null value.
     Null,
+    /// An IRI reference.
     IriRef(IriRefBuf),
+    /// A term definition.
     Definition(Definition),
 }
 
@@ -185,6 +202,7 @@ impl ContextEntry {
         }
     }
 
+    /// Checks whether this `ContextEntry` is object.
     pub fn is_object(&self) -> bool {
         matches!(self, Self::Definition(_))
     }
@@ -233,6 +251,7 @@ pub enum FragmentRef<'a> {
 }
 
 impl<'a> FragmentRef<'a> {
+    /// Checks whether this `FragmentRef` is array.
     pub fn is_array(&self) -> bool {
         match self {
             Self::ContextArray(_) => true,
@@ -241,6 +260,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Context(c) => c.is_object(),
@@ -249,6 +269,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
+    /// Returns the sub items of this `FragmentRef`.
     pub fn sub_items(&self) -> SubFragments<'a> {
         match self {
             Self::ContextArray(a) => SubFragments::ContextArray(a.iter()),
@@ -258,8 +279,11 @@ impl<'a> FragmentRef<'a> {
     }
 }
 
+/// Iterator over the fragments held by a single context entry.
 pub enum ContextSubFragments<'a> {
+    /// No value.
     None,
+    /// A term definition.
     Definition(Box<definition::Entries<'a>>),
 }
 
@@ -274,9 +298,13 @@ impl<'a> Iterator for ContextSubFragments<'a> {
     }
 }
 
+/// Iterator over the fragments held by a context.
 pub enum SubFragments<'a> {
+    /// The entries of an array of contexts.
     ContextArray(std::slice::Iter<'a, ContextEntry>),
+    /// The fragments of a single context.
     Context(ContextSubFragments<'a>),
+    /// A term definition.
     Definition(Box<definition::SubItems<'a>>),
 }
 
@@ -292,6 +320,7 @@ impl<'a> Iterator for SubFragments<'a> {
     }
 }
 
+/// Depth-first iterator over a context and everything it contains.
 pub struct Traverse<'a> {
     stack: SmallVec<[FragmentRef<'a>; 8]>,
 }
@@ -326,5 +355,6 @@ impl<'a> Iterator for Traverse<'a> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ContextDocument {
     #[cfg_attr(feature = "serde", serde(rename = "@context"))]
+    /// The `@context` entry, holding a context local to this definition.
     pub context: Context,
 }

@@ -1,7 +1,7 @@
 use crate::HashSet;
 use iri_rs::{Iri, iri};
 use jstrict::Parse;
-use rdf_rs::{
+use rdfx::{
     GeneralizedQuad as Quad,
     LiteralTypeRef,
     interpretation::{ReverseIdInterpretation, ReverseIriInterpretation, ReverseTermInterpretation},
@@ -82,9 +82,9 @@ struct SerList<R> {
 impl<R> Default for SerList<R> {
     fn default() -> Self {
         Self {
-            first: HashSet::new(),
-            rest: HashSet::new(),
-            reverse_rest: HashSet::new(),
+            first: HashSet::default(),
+            rest: HashSet::default(),
+            reverse_rest: HashSet::default(),
             values: None,
         }
     }
@@ -200,9 +200,10 @@ fn rdf_type<'a, V: IriVocabulary, I: ReverseIriInterpretation<Iri = V::Iri>>(
 ) -> RdfType<&'a I::Resource> {
     for i in interpretation.iris_of(id) {
         if let Some(iri) = vocabulary.iri(i)
-            && iri == RDF_LIST {
-                return RdfType::List;
-            }
+            && iri == RDF_LIST
+        {
+            return RdfType::List;
+        }
     }
 
     RdfType::Other(id)
@@ -232,6 +233,8 @@ pub struct RdfTerms<R> {
 }
 
 impl<I, B> ExpandedDocument<I, B> {
+    /// Builds a document from interpreted RDF quads, using the given
+    /// vocabulary and interpretation.
     pub fn from_interpreted_quads_in<'a, V, T>(
         vocabulary: &V,
         interpretation: &T,
@@ -240,7 +243,7 @@ impl<I, B> ExpandedDocument<I, B> {
     ) -> Result<Self, SerializationError>
     where
         V: Vocabulary<Iri = I, BlankId = B>,
-        T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
+        T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal> + rdfx::interpretation::ReverseInterpretation,
         T::Resource: 'a + Ord + Hash,
         I: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
@@ -278,9 +281,10 @@ impl<I, B> ExpandedDocument<I, B> {
                     if nil.is_none() {
                         for i in ReverseIriInterpretation::iris_of(interpretation, quad.2) {
                             if let Some(iri) = vocabulary.iri(i)
-                                && iri == RDF_NIL {
-                                    nil = Some(quad.2);
-                                }
+                                && iri == RDF_NIL
+                            {
+                                nil = Some(quad.2);
+                            }
                         }
                     }
 
@@ -305,37 +309,42 @@ impl<I, B> ExpandedDocument<I, B> {
 
         let mut lists = Vec::new();
         if let Some(nil_id) = nil
-            && let Some(nil) = graph.get(&nil_id) {
-                for &node_id in &nil.list.reverse_rest {
-                    let mut head_id = node_id;
-                    if is_anonymous(interpretation, head_id)
-                        && let Some(mut head) = graph.get(&head_id)
-                            && head.references == 1 && head.is_list_node() {
-                                let mut values = Vec::new();
+            && let Some(nil) = graph.get(&nil_id)
+        {
+            for &node_id in &nil.list.reverse_rest {
+                let mut head_id = node_id;
+                if is_anonymous(interpretation, head_id)
+                    && let Some(mut head) = graph.get(&head_id)
+                    && head.references == 1
+                    && head.is_list_node()
+                {
+                    let mut values = Vec::new();
 
-                                loop {
-                                    // SAFETY: `head.is_list_node()` implies non-empty
-                                    // `first` and `reverse_rest`.
-                                    let first = unsafe { head.list.first.iter().next().copied().unwrap_unchecked() };
-                                    let parent_id = unsafe { head.list.reverse_rest.iter().next().copied().unwrap_unchecked() };
-                                    values.push(first);
+                    loop {
+                        // SAFETY: `head.is_list_node()` implies non-empty
+                        // `first` and `reverse_rest`.
+                        let first = unsafe { head.list.first.iter().next().copied().unwrap_unchecked() };
+                        let parent_id = unsafe { head.list.reverse_rest.iter().next().copied().unwrap_unchecked() };
+                        values.push(first);
 
-                                    if is_anonymous(interpretation, parent_id)
-                                        && let Some(parent) = graph.get(&parent_id)
-                                            && parent.references == 1 && parent.is_list_node() {
-                                                head_id = parent_id;
-                                                head = parent;
-                                                continue;
-                                            }
+                        if is_anonymous(interpretation, parent_id)
+                            && let Some(parent) = graph.get(&parent_id)
+                            && parent.references == 1
+                            && parent.is_list_node()
+                        {
+                            head_id = parent_id;
+                            head = parent;
+                            continue;
+                        }
 
-                                    break;
-                                }
+                        break;
+                    }
 
-                                values.reverse();
-                                lists.push((head_id, values))
-                            }
+                    values.reverse();
+                    lists.push((head_id, values))
                 }
             }
+        }
 
         for (id, values) in lists {
             graph.resource_mut(id).list.values = Some(values)
@@ -351,6 +360,7 @@ impl<I, B> ExpandedDocument<I, B> {
         Ok(result)
     }
 
+    /// Builds a document from interpreted RDF quads.
     pub fn from_interpreted_quads<'a, V, T>(
         vocabulary: &V,
         interpretation: &T,
@@ -358,7 +368,7 @@ impl<I, B> ExpandedDocument<I, B> {
     ) -> Result<Self, SerializationError>
     where
         V: Vocabulary<Iri = I, BlankId = B>,
-        T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
+        T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal> + rdfx::interpretation::ReverseInterpretation,
         T::Resource: 'a + Ord + Hash,
         I: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
@@ -378,7 +388,7 @@ fn render_object<V, I>(
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
     V: Vocabulary,
-    I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
+    I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdfx::interpretation::ReverseInterpretation,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I::Resource: Ord,
@@ -488,7 +498,7 @@ fn insert_property<'a, V, I, O>(
 ) -> Result<(), SerializationError>
 where
     V: Vocabulary,
-    I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
+    I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdfx::interpretation::ReverseInterpretation,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I::Resource: 'a + Ord,
@@ -528,7 +538,7 @@ fn render_object_or_reference<V, I>(
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
     V: Vocabulary,
-    I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
+    I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdfx::interpretation::ReverseInterpretation,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I::Resource: Ord,
@@ -554,8 +564,8 @@ fn render_reference<V, I>(
 where
     V: Vocabulary,
     I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>
-        + rdf_rs::interpretation::ReverseInterpretation
-        + rdf_rs::interpretation::ReverseInterpretation,
+        + rdfx::interpretation::ReverseInterpretation
+        + rdfx::interpretation::ReverseInterpretation,
     V::Iri: Clone,
     V::BlankId: Clone,
     I::Resource: Ord,
@@ -590,13 +600,13 @@ fn term_of<V, T>(
 ) -> Result<Option<ResourceTerm<V>>, SerializationError>
 where
     V: Vocabulary,
-    T: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdf_rs::interpretation::ReverseInterpretation,
+    T: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal> + rdfx::interpretation::ReverseInterpretation,
     V::Iri: Clone,
     V::BlankId: Clone,
 {
     match id_of(interpretation, resource) {
         Some(id) => Ok(Some(SerTerm::Id(id))),
-        None => match rdf_rs::interpretation::ReverseLiteralInterpretation::literals_of(interpretation, resource).next() {
+        None => match rdfx::interpretation::ReverseLiteralInterpretation::literals_of(interpretation, resource).next() {
             Some(l) => {
                 // SAFETY: `l` was returned by `literals_of` of this interpretation,
                 // which sources literals from this vocabulary.
@@ -608,15 +618,18 @@ where
                         // part of literal insertion.
                         let ty_handle = unsafe { vocabulary.get(ty).unwrap_unchecked() };
                         if ty == RDF_JSON {
-                            let (json, _) =
-                                jstrict::Value::parse_str(l.value).map_err(|e| SerializationError::InvalidJson(Box::new(context.into_iris(interpretation)), e))?;
+                            let (json, _) = jstrict::Value::parse_str(l.value)
+                                .map_err(|e| SerializationError::InvalidJson(Box::new(context.into_iris(interpretation)), e))?;
                             Value::Json(json)
                         } else if ty == XSD_BOOLEAN {
                             let b = match l.as_ref() {
                                 "true" | "1" => true,
                                 "false" | "0" => false,
                                 other => {
-                                    return Err(SerializationError::InvalidBoolean(Box::new(context.into_iris(interpretation)), other.to_owned()));
+                                    return Err(SerializationError::InvalidBoolean(
+                                        Box::new(context.into_iris(interpretation)),
+                                        other.to_owned(),
+                                    ));
                                 }
                             };
 

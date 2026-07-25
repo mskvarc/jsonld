@@ -3,23 +3,19 @@
 
 #![allow(clippy::unwrap_used)]
 
-use jsonld_expandable_core::attrs::{parse_container, parse_field};
-use jsonld_expandable_core::ir::{Coerce, ContainerKind};
+use jsonld_expandable_core::{
+    attrs::{parse_container, parse_field},
+    ir::{Coerce, ContainerKind},
+};
 
 fn parse_field_attrs(src: &str) -> jsonld_expandable_core::ir::FieldIr {
-    let item: syn::ItemStruct = syn::parse_str(&format!(
-        "struct S {{ {src} pub x: String, }}"
-    ))
-    .unwrap();
+    let item: syn::ItemStruct = syn::parse_str(&format!("struct S {{ {src} pub x: String, }}")).unwrap();
     let field = item.fields.iter().next().unwrap();
     parse_field(&field.attrs).unwrap()
 }
 
 fn parse_container_attrs(src: &str) -> jsonld_expandable_core::ir::ContainerIr {
-    let item: syn::ItemStruct = syn::parse_str(&format!(
-        "{src} struct S {{ pub x: String, }}"
-    ))
-    .unwrap();
+    let item: syn::ItemStruct = syn::parse_str(&format!("{src} struct S {{ pub x: String, }}")).unwrap();
     parse_container(&item.attrs).unwrap()
 }
 
@@ -31,9 +27,7 @@ fn container_type_iri() {
 
 #[test]
 fn container_prefix_table() {
-    let c = parse_container_attrs(
-        "#[jsonld(type = \"https://example.com/T\", prefix(ngsi = \"https://uri.etsi.org/ngsi-ld/\"))]",
-    );
+    let c = parse_container_attrs("#[jsonld(type = \"https://example.com/T\", prefix(ngsi = \"https://uri.etsi.org/ngsi-ld/\"))]");
     assert_eq!(c.prefixes, vec![("ngsi".into(), "https://uri.etsi.org/ngsi-ld/".into())]);
 }
 
@@ -69,13 +63,8 @@ fn legacy_vocab_vec_lowers_to_coerce_id_plus_vec() {
 
 #[test]
 fn legacy_typed_value_lowers_to_coerce_datatype() {
-    let f = parse_field_attrs(
-        "#[jsonld(property = \"https://e.com/p\", typed_value, datatype = \"http://www.w3.org/2001/XMLSchema#dateTime\")]",
-    );
-    assert_eq!(
-        f.coerce,
-        Some(Coerce::Datatype("http://www.w3.org/2001/XMLSchema#dateTime".into()))
-    );
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", typed_value, datatype = \"http://www.w3.org/2001/XMLSchema#dateTime\")]");
+    assert_eq!(f.coerce, Some(Coerce::Datatype("http://www.w3.org/2001/XMLSchema#dateTime".into())));
 }
 
 #[test]
@@ -115,19 +104,14 @@ fn legacy_flatten_map_lowers_to_flatten_map() {
 
 #[test]
 fn flatten_with_property_errors() {
-    let item: syn::ItemStruct = syn::parse_str(
-        "struct S { #[jsonld(flatten_object, property = \"https://e.com/p\")] pub x: String, }",
-    )
-    .unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(flatten_object, property = \"https://e.com/p\")] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
 
 #[test]
 fn flatten_and_flatten_map_mutually_exclusive() {
-    let item: syn::ItemStruct =
-        syn::parse_str("struct S { #[jsonld(flatten_object, flatten_map)] pub x: String, }")
-            .unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(flatten_object, flatten_map)] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
@@ -143,10 +127,7 @@ fn legacy_custom_lowers_to_passthrough() {
 
 #[test]
 fn passthrough_with_coerce_errors() {
-    let item: syn::ItemStruct = syn::parse_str(
-        "struct S { #[jsonld(property = \"https://e.com/p\", custom, vocab)] pub x: String, }",
-    )
-    .unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", custom, vocab)] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
@@ -167,16 +148,14 @@ fn legacy_nested_no_op_marker() {
 
 #[test]
 fn unknown_attr_errors() {
-    let item: syn::ItemStruct =
-        syn::parse_str("struct S { #[jsonld(bogus)] pub x: String, }").unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(bogus)] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
 
 #[test]
 fn vocab_polymorphic_errors() {
-    let item: syn::ItemStruct =
-        syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", vocab_polymorphic)] pub x: String, }").unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", vocab_polymorphic)] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }

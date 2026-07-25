@@ -3,7 +3,9 @@ use std::hash::Hash;
 use crate::is_keyword;
 
 #[derive(Clone, PartialOrd, Ord, Debug)]
+/// Value of the `@nest` entry of a term definition.
 pub enum Nest {
+    /// The `@nest` keyword itself.
     Nest,
 
     /// Must not be a keyword.
@@ -11,6 +13,7 @@ pub enum Nest {
 }
 
 impl Nest {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Nest => "@nest",
@@ -18,6 +21,7 @@ impl Nest {
         }
     }
 
+    /// Consumes this `Nest`, returning its string.
     pub fn into_string(self) -> String {
         match self {
             Self::Nest => "@nest".to_string(),
@@ -46,6 +50,7 @@ impl Hash for Nest {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid `@nest` value")]
+/// Error raised when a `@nest` value is neither `@nest` nor a term.
 pub struct InvalidNest(pub String);
 
 impl TryFrom<String> for Nest {

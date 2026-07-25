@@ -13,11 +13,15 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for IndexSet<T> {
     }
 }
 
+/// Values convertible into JSON through a vocabulary.
 pub trait IntoJsonWithContext<N>: Sized {
+    /// Consumes this `IntoJsonWithContext`, returning its JSON with.
     fn into_json_with(self, context: &N) -> jstrict::Value;
 }
 
+/// Values convertible into JSON.
 pub trait IntoJson: Sized {
+    /// Consumes this `IntoJson`, returning its JSON.
     fn into_json(self) -> jstrict::Value;
 }
 

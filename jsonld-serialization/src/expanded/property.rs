@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use jsonld_core::{Indexed, IndexedNode, IndexedObject, object::node::Multiset};
 use ld_core::LinkedDataResource;
-use rdf_rs::{
+use rdfx::{
     Interpretation,
     interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
     vocabulary::Vocabulary,
@@ -30,7 +30,7 @@ impl<'a, I, V: Vocabulary> SerializeProperty<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeProperty<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,
@@ -70,7 +70,7 @@ impl<'a, I, V: Vocabulary> SerializeReverseProperty<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeReverseProperty<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,

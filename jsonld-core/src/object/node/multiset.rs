@@ -1,6 +1,8 @@
 use std::hash::{BuildHasher, Hash};
 
 #[derive(Debug, Default, Clone, Copy)]
+/// Hasher builder giving the same hashes across runs, so multiset
+/// iteration order is reproducible.
 pub struct DeterministicHasherBuilder;
 
 impl BuildHasher for DeterministicHasherBuilder {
@@ -30,6 +32,7 @@ impl<T, S: Default> Default for Multiset<T, S> {
 }
 
 impl<T, S> Multiset<T, S> {
+    /// Creates a new `Multiset`.
     pub fn new() -> Self
     where
         S: Default,
@@ -37,6 +40,7 @@ impl<T, S> Multiset<T, S> {
         Self::default()
     }
 
+    /// Returns this `Multiset` with its capacity set.
     pub fn with_capacity(cap: usize) -> Self
     where
         S: Default,
@@ -47,14 +51,17 @@ impl<T, S> Multiset<T, S> {
         }
     }
 
+    /// Returns the number of entries of this `Multiset`.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Checks whether this `Multiset` is empty.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
+    /// Checks whether this `Multiset` contains.
     pub fn contains(&self, value: &T) -> bool
     where
         T: PartialEq,
@@ -62,14 +69,17 @@ impl<T, S> Multiset<T, S> {
         self.data.contains(value)
     }
 
+    /// Returns an iterator over the entries of this `Multiset`.
     pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.data.iter()
     }
 
+    /// Returns a mutable iterator over the entries of this `Multiset`.
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 
+    /// Borrows this `Multiset` as slice, if it is one.
     pub fn as_slice(&self) -> &[T] {
         &self.data
     }
@@ -80,6 +90,7 @@ impl<T, S> Multiset<T, S> {
 }
 
 impl<T: Hash, S: BuildHasher> Multiset<T, S> {
+    /// Builds a multiset holding a single value.
     pub fn singleton(value: T) -> Self
     where
         S: Default,
@@ -89,10 +100,12 @@ impl<T: Hash, S: BuildHasher> Multiset<T, S> {
         result
     }
 
+    /// Inserts an entry into this `Multiset`, returning the entry it replaced.
     pub fn insert(&mut self, value: T) {
         self.data.push(value);
     }
 
+    /// Checks whether this `Multiset` insert unique.
     pub fn insert_unique(&mut self, value: T) -> bool
     where
         T: PartialEq,

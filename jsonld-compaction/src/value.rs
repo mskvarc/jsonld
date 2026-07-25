@@ -3,7 +3,7 @@ use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{Container, ContainerKind, Context, Id, Loader, ParallelSafeVocabulary, Term, Type, Value, object};
 use jsonld_syntax::Keyword;
 use mown::Mown;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Compact the given indexed value.
@@ -26,20 +26,21 @@ where
     let mut active_context = Mown::Borrowed(active_context);
     if let Some(active_property) = active_property
         && let Some(active_property_definition) = active_context.get(active_property)
-            && let Some(local_context) = active_property_definition.context() {
-                active_context = Mown::Owned(
-                    local_context
-                        .process_with(
-                            vocabulary,
-                            active_context.as_ref(),
-                            loader,
-                            active_property_definition.base_url().cloned(),
-                            ProcessingOptions::from(options).with_override(),
-                        )
-                        .await?
-                        .into_processed(),
+        && let Some(local_context) = active_property_definition.context()
+    {
+        active_context = Mown::Owned(
+            local_context
+                .process_with(
+                    vocabulary,
+                    active_context.as_ref(),
+                    loader,
+                    active_property_definition.base_url().cloned(),
+                    ProcessingOptions::from(options).with_override(),
                 )
-            }
+                .await?
+                .into_processed(),
+        )
+    }
 
     // If element has an @value or @id entry and the result of using the Value Compaction algorithm,
     // passing active context, active property, and element as value is a scalar,
@@ -187,11 +188,10 @@ where
         }
     }
 
-    if !remove_index
-        && let Some(index) = index {
-            let index_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Index);
-            result.insert(index_key.into(), jstrict::Value::String(index.into()));
-        }
+    if !remove_index && let Some(index) = index {
+        let index_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Index);
+        result.insert(index_key.into(), jstrict::Value::String(index.into()));
+    }
 
     Ok(jstrict::Value::Object(result))
 }

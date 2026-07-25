@@ -22,7 +22,7 @@ pub mod iri;
 
 mod value;
 
-#[cfg(any(feature = "serde_json", feature = "sonic_rs", feature = "jstrict"))]
+#[cfg(any(feature = "serde-json", feature = "sonic-rs", feature = "jstrict"))]
 mod backends;
 
 #[cfg(feature = "chrono")]
@@ -43,6 +43,7 @@ pub trait Expandable {
 /// Implement this for fields tagged with `#[jsonld(type_value)]` to provide a
 /// `@type` array whose contents are computed at runtime.
 pub trait ExpandableTypeValue {
+    /// Returns the to type array of this `ExpandableTypeValue`.
     fn to_type_array<V: JsonValue>(&self) -> V;
 }
 
@@ -51,6 +52,7 @@ pub trait ExpandableTypeValue {
 /// `HashMap<String, T>` automatically routes through the built-in language-map
 /// codegen path; implement this when you need a custom type to participate.
 pub trait ExpandableLanguageMap {
+    /// Returns the to expanded language map of this `ExpandableLanguageMap`.
     fn to_expanded_language_map<V: JsonValue>(&self) -> V;
 }
 

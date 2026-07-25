@@ -49,17 +49,13 @@ use jsonld_syntax::{
         term_definition::{self, IdRef},
     },
 };
-use rdf_rs::{BlankId, vocabulary::VocabularyMut};
+use rdfx::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};
 
-type ExpandIriResult<N, L> = Result<
-    Option<Arc<Term<<N as rdf_rs::vocabulary::IriVocabulary>::Iri, <N as rdf_rs::vocabulary::BlankIdVocabulary>::BlankId>>>,
-    Error<<L as Loader>::Error>,
->;
-type ProcessContextResult<'l, N, L> = Result<
-    crate::Processed<'l, <N as rdf_rs::vocabulary::IriVocabulary>::Iri, <N as rdf_rs::vocabulary::BlankIdVocabulary>::BlankId>,
-    Error<<L as Loader>::Error>,
->;
+type ExpandIriResult<N, L> =
+    Result<Option<Arc<Term<<N as rdfx::vocabulary::IriVocabulary>::Iri, <N as rdfx::vocabulary::BlankIdVocabulary>::BlankId>>>, Error<<L as Loader>::Error>>;
+type ProcessContextResult<'l, N, L> =
+    Result<crate::Processed<'l, <N as rdfx::vocabulary::IriVocabulary>::Iri, <N as rdfx::vocabulary::BlankIdVocabulary>::BlankId>, Error<<L as Loader>::Error>>;
 
 /// Returns `true` if the given context (or any context nested in a term
 /// definition's `@context`) references a remote `@context` IRI or contains
@@ -91,9 +87,10 @@ fn entry_requires_loader(entry: &syntax::ContextEntry) -> bool {
                 };
                 if let term_definition::TermDefinition::Expanded(e) = term_def
                     && let Some(nested) = e.context.as_deref()
-                        && requires_loader(nested) {
-                            return true;
-                        }
+                    && requires_loader(nested)
+                {
+                    return true;
+                }
             }
             false
         }
@@ -170,9 +167,10 @@ where
 
             if let Some(term_definition) = active_context.get(value) {
                 if let Some(arc) = term_definition.value_arc()
-                    && arc.is_keyword() {
-                        return Ok(Some(Arc::clone(arc)));
-                    }
+                    && arc.is_keyword()
+                {
+                    return Ok(Some(Arc::clone(arc)));
+                }
 
                 if vocab.is_some() {
                     return match term_definition.value_arc() {
@@ -211,12 +209,13 @@ where
                     let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key)
                         && term_definition.prefix
-                            && let Some(mapping) = term_definition.value() {
-                                let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
-                                result.push_str(compact_iri.suffix());
+                        && let Some(mapping) = term_definition.value()
+                    {
+                        let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
+                        result.push_str(compact_iri.suffix());
 
-                                return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
-                            }
+                        return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
+                    }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
@@ -245,9 +244,10 @@ where
 
             if document_relative
                 && let Ok(iri_ref) = IriRef::parse(value)
-                    && let Some(iri) = resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
-                        return Ok(Some(Arc::new(Term::from(iri))));
-                    }
+                && let Some(iri) = resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
+            {
+                return Ok(Some(Arc::new(Term::from(iri))));
+            }
 
             Ok(Some(Arc::new(invalid_iri(&mut env, value.to_string()))))
         }
@@ -256,7 +256,7 @@ where
 
 fn invalid_iri<N, L, W: jsonld_core::warning::Handler<N, Warning>>(env: &mut Environment<N, L, W>, value: String) -> Term<N::Iri, N::BlankId>
 where
-    N: rdf_rs::vocabulary::Vocabulary,
+    N: rdfx::vocabulary::Vocabulary,
 {
     env.warnings.handle(env.vocabulary, MalformedIri(value.clone()).into());
     Term::Id(Id::Invalid(value))
@@ -311,13 +311,14 @@ where
 
                     if !options.override_protected
                         && let Some(previous_definition) = previous_definition
-                            && previous_definition.protected {
-                                if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
-                                    return Err(Error::ProtectedTermRedefinition);
-                                }
+                        && previous_definition.protected
+                    {
+                        if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
+                            return Err(Error::ProtectedTermRedefinition);
+                        }
 
-                                definition.protected = true;
-                            }
+                        definition.protected = true;
+                    }
 
                     active_context.set_type(Some(definition));
                 }
@@ -514,9 +515,10 @@ where
 
                                         if let Some(prefix_key) = prefix_definition.value()
                                             && let Some(prefix_iri) = prefix_key.as_iri()
-                                                && let Some(iri) = env.vocabulary.iri(prefix_iri) {
-                                                    result = iri.to_string()
-                                                }
+                                            && let Some(iri) = env.vocabulary.iri(prefix_iri)
+                                        {
+                                            result = iri.to_string()
+                                        }
 
                                         result.push_str(compact_iri.suffix());
 
@@ -543,7 +545,9 @@ where
                                                         false,
                                                         Some(options.vocab),
                                                     )? {
-                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => definition.value = Some(arc),
+                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
+                                                            definition.value = Some(arc)
+                                                        }
                                                         _ => return Err(Error::InvalidIriMapping),
                                                     }
                                                 }
@@ -611,7 +615,9 @@ where
                             Nullable::Some(index_value.as_str().into()),
                             false,
                             Some(options.vocab),
-                        )?.as_deref() {
+                        )?
+                        .as_deref()
+                        {
                             Some(Term::Id(Id::Valid(ValidId::Iri(_)))) => (),
                             _ => return Err(Error::InvalidTermDefinition),
                         }
@@ -667,13 +673,14 @@ where
 
                     if !options.override_protected
                         && let Some(previous_definition) = previous_definition
-                            && previous_definition.protected {
-                                if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
-                                    return Err(Error::ProtectedTermRedefinition);
-                                }
+                        && previous_definition.protected
+                    {
+                        if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
+                            return Err(Error::ProtectedTermRedefinition);
+                        }
 
-                                definition.protected = true;
-                            }
+                        definition.protected = true;
+                    }
 
                     active_context.set_normal(key.to_owned(), Some(definition));
                 }
@@ -711,13 +718,14 @@ where
     let mut result = active_context.clone();
 
     if let syntax::context::Context::One(syntax::ContextEntry::Definition(def)) = local_context
-        && let Some(propagate) = def.propagate {
-            if options.processing_mode == ProcessingMode::JsonLd1_0 {
-                return Err(Error::InvalidContextEntry);
-            }
-
-            options.propagate = propagate
+        && let Some(propagate) = def.propagate
+    {
+        if options.processing_mode == ProcessingMode::JsonLd1_0 {
+            return Err(Error::InvalidContextEntry);
         }
+
+        options.propagate = propagate
+    }
 
     if !options.propagate && result.previous_context().is_none() {
         result.set_previous_context(active_context.clone());
@@ -758,20 +766,21 @@ where
                 let context = Merged::new(context, None);
 
                 if remote_contexts.is_empty()
-                    && let Some(value) = context.base() {
-                        match value {
-                            syntax::Nullable::Null => {
-                                result.set_base_iri(None);
-                            }
-                            syntax::Nullable::Some(iri_ref) => match Iri::try_from(iri_ref.as_ref()) {
-                                Ok(iri) => result.set_base_iri(Some(env.vocabulary.insert(iri))),
-                                Err(_) => {
-                                    let resolved = resolve_iri(env.vocabulary, iri_ref.as_ref(), result.base_iri()).ok_or(Error::InvalidBaseIri)?;
-                                    result.set_base_iri(Some(resolved))
-                                }
-                            },
+                    && let Some(value) = context.base()
+                {
+                    match value {
+                        syntax::Nullable::Null => {
+                            result.set_base_iri(None);
                         }
+                        syntax::Nullable::Some(iri_ref) => match Iri::try_from(iri_ref.as_ref()) {
+                            Ok(iri) => result.set_base_iri(Some(env.vocabulary.insert(iri))),
+                            Err(_) => {
+                                let resolved = resolve_iri(env.vocabulary, iri_ref.as_ref(), result.base_iri()).ok_or(Error::InvalidBaseIri)?;
+                                result.set_base_iri(Some(resolved))
+                            }
+                        },
                     }
+                }
 
                 if let Some(value) = context.vocab() {
                     match value {

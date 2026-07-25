@@ -1,5 +1,6 @@
 //! Context processing algorithm and related types.
 mod definition;
+/// Inverse context, used to pick terms during compaction.
 pub mod inverse;
 
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term, ValidId as Id};
@@ -8,7 +9,7 @@ use iri_rs::IriBuf;
 use jsonld_syntax::{Keyword, KeywordType, Nullable};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use rdf_rs::{BlankIdBuf, vocabulary::Vocabulary};
+use rdfx::{BlankIdBuf, vocabulary::Vocabulary};
 use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
 pub use jsonld_syntax::context::{
@@ -37,9 +38,11 @@ pub struct InvalidContextKey;
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum InvalidContextError {
     #[error(transparent)]
+    /// The `@vocab` entry is invalid.
     InvalidVocab(#[from] InvalidVocab),
 
     #[error(transparent)]
+    /// A context key is invalid.
     InvalidContextKey(#[from] InvalidContextKey),
 }
 
@@ -87,6 +90,7 @@ pub struct KeywordAliases {
 }
 
 impl KeywordAliases {
+    /// Creates a new `KeywordAliases`.
     pub fn new(aliases: [Box<str>; 13]) -> Self {
         Self { aliases }
     }
@@ -144,6 +148,8 @@ fn keyword_alias_index(k: Keyword) -> Option<usize> {
 type CompactIriCache<T, B> = Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>>;
 type TermResolutionCache<T, B> = Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>>;
 
+/// Active context: everything the algorithms need to expand or compact
+/// against the current scope.
 pub struct Context<T = IriBuf, B = BlankIdBuf> {
     original_base_url: Option<T>,
     base_iri: Option<T>,
@@ -188,6 +194,7 @@ impl<T, B> Default for Context<T, B> {
     }
 }
 
+/// Binding of a context definition, key and term definition together.
 pub type DefinitionEntryRef<'a, T = IriBuf, B = BlankIdBuf> = (&'a Key, &'a TermDefinition<T, B>);
 
 impl<T, B> Context<T, B> {
@@ -499,6 +506,8 @@ impl<T, B> Context<T, B> {
         })
     }
 
+    /// Rewrites every IRI and identifier of this context with the given
+    /// functions.
     pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Context<U, C>
     where
         T: Clone,
@@ -531,6 +540,7 @@ impl<T, B> Context<T, B> {
 
 /// Context fragment to syntax method.
 pub trait IntoSyntax<T = IriBuf, B = BlankIdBuf> {
+    /// Consumes this `IntoSyntax`, returning its syntax.
     fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError>;
 }
 
@@ -542,7 +552,9 @@ impl<T, B> IntoSyntax<T, B> for jsonld_syntax::context::Context {
 
 impl<T: Clone, B: Clone> IntoSyntax<T, B> for Context<T, B> {
     fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError> {
-        Ok(jsonld_syntax::context::Context::One(jsonld_syntax::ContextEntry::Definition(self.into_syntax_definition(vocabulary)?)))
+        Ok(jsonld_syntax::context::Context::One(jsonld_syntax::ContextEntry::Definition(
+            self.into_syntax_definition(vocabulary)?,
+        )))
     }
 }
 

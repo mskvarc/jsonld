@@ -34,9 +34,7 @@ use syn::parse_macro_input;
 pub fn generate(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as MacroInput);
 
-    expand(input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+    expand(input).unwrap_or_else(syn::Error::into_compile_error).into()
 }
 
 fn expand(input: MacroInput) -> syn::Result<proc_macro2::TokenStream> {

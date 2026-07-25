@@ -8,7 +8,7 @@ use std::hash::Hash;
 use jsonld_core::{ExpandedDocument, Node, Object};
 
 use ld_core::{LinkedData, LinkedDataResource, LinkedDataSubject};
-use rdf_rs::{
+use rdfx::{
     Interpretation,
     interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
     vocabulary::Vocabulary,
@@ -21,27 +21,33 @@ use expanded::SerializeExpandedDocument;
 pub use expanded::{serialize_node_with, serialize_object_with};
 
 #[derive(Debug, thiserror::Error)]
+/// Error raised while serializing a document.
 pub enum Error {
     #[error("invalid graph label")]
+    /// Invalid graph label.
     InvalidGraph,
 
     #[error("invalid predicate")]
+    /// Invalid predicate.
     InvalidPredicate,
 
     #[error("invalid node object")]
+    /// Invalid node object.
     InvalidNode,
 
     #[error("reverse properties on lists are not supported")]
+    /// Reverse properties on lists are not supported.
     ListReverseProperty,
 
     #[error("included nodes on lists are not supported")]
+    /// Included nodes on lists are not supported.
     ListInclude,
 }
 
-type DefaultInterpretation = rdf_rs::generator::LocalGeneratorInterpretation<rdf_rs::generator::Blank>;
+type DefaultInterpretation = rdfx::generator::LocalGeneratorInterpretation<rdfx::generator::Blank>;
 
 fn default_interpretation() -> DefaultInterpretation {
-    rdf_rs::generator::LocalGeneratorInterpretation::new(rdf_rs::generator::Blank::new())
+    rdfx::generator::LocalGeneratorInterpretation::new(rdfx::generator::Blank::new())
 }
 
 /// Serialize the given Linked-Data value into a JSON-LD document.
@@ -53,7 +59,7 @@ pub fn serialize(value: &impl LinkedData<DefaultInterpretation>) -> Result<Expan
 /// custom vocabulary and interpretation.
 pub fn serialize_with<V, I>(vocabulary: &mut V, interpretation: &mut I, value: &impl LinkedData<I>) -> Result<ExpandedDocument<V::Iri, V::BlankId>, Error>
 where
-    V: Vocabulary + rdf_rs::vocabulary::VocabularyMut,
+    V: Vocabulary + rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: Interpretation + ReverseInterpretation + ReverseLocalInterpretation,

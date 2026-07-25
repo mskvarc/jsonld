@@ -1,9 +1,12 @@
 use crate::{Container, ContainerKind, Direction, LenientLangTagBuf, Nullable, context::InvalidContext};
 use iri_rs::IriRefBuf;
 
+/// Values that can be built from a JSON value.
 pub trait TryFromJson: Sized {
+    /// Error raised when the JSON value does not match.
     type Error;
 
+    /// Builds this value from a JSON value.
     fn try_from_json(value: &jstrict::Value) -> Result<Self, Self::Error>;
 }
 

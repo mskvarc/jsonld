@@ -4,7 +4,7 @@ use jsonld_context_processing::{Options as ProcessingOptions, Process, Processin
 use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, ParallelSafeVocabulary, Term, Type};
 use jsonld_syntax::Keyword;
 use mown::Mown;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 fn optional_string(s: Option<&str>) -> jstrict::Value {
@@ -45,20 +45,21 @@ where
     let mut active_context = Mown::Borrowed(active_context);
     if let Some(active_property) = active_property
         && let Some(active_property_definition) = type_scoped_context.get(active_property)
-            && let Some(local_context) = active_property_definition.context() {
-                active_context = Mown::Owned(
-                    local_context
-                        .process_with(
-                            vocabulary,
-                            active_context.as_ref(),
-                            loader,
-                            active_property_definition.base_url().cloned(),
-                            ProcessingOptions::from(options).with_override(),
-                        )
-                        .await?
-                        .into_processed(),
+        && let Some(local_context) = active_property_definition.context()
+    {
+        active_context = Mown::Owned(
+            local_context
+                .process_with(
+                    vocabulary,
+                    active_context.as_ref(),
+                    loader,
+                    active_property_definition.base_url().cloned(),
+                    ProcessingOptions::from(options).with_override(),
                 )
-            }
+                .await?
+                .into_processed(),
+        )
+    }
 
     // let inside_reverse = active_property == Some("@reverse");
     let mut result = jstrict::Object::default();
@@ -78,21 +79,22 @@ where
 
         for term in compacted_types.iter().flatten() {
             if let Some(term_definition) = type_scoped_context.get(&**term)
-                && let Some(local_context) = term_definition.context() {
-                    let processing_options = ProcessingOptions::from(options).without_propagation();
-                    active_context = Mown::Owned(
-                        local_context
-                            .process_with(
-                                vocabulary,
-                                active_context.as_ref(),
-                                loader,
-                                term_definition.base_url().cloned(),
-                                processing_options,
-                            )
-                            .await?
-                            .into_processed(),
-                    )
-                }
+                && let Some(local_context) = term_definition.context()
+            {
+                let processing_options = ProcessingOptions::from(options).without_propagation();
+                active_context = Mown::Owned(
+                    local_context
+                        .process_with(
+                            vocabulary,
+                            active_context.as_ref(),
+                            loader,
+                            term_definition.base_url().cloned(),
+                            processing_options,
+                        )
+                        .await?
+                        .into_processed(),
+                )
+            }
         }
     }
 
@@ -105,11 +107,7 @@ where
         // and `vocabulary`, both of which outlive `decorated`, so we avoid
         // the per-entry `to_string()` allocation.
         let vocabulary: &N = vocabulary;
-        let mut decorated: Vec<(&str, _)> = node
-            .properties()
-            .iter()
-            .map(|entry| (entry.0.with(vocabulary).as_str(), entry))
-            .collect();
+        let mut decorated: Vec<(&str, _)> = node.properties().iter().map(|entry| (entry.0.with(vocabulary).as_str(), entry)).collect();
         decorated.sort_by(|a, b| a.0.cmp(b.0));
         decorated.into_iter().map(|(_, entry)| entry).collect()
     } else {
@@ -174,83 +172,86 @@ where
 
     // If expanded property is @reverse:
     if let Some(reverse_properties) = node.reverse_properties_entry()
-        && !reverse_properties.is_empty() {
-            // Initialize compacted value to the result of using this algorithm recursively,
-            // passing active context, @reverse for active property,
-            // expanded value for element, and the compactArrays and ordered flags.
-            let active_property = "@reverse";
-            if let Some(active_property_definition) = active_context.get(active_property)
-                && let Some(local_context) = active_property_definition.context() {
-                    active_context = Mown::Owned(
-                        local_context
-                            .process_with(
-                                vocabulary,
-                                active_context.as_ref(),
-                                loader,
-                                active_property_definition.base_url().cloned(),
-                                ProcessingOptions::from(options).with_override(),
-                            )
-                            .await?
-                            .into_processed(),
+        && !reverse_properties.is_empty()
+    {
+        // Initialize compacted value to the result of using this algorithm recursively,
+        // passing active context, @reverse for active property,
+        // expanded value for element, and the compactArrays and ordered flags.
+        let active_property = "@reverse";
+        if let Some(active_property_definition) = active_context.get(active_property)
+            && let Some(local_context) = active_property_definition.context()
+        {
+            active_context = Mown::Owned(
+                local_context
+                    .process_with(
+                        vocabulary,
+                        active_context.as_ref(),
+                        loader,
+                        active_property_definition.base_url().cloned(),
+                        ProcessingOptions::from(options).with_override(),
                     )
-                }
-
-            // NOTE: Plan's two-phase parallel branch for the `@reverse` property loop is
-            // deferred. The merge step described in the plan (`add_value` per fragment
-            // entry) does not preserve byte-equal output across all W3C test cases —
-            // notably `@nest` sub-objects, `@index`/`@id`/`@type`/`@language` container
-            // maps, and graph fragments where the per-property output is itself an
-            // `Object` that must be deep-merged rather than appended. A correct merge
-            // would require either (a) restructuring `compact_property` to emit a flat
-            // operation log, or (b) inspecting the active_context per key to choose
-            // recurse-vs-`add_value` per top-level entry. Both exceed the prototype
-            // scope; sequential execution preserves correctness for the prototype
-            // baseline. Loops below intentionally retain the sequential implementation.
-            let mut reverse_result = jstrict::Object::default();
-            for (expanded_property, expanded_value) in reverse_properties.iter() {
-                compact_property(
-                    vocabulary,
-                    &mut reverse_result,
-                    expanded_property.clone().into(),
-                    expanded_value.iter(),
-                    active_context.as_ref(),
-                    loader,
-                    true,
-                    options,
-                )
-                .await?;
-            }
-
-            // For each property and value in compacted value:
-            let mut reverse_map = jstrict::Object::default();
-            for (property, mapped_value) in reverse_result.iter_mut() {
-                let mut value = jstrict::Value::Null;
-                std::mem::swap(&mut value, &mut *mapped_value);
-
-                // If the term definition for property in the active context indicates that
-                // property is a reverse property
-                if let Some(term_definition) = active_context.get(property.as_str())
-                    && term_definition.reverse_property() {
-                        // Initialize as array to true if the container mapping for property in
-                        // the active context includes @set, otherwise the negation of compactArrays.
-                        let as_array = term_definition.container().contains(ContainerKind::Set) || !options.compact_arrays;
-
-                        // Use add value to add value to the property entry in result using as array.
-                        add_value(&mut result, property, value, as_array);
-                        continue;
-                    }
-
-                reverse_map.insert(property.clone(), value);
-            }
-
-            if !reverse_map.is_empty() {
-                // Initialize alias by IRI compacting @reverse.
-                let alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Reverse);
-
-                // Set the value of the alias entry of result to compacted value.
-                result.insert(alias.into(), reverse_map.into());
-            }
+                    .await?
+                    .into_processed(),
+            )
         }
+
+        // NOTE: Plan's two-phase parallel branch for the `@reverse` property loop is
+        // deferred. The merge step described in the plan (`add_value` per fragment
+        // entry) does not preserve byte-equal output across all W3C test cases —
+        // notably `@nest` sub-objects, `@index`/`@id`/`@type`/`@language` container
+        // maps, and graph fragments where the per-property output is itself an
+        // `Object` that must be deep-merged rather than appended. A correct merge
+        // would require either (a) restructuring `compact_property` to emit a flat
+        // operation log, or (b) inspecting the active_context per key to choose
+        // recurse-vs-`add_value` per top-level entry. Both exceed the prototype
+        // scope; sequential execution preserves correctness for the prototype
+        // baseline. Loops below intentionally retain the sequential implementation.
+        let mut reverse_result = jstrict::Object::default();
+        for (expanded_property, expanded_value) in reverse_properties.iter() {
+            compact_property(
+                vocabulary,
+                &mut reverse_result,
+                expanded_property.clone().into(),
+                expanded_value.iter(),
+                active_context.as_ref(),
+                loader,
+                true,
+                options,
+            )
+            .await?;
+        }
+
+        // For each property and value in compacted value:
+        let mut reverse_map = jstrict::Object::default();
+        for (property, mapped_value) in reverse_result.iter_mut() {
+            let mut value = jstrict::Value::Null;
+            std::mem::swap(&mut value, &mut *mapped_value);
+
+            // If the term definition for property in the active context indicates that
+            // property is a reverse property
+            if let Some(term_definition) = active_context.get(property.as_str())
+                && term_definition.reverse_property()
+            {
+                // Initialize as array to true if the container mapping for property in
+                // the active context includes @set, otherwise the negation of compactArrays.
+                let as_array = term_definition.container().contains(ContainerKind::Set) || !options.compact_arrays;
+
+                // Use add value to add value to the property entry in result using as array.
+                add_value(&mut result, property, value, as_array);
+                continue;
+            }
+
+            reverse_map.insert(property.clone(), value);
+        }
+
+        if !reverse_map.is_empty() {
+            // Initialize alias by IRI compacting @reverse.
+            let alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Reverse);
+
+            // Set the value of the alias entry of result to compacted value.
+            result.insert(alias.into(), reverse_map.into());
+        }
+    }
 
     // If expanded property is @index and active property has a container mapping in
     // active context that includes @index,
@@ -258,11 +259,12 @@ where
         let mut index_container = false;
         if let Some(active_property) = active_property
             && let Some(active_property_definition) = active_context.get(active_property)
-                && active_property_definition.container().contains(ContainerKind::Index) {
-                    // then the compacted result will be inside of an @index container,
-                    // drop the @index entry by continuing to the next expanded property.
-                    index_container = true;
-                }
+            && active_property_definition.container().contains(ContainerKind::Index)
+        {
+            // then the compacted result will be inside of an @index container,
+            // drop the @index entry by continuing to the next expanded property.
+            index_container = true;
+        }
 
         if !index_container {
             // Initialize alias by IRI compacting expanded property.
@@ -334,47 +336,48 @@ where
 {
     // If expanded property is @type:
     if let Some(types) = types
-        && !types.is_empty() {
-            // If expanded value is a string,
-            // then initialize compacted value by IRI compacting expanded value using
-            // type-scoped context for active context.
-            let compacted_value = if types.len() == 1 {
-                let arc = compact_iri(vocabulary, type_scoped_context, &types[0].clone().into_term(), true, false, options)?;
-                optional_string(arc.as_deref())
-            } else {
-                // Otherwise, expanded value must be a @type array:
-                // Initialize compacted value to an empty array.
-                let mut compacted_value = Vec::with_capacity(types.len());
+        && !types.is_empty()
+    {
+        // If expanded value is a string,
+        // then initialize compacted value by IRI compacting expanded value using
+        // type-scoped context for active context.
+        let compacted_value = if types.len() == 1 {
+            let arc = compact_iri(vocabulary, type_scoped_context, &types[0].clone().into_term(), true, false, options)?;
+            optional_string(arc.as_deref())
+        } else {
+            // Otherwise, expanded value must be a @type array:
+            // Initialize compacted value to an empty array.
+            let mut compacted_value = Vec::with_capacity(types.len());
 
-                // For each item expanded type in expanded value:
-                for ty in types.iter() {
-                    let ty = ty.clone().into_term();
+            // For each item expanded type in expanded value:
+            for ty in types.iter() {
+                let ty = ty.clone().into_term();
 
-                    // Set term by IRI compacting expanded type using type-scoped context for active context.
-                    let compacted_ty = compact_iri(vocabulary, type_scoped_context, &ty, true, false, options)?;
+                // Set term by IRI compacting expanded type using type-scoped context for active context.
+                let compacted_ty = compact_iri(vocabulary, type_scoped_context, &ty, true, false, options)?;
 
-                    // Append term, to compacted value.
-                    compacted_value.push(optional_string(compacted_ty.as_deref()))
-                }
+                // Append term, to compacted value.
+                compacted_value.push(optional_string(compacted_ty.as_deref()))
+            }
 
-                jstrict::Value::Array(compacted_value.into_iter().collect())
-            };
+            jstrict::Value::Array(compacted_value.into_iter().collect())
+        };
 
-            // Initialize alias by IRI compacting expanded property.
-            let alias = keyword_alias(vocabulary, active_context, options, Keyword::Type);
+        // Initialize alias by IRI compacting expanded property.
+        let alias = keyword_alias(vocabulary, active_context, options, Keyword::Type);
 
-            // Initialize as array to true if processing mode is json-ld-1.1 and the
-            // container mapping for alias in the active context includes @set,
-            // otherwise to the negation of compactArrays.
-            let container_mapping = match active_context.get(alias) {
-                Some(def) => def.container(),
-                None => Container::None,
-            };
-            let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerKind::Set)) || !options.compact_arrays;
+        // Initialize as array to true if processing mode is json-ld-1.1 and the
+        // container mapping for alias in the active context includes @set,
+        // otherwise to the negation of compactArrays.
+        let container_mapping = match active_context.get(alias) {
+            Some(def) => def.container(),
+            None => Container::None,
+        };
+        let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerKind::Set)) || !options.compact_arrays;
 
-            // Use add value to add compacted value to the alias entry in result using as array.
-            add_value(result, alias, compacted_value, as_array)
-        }
+        // Use add value to add compacted value to the alias entry in result using as array.
+        add_value(result, alias, compacted_value, as_array)
+    }
 
     Ok(())
 }

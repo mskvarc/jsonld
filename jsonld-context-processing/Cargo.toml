@@ -2,6 +2,7 @@
 name = "jsonld-context-processing"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
@@ -9,7 +10,10 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD context processing implementation"
 documentation = "https://docs.rs/jsonld-context-processing"
-readme = "README.md"
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["fast-hash"]
@@ -28,7 +32,7 @@ jsonld-core.workspace = true
 jsonld-syntax.workspace = true
 mown = "1.0.0"
 parking_lot = "0.12.5"
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+rdfx = "0.23.1"
 thiserror = "2.0.18"
 
 [lints]

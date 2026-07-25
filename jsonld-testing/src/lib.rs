@@ -7,7 +7,7 @@ use jsonld::{Expand, FsLoader, LoadError};
 use proc_macro_error::proc_macro_error;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_rs::{
+use rdfx::{
     Quad,
     dataset::IndexedBTreeDataset,
     vocabulary::{IriVocabulary, IriVocabularyMut, LiteralIndex},
@@ -20,7 +20,7 @@ use vocab::{BlankIdIndex, IndexQuad, IndexTerm, IriIndex, Vocab};
 mod ty;
 use ty::{Type, UnknownType};
 
-type IndexVocabulary = rdf_rs::vocabulary::IndexVocabulary;
+type IndexVocabulary = rdfx::vocabulary::IndexVocabulary;
 
 /// Cache of well-known [`Vocab`] IRIs interned in the working vocabulary.
 struct WellKnown {
@@ -168,6 +168,10 @@ fn expand_iri(vocabulary: &mut IndexVocabulary, bindings: &mut HashMap<String, I
     }
 }
 
+/// Generates one test function per entry of a W3C JSON-LD test manifest.
+///
+/// The manifest is loaded at compile time, so a manifest the build cannot
+/// reach is a compile error rather than a silently empty test run.
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn test_suite(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -462,7 +466,7 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
 
     let mut expanded_json_ld: jsonld::ExpandedDocument<IriIndex, BlankIdIndex> = json_ld.expand_with(vocabulary, &loader).await.map_err(Error::Expand)?;
 
-    let mut generator = rdf_rs::generator::Blank::new();
+    let mut generator = rdfx::generator::Blank::new();
     let _ = expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
     let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);
@@ -473,23 +477,24 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
     for Quad(subject, predicate, object, graph) in &dataset {
         if graph.is_none()
             && let IndexTerm::Iri(id) = subject
-                && *predicate == IndexTerm::Iri(well_known.rdf_type)
-                    && let IndexTerm::Iri(ty) = object
-                        && let Some(type_id) = spec.type_map.get(ty) {
-                            match spec.ignore.get(id) {
-                                Some(link) => {
-                                    println!(
-                                        "    {} test `{}` (see {})",
-                                        yansi::Paint::yellow("Ignoring").bold(),
-                                        vocabulary.iri(id).unwrap(),
-                                        link
-                                    );
-                                }
-                                None => {
-                                    tests.insert(*id, type_id);
-                                }
-                            }
-                        }
+            && *predicate == IndexTerm::Iri(well_known.rdf_type)
+            && let IndexTerm::Iri(ty) = object
+            && let Some(type_id) = spec.type_map.get(ty)
+        {
+            match spec.ignore.get(id) {
+                Some(link) => {
+                    println!(
+                        "    {} test `{}` (see {})",
+                        yansi::Paint::yellow("Ignoring").bold(),
+                        vocabulary.iri(id).unwrap(),
+                        link
+                    );
+                }
+                None => {
+                    tests.insert(*id, type_id);
+                }
+            }
+        }
     }
 
     let id = &spec.id;
@@ -549,7 +554,7 @@ fn func_name(prefix: &str, id: &str) -> String {
     name
 }
 
-fn quad_to_owned(rdf_rs::GeneralizedQuad(subject, predicate, object, graph): jsonld::rdf::QuadRef<IriIndex, BlankIdIndex, LiteralIndex>) -> IndexQuad {
+fn quad_to_owned(rdfx::GeneralizedQuad(subject, predicate, object, graph): jsonld::rdf::QuadRef<IriIndex, BlankIdIndex, LiteralIndex>) -> IndexQuad {
     use jsonld::rdf::Value;
     let object_term = match object {
         Value::Id(id) => IndexTerm::from_id(id),

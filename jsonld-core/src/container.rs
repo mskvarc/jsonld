@@ -6,27 +6,46 @@ use jsonld_syntax::{Nullable, context::definition::TypeContainer};
 pub struct InvalidContainer;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+/// Container mapping of a term: the combination of `@container` values it
+/// was defined with.
 pub enum Container {
     // Empty container
+    /// No value.
     None,
 
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph,
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id,
+    /// The `@index` entry, indexing the value within its container.
     Index,
+    /// The `@language` entry, tagging string values with a language.
     Language,
+    /// The `@list` entry, marking the values as an ordered list.
     List,
+    /// The `@set` entry, marking the values as an unordered set.
     Set,
+    /// The `@type` entry, giving the type of the node or the values.
     Type,
 
+    /// `@graph` and `@set`.
     GraphSet,
+    /// `@graph` and `@id`.
     GraphId,
+    /// `@graph` and `@index`.
     GraphIndex,
+    /// `@id` and `@set`.
     IdSet,
+    /// `@index` and `@set`.
     IndexSet,
+    /// `@language` and `@set`.
     LanguageSet,
+    /// `@set` and `@type`.
     SetType,
 
+    /// `@graph`, `@id` and `@set`.
     GraphIdSet,
+    /// `@graph`, `@index` and `@set`.
     GraphIndexSet,
 }
 
@@ -37,10 +56,12 @@ impl Default for Container {
 }
 
 impl Container {
+    /// Creates a new `Container`.
     pub fn new() -> Container {
         Container::None
     }
 
+    /// Builds a container mapping from its syntactic form.
     pub fn from_syntax(r: Nullable<&jsonld_syntax::Container>) -> Result<Self, InvalidContainer> {
         match r {
             Nullable::Null => Ok(Self::None),
@@ -59,6 +80,7 @@ impl Container {
         }
     }
 
+    /// Builds a container mapping from the `@container` values it combines.
     pub fn from<'a, I: IntoIterator<Item = &'a ContainerKind>>(iter: I) -> Result<Container, ContainerKind> {
         let mut container = Container::new();
         for item in iter {
@@ -70,6 +92,7 @@ impl Container {
         Ok(container)
     }
 
+    /// Borrows this `Container` as slice, if it is one.
     pub fn as_slice(&self) -> &[ContainerKind] {
         use Container::*;
         match self {
@@ -93,22 +116,27 @@ impl Container {
         }
     }
 
+    /// Returns an iterator over the entries of this `Container`.
     pub fn iter(&self) -> impl Iterator<Item = &ContainerKind> {
         self.as_slice().iter()
     }
 
+    /// Returns the number of entries of this `Container`.
     pub fn len(&self) -> usize {
         self.as_slice().len()
     }
 
+    /// Checks whether this `Container` is empty.
     pub fn is_empty(&self) -> bool {
         matches!(self, Container::None)
     }
 
+    /// Checks whether this `Container` contains.
     pub fn contains(&self, c: ContainerKind) -> bool {
         self.as_slice().contains(&c)
     }
 
+    /// Returns the with of this `Container`.
     pub fn with(&self, c: ContainerKind) -> Option<Container> {
         let new_container = match (self, c) {
             (Container::None, c) => c.into(),
@@ -165,6 +193,7 @@ impl Container {
         Some(new_container)
     }
 
+    /// Checks whether this `Container` add.
     pub fn add(&mut self, c: ContainerKind) -> bool {
         match self.with(c) {
             Some(container) => {
@@ -175,6 +204,7 @@ impl Container {
         }
     }
 
+    /// Consumes this `Container`, returning its syntax.
     pub fn into_syntax(self) -> Option<jsonld_syntax::Container> {
         let slice = self.as_slice();
 

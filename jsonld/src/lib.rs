@@ -110,19 +110,19 @@
 //! ```
 //!
 //! Lastly, the same example replacing [`IriBuf`] with the lightweight
-//! [`rdf_rs::vocabulary::Index`] type.
+//! [`rdfx::vocabulary::Index`] type.
 //!
 //! [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 //!
 //! ```
 //! # use iri_rs::{iri, IriBuf};
 //! # use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-//! use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+//! use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
 //! use jsonld::Id;
 //! use contextual::WithContext;
 //! # #[async_std::main]
 //! # async fn main() {
-//! // Creates the vocabulary that will map each `rdf_rs::vocabulary::Index`
+//! // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
 //! // to an actual `IriBuf`.
 //! let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 //!
@@ -217,18 +217,18 @@
 //!     This will return the list of nodes as a [`FlattenedDocument`].
 //!
 //! Flattening requires assigning an identifier to nested anonymous nodes,
-//! which is why the flattening functions take an [`rdf_rs::MetaGenerator`]
+//! which is why the flattening functions take an [`rdfx::MetaGenerator`]
 //! as parameter. This generator is in charge of creating new fresh identifiers
 //! (with their metadata). The most common generator is
-//! [`rdf_rs::generator::Blank`] that creates blank node identifiers.
+//! [`rdfx::generator::Blank`] that creates blank node identifiers.
 //!
 //! [`JsonLdProcessor::flatten`]: crate::JsonLdProcessor::flatten
 //! [`JsonLdProcessor::flatten_with`]: crate::JsonLdProcessor::flatten_with
 //! [`Flatten::flatten`]: crate::Flatten::flatten
 //! [`Flatten::flatten_with`]: crate::Flatten::flatten_with
 //! [`FlattenedDocument`]: crate::FlattenedDocument
-//! [`rdf_rs::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
-//! [`rdf_rs::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
+//! [`rdfx::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
+//! [`rdfx::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
 //!
 //! ### Example
 //!
@@ -248,7 +248,7 @@
 //! let mut loader = jsonld::FsLoader::default();
 //! loader.mount(IriBuf::from(iri!("https://example.com/")), "examples");
 //!
-//! let mut generator = rdf_rs::generator::Blank::new();
+//! let mut generator = rdfx::generator::Blank::new();
 //!
 //! let nodes = input
 //!   .flatten(&mut generator, &mut loader)
@@ -283,7 +283,7 @@
 //! ### Example
 //!
 //! ```
-//! # #[cfg(feature = "serde_json")]
+//! # #[cfg(feature = "serde-json")]
 //! # {
 //! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, RemoteDocument};
@@ -319,18 +319,18 @@
 //! parameterized.
 //! To avoid unnecessary allocations and expensive comparisons, it is highly
 //! recommended to use a cheap, lightweight datatype such as
-//! [`rdf_rs::vocabulary::Index`]. This type will represent each distinct
+//! [`rdfx::vocabulary::Index`]. This type will represent each distinct
 //! IRI/blank node identifier with a unique index. In this case a
-//! [`rdf_rs::IndexVocabulary`] that maps each index back/to its
+//! [`rdfx::IndexVocabulary`] that maps each index back/to its
 //! original IRI/Blank identifier representation can be passed to every
 //! function.
 //!
 //! You can also use your own index type, with your own
-//! [`rdf_rs::Vocabulary`] implementation.
+//! [`rdfx::Vocabulary`] implementation.
 //!
-//! [`rdf_rs::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
-//! [`rdf_rs::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
-//! [`rdf_rs::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
+//! [`rdfx::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
+//! [`rdfx::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
+//! [`rdfx::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
 //!
 //! ## Displaying vocabulary-dependent values
 //!
@@ -343,7 +343,7 @@
 //! method you can display such value like this:
 //! ```
 //! use iri_rs::{iri, IriBuf};
-//! use rdf_rs::vocabulary::{IriVocabularyMut, IndexVocabulary};
+//! use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
 //! use contextual::WithContext;
 //!
 //! let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
@@ -369,10 +369,7 @@ pub use expansion::Expand;
 #[cfg(feature = "expandable")]
 pub use jsonld_expandable::Expandable;
 #[cfg(feature = "expandable")]
-pub use jsonld_expandable_core::{
-    self as expandable_core, Expandable, ExpandableLanguageMap, ExpandableTypeValue, JsonValue,
-    ToJsonValue,
-};
+pub use jsonld_expandable_core::{self as expandable_core, Expandable, ExpandableLanguageMap, ExpandableTypeValue, JsonValue, ToJsonValue};
 
 #[cfg(feature = "vocab")]
 pub use jsonld_vocab::generate as vocab;
@@ -387,4 +384,4 @@ pub mod batch;
 pub use iri_rs;
 pub use iri_rs::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
 
-pub use rdf_rs::{self, BlankId, BlankIdBuf};
+pub use rdfx::{self, BlankId, BlankIdBuf};

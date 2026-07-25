@@ -26,7 +26,7 @@ use jsonld_core::{
     object::{self, List},
 };
 use jsonld_syntax::Keyword;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 async fn compact_property_list<N, L>(
@@ -410,8 +410,7 @@ where
                             ContainerKind::Type
                         };
 
-                        let mut container_key: String =
-                            keyword_alias(vocabulary, active_context, options, container_type.into()).to_string();
+                        let mut container_key: String = keyword_alias(vocabulary, active_context, options, container_type.into()).to_string();
 
                         // Initialize `index_key` to the value of index mapping in
                         // the term definition associated with `item_active_property`
@@ -440,10 +439,11 @@ where
 
                                     // Reinitialize `container_key` by
                                     // IRI compacting `index_key`.
-                                    container_key = match compact_iri(vocabulary, active_context, &Term::Id(Id::Invalid(index_key.to_string())), true, false, options)? {
-                                        Some(arc) => arc.to_string(),
-                                        None => return Err(Error::IriConfusedWithPrefix),
-                                    };
+                                    container_key =
+                                        match compact_iri(vocabulary, active_context, &Term::Id(Id::Invalid(index_key.to_string())), true, false, options)? {
+                                            Some(arc) => arc.to_string(),
+                                            None => return Err(Error::IriConfusedWithPrefix),
+                                        };
 
                                     // Set `map_key` to the first value of
                                     // `container_key` in `compacted_item`, if any.
@@ -471,11 +471,12 @@ where
                                     // in `compacted_item`.
                                     // Otherwise, remove that entry from compacted item.
                                     if !remaining_values.is_empty()
-                                        && let Some(map) = compacted_item.as_object_mut() {
-                                            for value in remaining_values {
-                                                add_value(map, container_key.as_str(), value, false)
-                                            }
+                                        && let Some(map) = compacted_item.as_object_mut()
+                                    {
+                                        for value in remaining_values {
+                                            add_value(map, container_key.as_str(), value, false)
                                         }
+                                    }
 
                                     map_key
                                 }
@@ -529,11 +530,12 @@ where
                             // `compacted_item`.
                             // Otherwise, remove that entry from compacted item.
                             if !remaining_values.is_empty()
-                                && let Some(map) = compacted_item.as_object_mut() {
-                                    for value in remaining_values {
-                                        add_value(map, container_key.as_str(), value, false)
-                                    }
+                                && let Some(map) = compacted_item.as_object_mut()
+                            {
+                                for value in remaining_values {
+                                    add_value(map, container_key.as_str(), value, false)
                                 }
+                            }
 
                             // If `compacted_item` contains a single entry with a key
                             // expanding to @id, set `compacted_item` to the result of
@@ -542,22 +544,24 @@ where
                             // `active_property`, and a map composed of the single
                             // entry for @id from `expanded_item` for `element`.
                             if let Some(map) = compacted_item.as_object()
-                                && map.len() == 1 && map.get_unique("@id").ok().flatten().is_some() {
-                                    // SAFETY: an `@id`-only map implies the expanded
-                                    // item has an `id`.
-                                    let id = unsafe { expanded_item.id().unwrap_unchecked() };
-                                    let obj = Object::node(Node::with_id(id.clone()));
-                                    compacted_item = Box::pin(obj.compact_indexed_fragment(
-                                        vocabulary,
-                                        None,
-                                        active_context,
-                                        active_context,
-                                        Some(&item_active_property),
-                                        loader,
-                                        options,
-                                    ))
-                                    .await?
-                                }
+                                && map.len() == 1
+                                && map.get_unique("@id").ok().flatten().is_some()
+                            {
+                                // SAFETY: an `@id`-only map implies the expanded
+                                // item has an `id`.
+                                let id = unsafe { expanded_item.id().unwrap_unchecked() };
+                                let obj = Object::node(Node::with_id(id.clone()));
+                                compacted_item = Box::pin(obj.compact_indexed_fragment(
+                                    vocabulary,
+                                    None,
+                                    active_context,
+                                    active_context,
+                                    Some(&item_active_property),
+                                    loader,
+                                    options,
+                                ))
+                                .await?
+                            }
 
                             map_key
                         };

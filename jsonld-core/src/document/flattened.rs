@@ -1,6 +1,6 @@
-use rdf_rs::{LocalGenerator, vocabulary::VocabularyMut};
+use rdfx::{LocalGenerator, vocabulary::VocabularyMut};
 
-use crate::{IdentifyAll, IndexedNode, Relabel, ValidId};
+use crate::{HashMap, IdentifyAll, IndexedNode, Relabel, ValidId};
 use std::{collections::HashSet, hash::Hash};
 
 /// Result of the document flattening algorithm.
@@ -31,7 +31,7 @@ impl<T, B> Relabel<T, B> for FlattenedDocument<T, B> {
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
-        relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
+        relabeling: &mut HashMap<B, ValidId<T, B>>,
     ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
@@ -44,4 +44,5 @@ impl<T, B> Relabel<T, B> for FlattenedDocument<T, B> {
     }
 }
 
+/// Flattened document whose nodes are kept in no particular order.
 pub type UnorderedFlattenedDocument<T, B> = HashSet<IndexedNode<T, B>>;

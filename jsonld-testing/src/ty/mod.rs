@@ -3,7 +3,7 @@ use core::fmt;
 use iri_rs::Iri;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_rs::{
+use rdfx::{
     dataset::{IndexedBTreeDataset, PatternMatchingDataset},
     vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary},
 };
@@ -263,9 +263,10 @@ impl Definition {
                         match ty_iri {
                             IndexTerm::Iri(ty_iri) => {
                                 if let Some(v) = e.variants.get(ty_iri)
-                                    && variant.replace(v).is_some() {
-                                        return Err(Box::new(Error::MultipleTypeVariants(id)));
-                                    }
+                                    && variant.replace(v).is_some()
+                                {
+                                    return Err(Box::new(Error::MultipleTypeVariants(id)));
+                                }
                             }
                             _ => panic!("invalid type"),
                         }

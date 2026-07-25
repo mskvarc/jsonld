@@ -3,7 +3,7 @@ mod node;
 mod value;
 
 use ld_core::{LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject};
-use rdf_rs::Interpretation;
+use rdfx::Interpretation;
 
 use crate::Object;
 

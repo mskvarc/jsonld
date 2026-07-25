@@ -40,7 +40,7 @@ pub async fn pre_expand(remote: &RemoteDocument) -> ExpandedDocument<IriBuf, Bla
 pub async fn pre_process_context(ctx: SyntaxContext) -> ProcessedOwned<IriBuf, BlankIdBuf> {
     let processed = ctx
         .process(
-            jsonld::rdf_rs::vocabulary::no_vocabulary_mut(),
+            jsonld::rdfx::vocabulary::no_vocabulary_mut(),
             &NoLoader,
             Some(iri!("https://bench.example.com/").into()),
         )
@@ -89,7 +89,6 @@ pub fn corpus() -> Vec<Scenario> {
         ngsi_ld_entity_collection(200),
     ]
 }
-
 
 fn simple_flat() -> Scenario {
     let context = r#"{"name":"http://xmlns.com/foaf/0.1/name","homepage":{"@id":"http://xmlns.com/foaf/0.1/homepage","@type":"@id"}}"#;

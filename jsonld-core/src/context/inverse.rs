@@ -32,9 +32,13 @@ fn keep_smaller(slot: &mut Key, candidate: &Key) {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// Type criterion used when selecting a term from the inverse context.
 pub enum TypeSelection<T = IriBuf> {
+    /// Select a reverse property.
     Reverse,
+    /// Accept any type.
     Any,
+    /// Select a term whose type mapping matches.
     Type(Type<T>),
 }
 
@@ -101,8 +105,11 @@ struct InverseLang {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// Language criterion used when selecting a term from the inverse context.
 pub enum LangSelection<'a> {
+    /// Accept any language.
     Any,
+    /// Select a term matching the given language and base direction.
     Lang(Nullable<(Option<&'a LenientLangTag>, Option<Direction>)>),
 }
 
@@ -166,6 +173,7 @@ impl<T> InverseContainer<T> {
     }
 }
 
+/// Inverse definition of a term, indexed by container, type and language.
 pub struct InverseDefinition<T> {
     map: HashMap<Container, InverseContainer<T>>,
 }
@@ -191,6 +199,7 @@ impl<T> InverseDefinition<T> {
         unsafe { self.map.get_mut(container).unwrap_unchecked() }
     }
 
+    /// Returns the select of this `InverseDefinition`.
     pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
     where
         T: Clone + Hash + Eq,
@@ -226,9 +235,13 @@ pub struct InverseContext<T, B> {
     map: HashMap<Term<T, B>, InverseDefinition<T>>,
 }
 
+/// Criterion used to pick a term out of the inverse context.
 pub enum Selection<'a, T> {
+    /// Accept any term.
     Any,
+    /// Prefer terms matching one of the given type criteria, in order.
     Type(Vec<TypeSelection<T>>),
+    /// Prefer terms matching one of the given language criteria, in order.
     Lang(Vec<LangSelection<'a>>),
 }
 
@@ -243,24 +256,29 @@ impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
 }
 
 impl<T, B> InverseContext<T, B> {
+    /// Creates a new `Selection`.
     pub fn new() -> Self {
         InverseContext { map: HashMap::default() }
     }
 }
 
 impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
+    /// Checks whether this `Selection` contains.
     pub fn contains(&self, term: &Term<T, B>) -> bool {
         self.map.contains_key(term)
     }
 
+    /// Inserts an entry into this `Selection`, returning the entry it replaced.
     pub fn insert(&mut self, term: Term<T, B>, value: InverseDefinition<T>) {
         self.map.insert(term, value);
     }
 
+    /// Returns the value bound to the given key, if any.
     pub fn get(&self, term: &Term<T, B>) -> Option<&InverseDefinition<T>> {
         self.map.get(term)
     }
 
+    /// Returns a mutable reference to the value bound to the given key, if any.
     pub fn get_mut(&mut self, term: &Term<T, B>) -> Option<&mut InverseDefinition<T>> {
         self.map.get_mut(term)
     }
@@ -277,6 +295,7 @@ impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
         unsafe { self.map.get_mut(term).unwrap_unchecked() }
     }
 
+    /// Returns the select of this `Selection`.
     pub fn select(&self, var: &Term<T, B>, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
     where
         T: Clone,
@@ -303,75 +322,76 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
         // first-wins approach, without the O(P log P) cost.
         for binding in context.definitions().iter() {
             if let BindingRef::Normal(term, term_definition) = binding
-                && let Some(var) = term_definition.value.as_ref() {
-                    let container = &term_definition.container;
-                    let container_map = result.reference_mut(var, InverseDefinition::new);
-                    let type_lang_map = container_map.reference_mut(container, || InverseContainer::new(term));
+                && let Some(var) = term_definition.value.as_ref()
+            {
+                let container = &term_definition.container;
+                let container_map = result.reference_mut(var, InverseDefinition::new);
+                let type_lang_map = container_map.reference_mut(container, || InverseContainer::new(term));
 
-                    // `any.none` is initialized on first insert by
-                    // `InverseContainer::new`; subsequent bindings still need
-                    // to update it if they are smaller.
-                    keep_smaller(&mut type_lang_map.any.none, term);
+                // `any.none` is initialized on first insert by
+                // `InverseContainer::new`; subsequent bindings still need
+                // to update it if they are smaller.
+                keep_smaller(&mut type_lang_map.any.none, term);
 
-                    let type_map = &mut type_lang_map.typ;
-                    let lang_map = &mut type_lang_map.language;
+                let type_map = &mut type_lang_map.typ;
+                let lang_map = &mut type_lang_map.language;
 
-                    if term_definition.reverse_property {
-                        // If the term definition indicates that the term represents a reverse property:
-                        keep_smaller_opt(&mut type_map.reverse, term);
-                    } else {
-                        match &term_definition.typ {
-                            Some(Type::None) => {
-                                // Otherwise, if term definition has a type mapping which is @none:
-                                type_map.set_any(term);
-                                lang_map.set_any(term);
-                            }
-                            Some(typ) => {
-                                // Otherwise, if term definition has a type mapping:
-                                type_map.set(typ, term)
-                            }
-                            None => {
-                                match (&term_definition.language, &term_definition.direction) {
-                                    (Some(language), Some(direction)) => {
-                                        // Otherwise, if term definition has both a language mapping
-                                        // and a direction mapping:
-                                        match (language, direction) {
-                                            (Nullable::Some(language), Nullable::Some(direction)) => {
-                                                lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), Some(*direction))), term)
-                                            }
-                                            (Nullable::Some(language), Nullable::Null) => {
-                                                lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), None)), term)
-                                            }
-                                            (Nullable::Null, Nullable::Some(direction)) => lang_map.set(Nullable::Some((None, Some(*direction))), term),
-                                            (Nullable::Null, Nullable::Null) => lang_map.set(Nullable::Null, term),
+                if term_definition.reverse_property {
+                    // If the term definition indicates that the term represents a reverse property:
+                    keep_smaller_opt(&mut type_map.reverse, term);
+                } else {
+                    match &term_definition.typ {
+                        Some(Type::None) => {
+                            // Otherwise, if term definition has a type mapping which is @none:
+                            type_map.set_any(term);
+                            lang_map.set_any(term);
+                        }
+                        Some(typ) => {
+                            // Otherwise, if term definition has a type mapping:
+                            type_map.set(typ, term)
+                        }
+                        None => {
+                            match (&term_definition.language, &term_definition.direction) {
+                                (Some(language), Some(direction)) => {
+                                    // Otherwise, if term definition has both a language mapping
+                                    // and a direction mapping:
+                                    match (language, direction) {
+                                        (Nullable::Some(language), Nullable::Some(direction)) => {
+                                            lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), Some(*direction))), term)
                                         }
-                                    }
-                                    (Some(language), None) => {
-                                        // Otherwise, if term definition has a language mapping (might
-                                        // be null):
-                                        match language {
-                                            Nullable::Some(language) => lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), None)), term),
-                                            Nullable::Null => lang_map.set(Nullable::Null, term),
+                                        (Nullable::Some(language), Nullable::Null) => {
+                                            lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), None)), term)
                                         }
+                                        (Nullable::Null, Nullable::Some(direction)) => lang_map.set(Nullable::Some((None, Some(*direction))), term),
+                                        (Nullable::Null, Nullable::Null) => lang_map.set(Nullable::Null, term),
                                     }
-                                    (None, Some(direction)) => {
-                                        // Otherwise, if term definition has a direction mapping (might
-                                        // be null):
-                                        match direction {
-                                            Nullable::Some(direction) => lang_map.set(Nullable::Some((None, Some(*direction))), term),
-                                            Nullable::Null => lang_map.set(Nullable::Some((None, None)), term),
-                                        }
+                                }
+                                (Some(language), None) => {
+                                    // Otherwise, if term definition has a language mapping (might
+                                    // be null):
+                                    match language {
+                                        Nullable::Some(language) => lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), None)), term),
+                                        Nullable::Null => lang_map.set(Nullable::Null, term),
                                     }
-                                    (None, None) => {
-                                        lang_map.set(Nullable::Some((context.default_language(), context.default_base_direction())), term);
-                                        lang_map.set_none(term);
-                                        type_map.set_none(term);
+                                }
+                                (None, Some(direction)) => {
+                                    // Otherwise, if term definition has a direction mapping (might
+                                    // be null):
+                                    match direction {
+                                        Nullable::Some(direction) => lang_map.set(Nullable::Some((None, Some(*direction))), term),
+                                        Nullable::Null => lang_map.set(Nullable::Some((None, None)), term),
                                     }
+                                }
+                                (None, None) => {
+                                    lang_map.set(Nullable::Some((context.default_language(), context.default_base_direction())), term);
+                                    lang_map.set_none(term);
+                                    type_map.set_none(term);
                                 }
                             }
                         }
                     }
                 }
+            }
         }
 
         result

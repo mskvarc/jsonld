@@ -1,14 +1,16 @@
 use super::{Multiset, Objects};
 use crate::{
+    DefaultBuildHasher,
     Id,
+    IndexMap,
     IndexedObject,
     object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
 };
-use crate::{DefaultBuildHasher, IndexMap};
 use educe::Educe;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::{Hash, Hasher};
 
+/// Objects bound to a single property.
 pub type PropertyObjects<T, B> = Multiset<IndexedObject<T, B>>;
 
 /// Properties of a node object, and their associated objects.
@@ -159,10 +161,13 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
         }
     }
 
+    /// Binds `prop` to exactly `values`, discarding what was there.
     pub fn set(&mut self, prop: Id<T, B>, values: PropertyObjects<T, B>) {
         self.0.insert(prop, values);
     }
 
+    /// Adds the given bindings, skipping objects already bound to their
+    /// property.
     pub fn extend_unique<I, O>(&mut self, iter: I)
     where
         I: IntoIterator<Item = (Id<T, B>, O)>,

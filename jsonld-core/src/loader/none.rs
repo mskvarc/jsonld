@@ -13,6 +13,7 @@ pub struct NoLoader;
 
 #[derive(Debug, thiserror::Error)]
 #[error("no loader")]
+/// Error raised by a loader that never loads anything.
 pub struct CannotLoad;
 
 impl Loader for NoLoader {

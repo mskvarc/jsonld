@@ -1,10 +1,11 @@
 use jsonld_core::{ExpandedDocument, FlattenedDocument, Loader};
 use jsonld_syntax::{IntoJson, Keyword};
-use rdf_rs::vocabulary::{self, Vocabulary};
+use rdfx::vocabulary::{self, Vocabulary};
 use std::hash::Hash;
 
 use crate::{CompactFragment, iri::IriConfusedWithPrefix};
 
+/// Result of compacting a whole document.
 pub type CompactDocumentResult<E> = Result<jstrict::Value, crate::Error<E>>;
 
 /// Context embeding method.
@@ -38,7 +39,7 @@ pub trait Compact<I, B> {
         options: crate::Options,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader;
@@ -52,7 +53,7 @@ pub trait Compact<I, B> {
         loader: &'a L,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -63,7 +64,7 @@ pub trait Compact<I, B> {
     /// Compacts the input document.
     async fn compact<'a, L>(&'a self, context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>, loader: &'a L) -> CompactDocumentResult<L::Error>
     where
-        (): rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
+        (): rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -81,7 +82,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
         options: crate::Options,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -106,7 +107,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
         options: crate::Options,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdf_rs::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,

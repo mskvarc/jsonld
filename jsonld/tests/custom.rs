@@ -12,7 +12,7 @@ async fn custom_01() {
     let (json, _) = jsonld::syntax::Value::parse_str(&input).unwrap();
     let doc = RemoteDocument::new(None, None, json);
 
-    let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+    let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
 
     eprintln!("available stack: {:?}", stacker::remaining_stack());
     doc.to_rdf(&mut generator, &loader).await.unwrap();

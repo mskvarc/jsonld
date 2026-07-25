@@ -1,9 +1,11 @@
 use std::hash::Hash;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+/// The `@import` key of a context definition.
 pub struct Import;
 
 impl Import {
+    /// Consumes this `Import`, returning its str.
     pub fn into_str(self) -> &'static str {
         "@import"
     }

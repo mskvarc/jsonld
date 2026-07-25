@@ -26,50 +26,62 @@ pub struct Definition {
         feature = "serde",
         serde(rename = "@base", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
+    /// The `@base` entry, setting the base IRI against which relative IRIs are resolved.
     pub base: Option<Nullable<IriRefBuf>>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@import", default, skip_serializing_if = "Option::is_none"))]
+    /// The `@import` entry, referencing a context to merge into this one.
     pub import: Option<IriRefBuf>,
 
     #[cfg_attr(
         feature = "serde",
         serde(rename = "@language", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
+    /// The `@language` entry, tagging string values with a language.
     pub language: Option<Nullable<LenientLangTagBuf>>,
 
     #[cfg_attr(
         feature = "serde",
         serde(rename = "@direction", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
+    /// The `@direction` entry, setting the base direction of string values.
     pub direction: Option<Nullable<Direction>>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@propagate", default, skip_serializing_if = "Option::is_none"))]
+    /// The `@propagate` entry, controlling whether the context survives into node objects.
     pub propagate: Option<bool>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@protected", default, skip_serializing_if = "Option::is_none"))]
+    /// The `@protected` entry, forbidding redefinition of the term.
     pub protected: Option<bool>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@type", default, skip_serializing_if = "Option::is_none"))]
+    /// The `@type` entry, giving the type of the node or the values.
     pub type_: Option<Type>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@version", default, skip_serializing_if = "Option::is_none"))]
+    /// The `@version` entry, declaring the processing mode.
     pub version: Option<Version>,
 
     #[cfg_attr(
         feature = "serde",
         serde(rename = "@vocab", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
+    /// The `@vocab` entry, setting the vocabulary against which terms expand.
     pub vocab: Option<Nullable<Vocab>>,
 
     #[cfg_attr(feature = "serde", serde(flatten))]
+    /// Term definitions of this context.
     pub bindings: Bindings,
 }
 
 impl Definition {
+    /// Creates a new `Definition`.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns the value bound to the given key, if any.
     pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<'_>> {
         match key {
             KeyOrKeyword::Keyword(k) => match k {
@@ -88,6 +100,7 @@ impl Definition {
         }
     }
 
+    /// Returns the get binding of this `Definition`.
     pub fn get_binding(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
         self.bindings.get(key)
     }
@@ -100,6 +113,7 @@ impl Definition {
 #[educe(Default)]
 pub struct Bindings(IndexMap<Key, Nullable<TermDefinition>>);
 
+/// Iterator over the term definitions of a context.
 pub struct BindingsIter<'a>(indexmap::map::Iter<'a, Key, Nullable<TermDefinition>>);
 
 impl<'a> Iterator for BindingsIter<'a> {
@@ -123,36 +137,44 @@ impl<'a> DoubleEndedIterator for BindingsIter<'a> {
 impl<'a> ExactSizeIterator for BindingsIter<'a> {}
 
 impl Bindings {
+    /// Inserts an entry into this `BindingsIter`, returning the entry it replaced.
     pub fn insert(&mut self, key: Key, def: Nullable<TermDefinition>) -> Option<Nullable<TermDefinition>> {
         self.0.insert(key, def)
     }
 }
 
 impl Bindings {
+    /// Creates a new `BindingsIter`.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns the number of entries of this `BindingsIter`.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Checks whether this `BindingsIter` is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Returns the value bound to the given key, if any.
     pub fn get(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
         self.0.get(key).map(Nullable::as_ref)
     }
 
+    /// Returns the get entry of this `BindingsIter`.
     pub fn get_entry(&self, i: usize) -> Option<(&Key, Nullable<&TermDefinition>)> {
         self.0.get_index(i).map(|(key, value)| (key, value.as_ref()))
     }
 
+    /// Returns an iterator over the entries of this `BindingsIter`.
     pub fn iter(&self) -> BindingsIter<'_> {
         BindingsIter(self.0.iter())
     }
 
+    /// Binds `key` to `def`, returning the definition it replaced.
     pub fn insert_with(&mut self, key: Key, def: Nullable<TermDefinition>) -> Option<Nullable<TermDefinition>> {
         self.0.insert(key, def)
     }
@@ -195,6 +217,7 @@ pub enum FragmentRef<'a> {
 }
 
 impl<'a> FragmentRef<'a> {
+    /// Checks whether this `FragmentRef` is key.
     pub fn is_key(&self) -> bool {
         match self {
             Self::Key(_) => true,
@@ -203,6 +226,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is entry.
     pub fn is_entry(&self) -> bool {
         match self {
             Self::Entry(_) => true,
@@ -211,6 +235,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is array.
     pub fn is_array(&self) -> bool {
         match self {
             Self::TermDefinitionFragment(i) => i.is_array(),
@@ -218,6 +243,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_object(),
@@ -226,6 +252,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
+    /// Returns the sub items of this `FragmentRef`.
     pub fn sub_items(&self) -> SubItems<'a> {
         match self {
             Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(Box::new(e.value()))),
@@ -236,8 +263,11 @@ impl<'a> FragmentRef<'a> {
     }
 }
 
+/// Iterator over the fragments held by a context entry value.
 pub enum EntryValueSubItems<'a> {
+    /// No value.
     None,
+    /// The entries of a term definition.
     TermDefinitionFragment(Box<term_definition::Entries<'a>>),
 }
 
@@ -252,10 +282,15 @@ impl<'a> Iterator for EntryValueSubItems<'a> {
     }
 }
 
+/// Iterator over the fragments held by a context definition.
 pub enum SubItems<'a> {
+    /// No value.
     None,
+    /// An object entry.
     Entry(Option<EntryKeyRef<'a>>, Option<Box<EntryValueRef<'a>>>),
+    /// A value object.
     Value(EntryValueSubItems<'a>),
+    /// The fragments of a term definition.
     TermDefinitionFragment(term_definition::SubFragments<'a>),
 }
 
@@ -273,6 +308,8 @@ impl<'a> Iterator for SubItems<'a> {
 }
 
 #[cfg(all(test, feature = "serde"))]
+// Test code may panic on failure; that is the point of a test.
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::Definition;
 

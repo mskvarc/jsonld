@@ -2,7 +2,7 @@ use crate::{Id, ValidId};
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use iri_rs::IriBuf;
 use jsonld_syntax::Keyword;
-use rdf_rs::{BlankIdBuf, vocabulary::Vocabulary};
+use rdfx::{BlankIdBuf, vocabulary::Vocabulary};
 use std::fmt;
 
 /// Identifier, keyword or `@null`.
@@ -47,6 +47,7 @@ impl<I, B> Term<I, B> {
         }
     }
 
+    /// Rewrites the identifier of this term with the given function.
     pub fn map_id<U, C>(self, f: impl FnOnce(ValidId<I, B>) -> ValidId<U, C>) -> Term<U, C> {
         match self {
             Self::Null => Term::Null,
@@ -68,6 +69,7 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Term<T
 }
 
 impl<T: AsRef<str>, B: AsRef<str>> Term<T, B> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Term::Id(p) => p.as_str(),

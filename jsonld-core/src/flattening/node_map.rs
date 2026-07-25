@@ -1,7 +1,7 @@
 use super::Environment;
 use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, object};
 use educe::Educe;
-use rdf_rs::{
+use rdfx::{
     LocalGenerator,
     vocabulary::{BlankIdVocabulary, IriVocabulary, VocabularyMut},
 };
@@ -13,8 +13,11 @@ use std::{collections::HashMap, hash::Hash};
 #[derive(Clone, Debug, thiserror::Error)]
 #[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
 pub struct ConflictingIndexes<T, B> {
+    /// Node carrying the conflicting indexes.
     pub node_id: Id<T, B>,
+    /// Index already recorded for the node.
     pub defined_index: String,
+    /// Index that contradicts the recorded one.
     pub conflicting_index: String,
 }
 
@@ -22,12 +25,15 @@ pub struct ConflictingIndexes<T, B> {
 #[derive(Debug, thiserror::Error)]
 pub enum NodeMapError<T, B> {
     #[error(transparent)]
+    /// A node was given two different `@index` values.
     Conflicting(#[from] ConflictingIndexes<T, B>),
 
     #[error(transparent)]
+    /// A blank node identifier could not be generated.
     GeneratedId(#[from] crate::id::GeneratedIdError),
 }
 
+/// Default graph of a node map, paired with its named graphs.
 pub type Parts<T, B> = (NodeMapGraph<T, B>, HashMap<Id<T, B>, NodeMapGraph<T, B>>);
 
 /// Node identifier to node definition map.
@@ -39,17 +45,20 @@ pub struct NodeMap<T, B> {
 }
 
 impl<T, B> NodeMap<T, B> {
+    /// Creates a new `NodeMap`.
     pub fn new() -> Self {
         Self {
-            graphs: HashMap::new(),
+            graphs: HashMap::default(),
             default_graph: NodeMapGraph::new(),
         }
     }
 
+    /// Consumes this `NodeMap`, returning its parts.
     pub fn into_parts(self) -> Parts<T, B> {
         (self.default_graph, self.graphs)
     }
 
+    /// Returns an iterator over the entries of this `NodeMap`.
     pub fn iter(&self) -> Iter<'_, T, B> {
         Iter {
             default_graph: Some(&self.default_graph),
@@ -57,12 +66,14 @@ impl<T, B> NodeMap<T, B> {
         }
     }
 
+    /// Returns the iter named of this `NodeMap`.
     pub fn iter_named(&self) -> std::collections::hash_map::Iter<'_, Id<T, B>, NodeMapGraph<T, B>> {
         self.graphs.iter()
     }
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
+    /// Returns the graph of this `NodeMap`.
     pub fn graph(&self, id: Option<&Id<T, B>>) -> Option<&NodeMapGraph<T, B>> {
         match id {
             Some(id) => self.graphs.get(id),
@@ -70,6 +81,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
         }
     }
 
+    /// Mutably borrows the graph of the given name, if it is declared.
     pub fn graph_mut(&mut self, id: Option<&Id<T, B>>) -> Option<&mut NodeMapGraph<T, B>> {
         match id {
             Some(id) => self.graphs.get_mut(id),
@@ -77,6 +89,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
         }
     }
 
+    /// Declares a named graph, leaving it untouched if it already exists.
     pub fn declare_graph(&mut self, id: Id<T, B>) {
         if let std::collections::hash_map::Entry::Vacant(entry) = self.graphs.entry(id) {
             entry.insert(NodeMapGraph::new());
@@ -101,6 +114,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
     }
 }
 
+/// Iterator over the graphs of a node map.
 pub struct Iter<'a, T, B> {
     default_graph: Option<&'a NodeMapGraph<T, B>>,
     graphs: std::collections::hash_map::Iter<'a, Id<T, B>, NodeMapGraph<T, B>>,
@@ -126,6 +140,7 @@ impl<'a, T, B> IntoIterator for &'a NodeMap<T, B> {
     }
 }
 
+/// Owning iterator over the graphs of a node map.
 pub struct IntoIter<T, B> {
     default_graph: Option<NodeMapGraph<T, B>>,
     graphs: std::collections::hash_map::IntoIter<Id<T, B>, NodeMapGraph<T, B>>,
@@ -156,31 +171,39 @@ impl<T, B> IntoIterator for NodeMap<T, B> {
 
 #[derive(Educe)]
 #[educe(Default)]
+/// Nodes of a single graph within a node map.
 pub struct NodeMapGraph<T, B> {
     nodes: HashMap<Id<T, B>, IndexedNode<T, B>>,
 }
 
 impl<T, B> NodeMapGraph<T, B> {
+    /// Creates a new `NodeMapGraph`.
     pub fn new() -> Self {
-        Self { nodes: HashMap::new() }
+        Self { nodes: HashMap::default() }
     }
 }
 
+/// Result of declaring a node in a graph.
 pub type DeclareNodeResult<'a, T, B> = Result<&'a mut Indexed<Node<T, B>>, ConflictingIndexes<T, B>>;
 
 impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
+    /// Checks whether this `NodeMapGraph` contains.
     pub fn contains(&self, id: &Id<T, B>) -> bool {
         self.nodes.contains_key(id)
     }
 
+    /// Returns the value bound to the given key, if any.
     pub fn get(&self, id: &Id<T, B>) -> Option<&IndexedNode<T, B>> {
         self.nodes.get(id)
     }
 
+    /// Returns a mutable reference to the value bound to the given key, if any.
     pub fn get_mut(&mut self, id: &Id<T, B>) -> Option<&mut IndexedNode<T, B>> {
         self.nodes.get_mut(id)
     }
 
+    /// Declares a node in this graph, failing if `index` contradicts the index
+    /// already recorded for it.
     pub fn declare_node(&mut self, id: Id<T, B>, index: Option<&str>) -> DeclareNodeResult<'_, T, B>
     where
         T: Clone,
@@ -188,14 +211,13 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
     {
         if let Some(entry) = self.nodes.get_mut(&id) {
             match (entry.index(), index) {
-                (Some(entry_index), Some(index))
-                    if entry_index != index => {
-                        return Err(ConflictingIndexes {
-                            node_id: id,
-                            defined_index: entry_index.to_string(),
-                            conflicting_index: index.to_string(),
-                        });
-                    }
+                (Some(entry_index), Some(index)) if entry_index != index => {
+                    return Err(ConflictingIndexes {
+                        node_id: id,
+                        defined_index: entry_index.to_string(),
+                        conflicting_index: index.to_string(),
+                    });
+                }
                 (None, Some(index)) => entry.set_index(Some(index.to_owned())),
                 _ => (),
             }
@@ -262,16 +284,20 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         }
     }
 
+    /// Returns the nodes of this `NodeMapGraph`.
     pub fn nodes(&self) -> NodeMapGraphNodes<'_, T, B> {
         self.nodes.values()
     }
 
+    /// Consumes this `NodeMapGraph`, returning its nodes.
     pub fn into_nodes(self) -> IntoNodeMapGraphNodes<T, B> {
         self.nodes.into_values()
     }
 }
 
+/// Iterator over the nodes of a graph.
 pub type NodeMapGraphNodes<'a, T, B> = std::collections::hash_map::Values<'a, Id<T, B>, IndexedNode<T, B>>;
+/// Owning iterator over the nodes of a graph.
 pub type IntoNodeMapGraphNodes<T, B> = std::collections::hash_map::IntoValues<Id<T, B>, IndexedNode<T, B>>;
 
 impl<T, B> IntoIterator for NodeMapGraph<T, B> {
@@ -293,6 +319,8 @@ impl<'a, T, B> IntoIterator for &'a NodeMapGraph<T, B> {
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> ExpandedDocument<T, B> {
+    /// Builds the node map of this document using the given vocabulary and
+    /// blank node generator.
     pub fn generate_node_map_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &self,
         vocabulary: &mut V,
@@ -307,6 +335,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> ExpandedDocument<T, B> {
     }
 }
 
+/// Result of extending a node map with a document fragment.
 pub type ExtendNodeMapResult<V> = Result<
     IndexedObject<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>,
     NodeMapError<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>,
@@ -381,13 +410,7 @@ where
 
         // SAFETY: `id` was just declared above; `active_graph` is `None` or
         // declared earlier.
-        let flat_node = unsafe {
-            node_map
-                .graph_mut(active_graph)
-                .unwrap_unchecked()
-                .get_mut(&id)
-                .unwrap_unchecked()
-        };
+        let flat_node = unsafe { node_map.graph_mut(active_graph).unwrap_unchecked().get_mut(&id).unwrap_unchecked() };
         match flat_node.graph_entry_mut() {
             Some(graph) => graph.extend(flat_graph),
             None => flat_node.set_graph_entry(Some(flat_graph)),
@@ -407,15 +430,9 @@ where
             flat_objects.push(flat_object);
         }
         // SAFETY: `id` was declared in this graph above.
-        unsafe {
-            node_map
-                .graph_mut(active_graph)
-                .unwrap_unchecked()
-                .get_mut(&id)
-                .unwrap_unchecked()
-        }
-        .properties_mut()
-        .insert_all_unique(property.clone(), flat_objects)
+        unsafe { node_map.graph_mut(active_graph).unwrap_unchecked().get_mut(&id).unwrap_unchecked() }
+            .properties_mut()
+            .insert_all_unique(property.clone(), flat_objects)
     }
 
     if let Some(reverse_properties) = node.reverse_properties_entry() {
@@ -428,13 +445,7 @@ where
                 let subject_id = unsafe { flat_subject.id.as_ref().unwrap_unchecked() };
 
                 // SAFETY: subject was just declared in this graph.
-                let flat_subject = unsafe {
-                    node_map
-                        .graph_mut(active_graph)
-                        .unwrap_unchecked()
-                        .get_mut(subject_id)
-                        .unwrap_unchecked()
-                };
+                let flat_subject = unsafe { node_map.graph_mut(active_graph).unwrap_unchecked().get_mut(subject_id).unwrap_unchecked() };
 
                 flat_subject
                     .properties_mut()

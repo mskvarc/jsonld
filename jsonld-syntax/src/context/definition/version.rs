@@ -2,6 +2,7 @@ use std::{hash::Hash, str::FromStr};
 
 #[derive(Debug, thiserror::Error)]
 #[error("unknown JSON-LD version `{0}`")]
+/// Error raised when `@version` holds anything but `1.1`.
 pub struct UnknownVersion(pub String);
 
 /// Version number.
@@ -9,26 +10,31 @@ pub struct UnknownVersion(pub String);
 /// The only allowed value is a number with the value `1.1`.
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
 pub enum Version {
+    /// JSON-LD 1.1 processing mode.
     V1_1,
 }
 
 impl Version {
+    /// Consumes this `Version`, returning its bytes.
     pub fn into_bytes(self) -> &'static [u8] {
         match self {
             Self::V1_1 => b"1.1",
         }
     }
 
+    /// Consumes this `Version`, returning its str.
     pub fn into_str(self) -> &'static str {
         match self {
             Self::V1_1 => "1.1",
         }
     }
 
+    /// Consumes this `Version`, returning its JSON number.
     pub fn into_json_number(self) -> &'static jstrict::Number {
         unsafe { jstrict::Number::new_unchecked(self.into_bytes()) }
     }
 
+    /// Consumes this `Version`, returning its JSON number buf.
     pub fn into_json_number_buf(self) -> jstrict::NumberBuf {
         unsafe { jstrict::NumberBuf::new_unchecked(self.into_bytes().into()) }
     }

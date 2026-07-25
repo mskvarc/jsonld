@@ -2,6 +2,7 @@
 name = "jsonld-expansion"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
@@ -9,7 +10,10 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD document expansion implementation"
 documentation = "https://docs.rs/jsonld-expansion"
-readme = "README.md"
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["fast-hash"]
@@ -30,10 +34,10 @@ iri-rs = "3.3.4"
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
+jstrict = "0.13.0"
 langtag = "1.1.0"
 mown = "1.0.0"
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+rdfx = "0.23.1"
 smallvec = "1.15.1"
 thiserror = "2.0.18"
 

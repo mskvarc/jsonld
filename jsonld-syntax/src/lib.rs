@@ -2,7 +2,9 @@
 //! and print JSON-LD documents.
 mod compact_iri;
 mod compare;
+/// Container mappings.
 pub mod container;
+/// Contexts, their definitions and term definitions.
 pub mod context;
 mod direction;
 mod error;
@@ -52,4 +54,5 @@ pub use try_from_json::*;
 pub use jstrict::{from_value, to_value};
 
 #[derive(Clone, Copy, Debug)]
+/// Error raised when a JSON value has the wrong kind.
 pub struct Unexpected(jstrict::Kind, &'static [jstrict::Kind]);

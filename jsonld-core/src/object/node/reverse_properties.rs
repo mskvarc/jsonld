@@ -1,20 +1,22 @@
 use super::{Multiset, Nodes};
 use crate::{
+    DefaultBuildHasher,
     Id,
+    IndexMap,
     IndexedNode,
     object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
 };
-use crate::{DefaultBuildHasher, IndexMap};
 use contextual::WithContext;
 use educe::Educe;
 use iri_rs::IriBuf;
 use jsonld_syntax::IntoJsonWithContext;
-use rdf_rs::{
+use rdfx::{
     BlankIdBuf,
     vocabulary::{Vocabulary, VocabularyMut},
 };
 use std::hash::{Hash, Hasher};
 
+/// Nodes bound to a single reverse property.
 pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf> = Multiset<IndexedNode<T, B>>;
 
 /// Reverse properties of a node object, and their associated nodes.
@@ -154,10 +156,13 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
         }
     }
 
+    /// Binds `prop` to exactly `values`, discarding what was there.
     pub fn set(&mut self, prop: Id<T, B>, values: ReversePropertyNodes<T, B>) {
         self.0.insert(prop, values);
     }
 
+    /// Adds the given bindings, skipping nodes already bound to their
+    /// property.
     pub fn extend_unique<N>(&mut self, iter: impl IntoIterator<Item = (Id<T, B>, N)>)
     where
         N: IntoIterator<Item = IndexedNode<T, B>>,

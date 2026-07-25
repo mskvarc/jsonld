@@ -7,8 +7,8 @@
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
     Context,
-    Indexed,
     IndexSet,
+    Indexed,
     Loader,
     ParallelSafeVocabulary,
     ProcessingMode,
@@ -19,7 +19,7 @@ use jsonld_core::{
 };
 use jsonld_syntax::{ContainerKind, ErrorCode, Keyword};
 use mown::Mown;
-use rdf_rs::vocabulary::{self, VocabularyMut};
+use rdfx::vocabulary::{self, VocabularyMut};
 use std::hash::Hash;
 
 mod document;
@@ -28,7 +28,6 @@ mod node;
 mod property;
 mod value;
 
-
 pub use document::*;
 pub(crate) use iri::*;
 use node::*;
@@ -36,18 +35,23 @@ use property::*;
 use value::*;
 
 #[derive(Debug, thiserror::Error)]
+/// Error raised while compacting a document.
 pub enum Error<E = std::convert::Infallible> {
     #[error("IRI confused with prefix")]
+    /// IRI confused with prefix.
     IriConfusedWithPrefix,
 
     #[error("Invalid `@nest` value")]
+    /// Invalid `@nest` value.
     InvalidNestValue,
 
     #[error("Context processing failed: {0}")]
+    /// Context processing failed: the given value.
     ContextProcessing(jsonld_context_processing::Error<E>),
 }
 
 impl<E> Error<E> {
+    /// Returns the code of this `Error`.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
@@ -69,6 +73,7 @@ impl<E> From<IriConfusedWithPrefix> for Error<E> {
     }
 }
 
+/// Result of compacting a document fragment.
 pub type CompactFragmentResult<E> = Result<jstrict::Value, Error<E>>;
 
 /// Compaction options.
@@ -90,6 +95,7 @@ pub struct Options {
 }
 
 impl Options {
+    /// Returns these options with ordering switched off.
     pub fn unordered(self) -> Self {
         Self { ordered: false, ..self }
     }
@@ -125,6 +131,7 @@ impl Default for Options {
     }
 }
 
+/// Document fragments that can be compacted against an active context.
 pub trait CompactFragment<I, B> {
     /// Heuristic used by the parallel branch in `compact_collection_with`.
     /// Returns `true` for items whose compaction is dominated by FuturesOrdered
@@ -135,6 +142,7 @@ pub trait CompactFragment<I, B> {
         false
     }
 
+    /// Compacts this fragment, taking every parameter explicitly.
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -151,7 +159,13 @@ pub trait CompactFragment<I, B> {
         L: Loader;
 
     #[inline(always)]
-    async fn compact_fragment_with<'a, N, L>(&'a self, vocabulary: &'a mut N, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
+    /// Compacts this fragment using the given vocabulary.
+    async fn compact_fragment_with<'a, N, L>(
+        &'a self,
+        vocabulary: &'a mut N,
+        active_context: &'a Context<I, B>,
+        loader: &'a mut L,
+    ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
         I: Clone + Hash + Eq,
@@ -163,6 +177,7 @@ pub trait CompactFragment<I, B> {
     }
 
     #[inline(always)]
+    /// Compacts this fragment against the active context.
     async fn compact_fragment<'a, L>(&'a self, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
         (): VocabularyMut<Iri = I, BlankId = B>,
@@ -195,6 +210,7 @@ pub trait CompactIndexedFragment<I, B> {
         false
     }
 
+    /// Compacts this fragment, keeping the `@index` it was reached through.
     async fn compact_indexed_fragment<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -286,24 +302,25 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                 let mut active_context = Mown::Borrowed(active_context);
                 let mut list_container = false;
                 if let Some(active_property) = active_property
-                    && let Some(active_property_definition) = type_scoped_context.get(active_property) {
-                        if let Some(local_context) = active_property_definition.context() {
-                            active_context = Mown::Owned(
-                                local_context
-                                    .process_with(
-                                        vocabulary,
-                                        active_context.as_ref(),
-                                        loader,
-                                        active_property_definition.base_url().cloned(),
-                                        ProcessingOptions::from(options).with_override(),
-                                    )
-                                    .await?
-                                    .into_processed(),
-                            )
-                        }
-
-                        list_container = active_property_definition.container().contains(ContainerKind::List);
+                    && let Some(active_property_definition) = type_scoped_context.get(active_property)
+                {
+                    if let Some(local_context) = active_property_definition.context() {
+                        active_context = Mown::Owned(
+                            local_context
+                                .process_with(
+                                    vocabulary,
+                                    active_context.as_ref(),
+                                    loader,
+                                    active_property_definition.base_url().cloned(),
+                                    ProcessingOptions::from(options).with_override(),
+                                )
+                                .await?
+                                .into_processed(),
+                        )
                     }
+
+                    list_container = active_property_definition.container().contains(ContainerKind::List);
+                }
 
                 if list_container {
                     compact_collection_with(
@@ -336,11 +353,12 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                         let mut index_container = false;
                         if let Some(active_property) = active_property
                             && let Some(active_property_definition) = active_context.get(active_property)
-                                && active_property_definition.container().contains(ContainerKind::Index) {
-                                    // then the compacted result will be inside of an @index container,
-                                    // drop the @index entry by continuing to the next expanded property.
-                                    index_container = true;
-                                }
+                            && active_property_definition.container().contains(ContainerKind::Index)
+                        {
+                            // then the compacted result will be inside of an @index container,
+                            // drop the @index entry by continuing to the next expanded property.
+                            index_container = true;
+                        }
 
                         if !index_container {
                             // Initialize alias by IRI compacting expanded property.
@@ -452,8 +470,7 @@ where
     // [`CompactFragment::is_trivial_for_par`] hook is left in place for
     // future use should a viable parallel strategy emerge.
     for item in items {
-        let compacted_item =
-            Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
+        let compacted_item = Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
 
         if !compacted_item.is_null() {
             result.push(compacted_item)
@@ -462,10 +479,11 @@ where
 
     let mut list_or_set = false;
     if let Some(active_property) = active_property
-        && let Some(active_property_definition) = active_context.get(active_property) {
-            list_or_set =
-                active_property_definition.container().contains(ContainerKind::List) || active_property_definition.container().contains(ContainerKind::Set);
-        }
+        && let Some(active_property_definition) = active_context.get(active_property)
+    {
+        list_or_set =
+            active_property_definition.container().contains(ContainerKind::List) || active_property_definition.container().contains(ContainerKind::Set);
+    }
 
     if result.is_empty() || result.len() > 1 || !options.compact_arrays || active_property == Some("@graph") || active_property == Some("@set") || list_or_set {
         return Ok(jstrict::Value::Array(result.into_iter().collect()));

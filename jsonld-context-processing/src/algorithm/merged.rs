@@ -2,16 +2,19 @@ use iri_rs::IriRefBuf;
 use jsonld_syntax as syntax;
 use syntax::Nullable;
 
+/// Context definition merged with the one it imports through `@import`.
 pub struct Merged<'a> {
     base: &'a syntax::context::Definition,
     imported: Option<syntax::context::Context>,
 }
 
 impl<'a> Merged<'a> {
+    /// Creates a new `Merged`.
     pub fn new(base: &'a syntax::context::Definition, imported: Option<syntax::context::Context>) -> Self {
         Self { base, imported }
     }
 
+    /// Returns the imported of this `Merged`.
     pub fn imported(&self) -> Option<&syntax::context::Definition> {
         self.imported.as_ref().and_then(|imported| match imported {
             syntax::context::Context::One(syntax::ContextEntry::Definition(import_context)) => Some(import_context),
@@ -19,6 +22,7 @@ impl<'a> Merged<'a> {
         })
     }
 
+    /// Returns the base of this `Merged`.
     pub fn base(&self) -> Option<syntax::Nullable<&IriRefBuf>> {
         self.base
             .base
@@ -27,6 +31,7 @@ impl<'a> Merged<'a> {
             .map(Nullable::as_ref)
     }
 
+    /// Returns the vocab of this `Merged`.
     pub fn vocab(&self) -> Option<syntax::Nullable<&syntax::context::definition::Vocab>> {
         self.base
             .vocab
@@ -35,6 +40,7 @@ impl<'a> Merged<'a> {
             .map(Nullable::as_ref)
     }
 
+    /// Returns the language of this `Merged`.
     pub fn language(&self) -> Option<syntax::Nullable<&syntax::LenientLangTagBuf>> {
         self.base
             .language
@@ -43,18 +49,22 @@ impl<'a> Merged<'a> {
             .map(Nullable::as_ref)
     }
 
+    /// Returns the direction of this `Merged`.
     pub fn direction(&self) -> Option<syntax::Nullable<syntax::Direction>> {
         self.base.direction.or_else(|| self.imported().and_then(|i| i.direction))
     }
 
+    /// Returns the protected of this `Merged`.
     pub fn protected(&self) -> Option<bool> {
         self.base.protected.or_else(|| self.imported().and_then(|i| i.protected))
     }
 
+    /// Returns the type of this `Merged`.
     pub fn type_(&self) -> Option<syntax::context::definition::Type> {
         self.base.type_.or_else(|| self.imported().and_then(|i| i.type_))
     }
 
+    /// Returns the bindings of this `Merged`.
     pub fn bindings(&self) -> MergedBindings<'_> {
         MergedBindings {
             base: self.base,
@@ -63,6 +73,7 @@ impl<'a> Merged<'a> {
         }
     }
 
+    /// Returns the value bound to the given key, if any.
     pub fn get(&self, key: &syntax::context::definition::KeyOrKeyword) -> Option<syntax::context::definition::EntryValueRef<'_>> {
         self.base.get(key).or_else(|| self.imported().and_then(|i| i.get(key)))
         // self.imported()
@@ -114,6 +125,7 @@ impl<'a> From<&'a syntax::context::Definition> for Merged<'a> {
 
 type BindingRef<'a> = (&'a syntax::context::definition::Key, Nullable<&'a syntax::context::TermDefinition>);
 
+/// Iterator over the bindings of a merged context definition.
 pub struct MergedBindings<'a> {
     base: &'a syntax::context::Definition,
     base_bindings: syntax::context::definition::BindingsIter<'a>,

@@ -23,7 +23,7 @@ impl Link {
         let mut href = Vec::new();
         let mut current_key = Vec::new();
         let mut current_value = Vec::new();
-        let mut params = HashMap::new();
+        let mut params = HashMap::default();
 
         let mut bytes = value.as_bytes().iter();
 

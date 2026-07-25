@@ -5,21 +5,26 @@ use std::{fmt, hash::Hash};
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
+/// Value of the `@index` entry of a term definition.
 pub struct Index(String);
 
 impl Index {
+    /// Borrows this `Index` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0.as_str()).ok()
     }
 
+    /// Borrows this `Index` as compact IRI, if it is one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(&self.0).ok()
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Consumes this `Index`, returning its string.
     pub fn into_string(self) -> String {
         self.0
     }

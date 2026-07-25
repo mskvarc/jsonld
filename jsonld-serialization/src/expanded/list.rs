@@ -7,7 +7,7 @@ use jsonld_core::{
     rdf::{RDF_FIRST, RDF_REST},
 };
 use ld_core::{CowRdfTerm, LinkedDataResource, OwnedRdfTerm};
-use rdf_rs::{
+use rdfx::{
     Interpretation,
     interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
     vocabulary::Vocabulary,
@@ -37,7 +37,7 @@ impl<'a, I, V: Vocabulary> SerializeList<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeList<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,
@@ -120,7 +120,7 @@ impl<'a, I, V: Vocabulary> SerializeListFirst<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeListFirst<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,
@@ -159,7 +159,7 @@ impl<'a, I, V: Vocabulary> SerializeListRest<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeListRest<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,

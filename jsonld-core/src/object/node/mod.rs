@@ -1,10 +1,10 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
-use crate::{Id, Indexed, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
+use crate::{HashMap, Id, Indexed, IndexedObject, Object, Objects, Relabel, Term, ValidId, object, utils};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use iri_rs::IriBuf;
 use jsonld_syntax::{IntoJson, IntoJsonWithContext, Keyword};
-use rdf_rs::{
+use rdfx::{
     BlankIdBuf,
     LocalGenerator,
     vocabulary::{Vocabulary, VocabularyMut},
@@ -14,8 +14,11 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+/// Multiset used to hold the several values of a property.
 pub mod multiset;
+/// Properties of a node object.
 pub mod properties;
+/// Reverse properties of a node object.
 pub mod reverse_properties;
 
 pub use multiset::Multiset;
@@ -35,8 +38,10 @@ pub use reverse_properties::ReverseProperties;
 /// agrees).
 pub type Graph<T, B> = Vec<IndexedObject<T, B>>;
 
+/// Node objects included alongside another through `@included`.
 pub type Included<T, B> = Vec<IndexedNode<T, B>>;
 
+/// Node object carrying an optional `@index`.
 pub type IndexedNode<T = IriBuf, B = BlankIdBuf> = Indexed<Node<T, B>>;
 
 /// Node object.
@@ -262,14 +267,20 @@ impl<T, B> Node<T, B> {
         }
     }
 
+    /// Mutably borrows the types of this node, inserting an empty list if it
+    /// has none.
     pub fn types_mut_or_default(&mut self) -> &mut Vec<Id<T, B>> {
         self.types.get_or_insert_with(Vec::new)
     }
 
+    /// Mutably borrows the types of this node, inserting `value` if it has
+    /// none.
     pub fn types_mut_or_insert(&mut self, value: Vec<Id<T, B>>) -> &mut Vec<Id<T, B>> {
         self.types.get_or_insert(value)
     }
 
+    /// Mutably borrows the types of this node, inserting the result of `f` if
+    /// it has none.
     pub fn types_mut_or_insert_with(&mut self, f: impl FnOnce() -> Vec<Id<T, B>>) -> &mut Vec<Id<T, B>> {
         self.types.get_or_insert_with(f)
     }
@@ -403,6 +414,7 @@ impl<T, B> Node<T, B> {
         self.reverse_properties.as_mut()
     }
 
+    /// Sets the reverse properties of this `Node`.
     pub fn set_reverse_properties(&mut self, reverse_properties: Option<ReverseProperties<T, B>>) {
         self.reverse_properties = reverse_properties
     }
@@ -435,15 +447,18 @@ impl<T, B> Node<T, B> {
         }
     }
 
+    /// Returns the traverse of this `Node`.
     pub fn traverse(&self) -> Traverse<'_, T, B> {
         Traverse::new(Some(super::FragmentRef::Node(self)))
     }
 
     #[inline(always)]
+    /// Checks whether this `Node` count.
     pub fn count(&self, f: impl FnMut(&super::FragmentRef<T, B>) -> bool) -> usize {
         self.traverse().filter(f).count()
     }
 
+    /// Returns the entries of this `Node`.
     pub fn entries(&self) -> Entries<'_, T, B> {
         Entries {
             id: self.id.as_ref(),
@@ -565,14 +580,20 @@ impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
         self.properties.insert_all(prop, values)
     }
 
+    /// Mutably borrows the reverse properties, inserting `props` if there are
+    /// none.
     pub fn reverse_properties_or_insert(&mut self, props: ReverseProperties<T, B>) -> &mut ReverseProperties<T, B> {
         self.reverse_properties.get_or_insert(props)
     }
 
+    /// Mutably borrows the reverse properties, inserting an empty set if there
+    /// are none.
     pub fn reverse_properties_or_default(&mut self) -> &mut ReverseProperties<T, B> {
         self.reverse_properties.get_or_insert_with(ReverseProperties::default)
     }
 
+    /// Mutably borrows the reverse properties, inserting the result of `f` if
+    /// there are none.
     pub fn reverse_properties_or_insert_with(&mut self, f: impl FnOnce() -> ReverseProperties<T, B>) -> &mut ReverseProperties<T, B> {
         self.reverse_properties.get_or_insert_with(f)
     }
@@ -591,7 +612,7 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
-        relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
+        relabeling: &mut HashMap<B, ValidId<T, B>>,
     ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
@@ -666,6 +687,7 @@ impl<T: Eq + Hash, B: Eq + Hash> PartialEq for Node<T, B> {
 impl<T: Eq + Hash, B: Eq + Hash> Eq for Node<T, B> {}
 
 impl<T, B> Indexed<Node<T, B>> {
+    /// Returns the entries of this `Node`.
     pub fn entries(&self) -> IndexedEntries<'_, T, B> {
         IndexedEntries {
             index: self.index(),
@@ -675,6 +697,7 @@ impl<T, B> Indexed<Node<T, B>> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> Indexed<Node<T, B>> {
+    /// Checks whether this `Node` equivalent.
     pub fn equivalent(&self, other: &Self) -> bool {
         self.index() == other.index() && self.inner().equivalent(other.inner())
     }
@@ -682,16 +705,24 @@ impl<T: Eq + Hash, B: Eq + Hash> Indexed<Node<T, B>> {
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
+/// Key of a node object entry.
 pub enum EntryKeyRef<'a, T, B> {
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id,
+    /// The `@type` entry, giving the type of the node or the values.
     Type,
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph,
+    /// The `@included` entry, holding node objects included alongside this one.
     Included,
+    /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse,
+    /// A property of a node object.
     Property(&'a Id<T, B>),
 }
 
 impl<'a, T, B> EntryKeyRef<'a, T, B> {
+    /// Consumes this `EntryKeyRef`, returning its keyword.
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Id => Some(Keyword::Id),
@@ -703,10 +734,12 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `EntryKeyRef` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
+    /// Consumes this `EntryKeyRef`, returning its str.
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -722,6 +755,7 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str
     where
         T: AsRef<str>,
@@ -746,20 +780,29 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Value of a node object entry.
 pub enum EntryValueRef<'a, T, B> {
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id(&'a Id<T, B>),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(&'a [Id<T, B>]),
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph(&'a Graph<T, B>),
+    /// The `@included` entry, holding node objects included alongside this one.
     Included(&'a Included<T, B>),
+    /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse(&'a ReverseProperties<T, B>),
+    /// A property of a node object.
     Property(&'a [IndexedObject<T, B>]),
 }
 
 impl<'a, T, B> EntryValueRef<'a, T, B> {
+    /// Checks whether this `EntryValueRef` is JSON array.
     pub fn is_json_array(&self) -> bool {
         matches!(self, Self::Type(_) | Self::Graph(_) | Self::Included(_) | Self::Property(_))
     }
 
+    /// Checks whether this `EntryValueRef` is JSON object.
     pub fn is_json_object(&self) -> bool {
         matches!(self, Self::Reverse(_))
     }
@@ -778,16 +821,24 @@ impl<'a, T, B> EntryValueRef<'a, T, B> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Entry of a node object, key and value together.
 pub enum EntryRef<'a, T, B> {
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id(&'a Id<T, B>),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(&'a [Id<T, B>]),
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph(&'a Graph<T, B>),
+    /// The `@included` entry, holding node objects included alongside this one.
     Included(&'a Included<T, B>),
+    /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse(&'a ReverseProperties<T, B>),
+    /// A property of a node object.
     Property(&'a Id<T, B>, &'a [IndexedObject<T, B>]),
 }
 
 impl<'a, T, B> EntryRef<'a, T, B> {
+    /// Consumes this `EntryRef`, returning its key.
     pub fn into_key(self) -> EntryKeyRef<'a, T, B> {
         match self {
             Self::Id(_) => EntryKeyRef::Id,
@@ -799,10 +850,12 @@ impl<'a, T, B> EntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the key of this `EntryRef`.
     pub fn key(&self) -> EntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
+    /// Consumes this `EntryRef`, returning its value.
     pub fn into_value(self) -> EntryValueRef<'a, T, B> {
         match self {
             Self::Id(v) => EntryValueRef::Id(v),
@@ -814,10 +867,12 @@ impl<'a, T, B> EntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the value of this `EntryRef`.
     pub fn value(&self) -> EntryValueRef<'a, T, B> {
         self.into_value()
     }
 
+    /// Consumes this `EntryRef`, returning its key value.
     pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         match self {
             Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
@@ -829,6 +884,7 @@ impl<'a, T, B> EntryRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `EntryRef` as key value, if it is one.
     pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         match self {
             Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(*v)),
@@ -843,6 +899,7 @@ impl<'a, T, B> EntryRef<'a, T, B> {
 
 #[derive(Educe)]
 #[educe(Clone)]
+/// Iterator over the entries of a node object.
 pub struct Entries<'a, T, B> {
     id: Option<&'a Id<T, B>>,
     type_: Option<&'a [Id<T, B>]>,
@@ -901,6 +958,7 @@ impl<'a, T, B> ExactSizeIterator for Entries<'a, T, B> {}
 
 #[derive(Educe)]
 #[educe(Clone)]
+/// Iterator over the entries of an indexed node object, `@index` included.
 pub struct IndexedEntries<'a, T, B> {
     index: Option<&'a str>,
     inner: Entries<'a, T, B>,
@@ -926,12 +984,16 @@ impl<'a, T, B> ExactSizeIterator for IndexedEntries<'a, T, B> {}
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
+/// Key of an indexed node object entry.
 pub enum IndexedEntryKeyRef<'a, T, B> {
+    /// The `@index` entry.
     Index,
+    /// A node object.
     Node(EntryKeyRef<'a, T, B>),
 }
 
 impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
+    /// Consumes this `IndexedEntryKeyRef`, returning its keyword.
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Index => Some(Keyword::Index),
@@ -939,10 +1001,12 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `IndexedEntryKeyRef` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
+    /// Consumes this `IndexedEntryKeyRef`, returning its str.
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -954,6 +1018,7 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str
     where
         T: AsRef<str>,
@@ -974,19 +1039,26 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Value of an indexed node object entry.
 pub enum IndexedEntryValueRef<'a, T, B> {
+    /// The value of the `@index` entry.
     Index(&'a str),
+    /// A node object.
     Node(EntryValueRef<'a, T, B>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Entry of an indexed node object, key and value together.
 pub enum IndexedEntryRef<'a, T, B> {
+    /// The `@index` entry and its value.
     Index(&'a str),
+    /// A node object.
     Node(EntryRef<'a, T, B>),
 }
 
 impl<'a, T, B> IndexedEntryRef<'a, T, B> {
+    /// Consumes this `IndexedEntryRef`, returning its key.
     pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B> {
         match self {
             Self::Index(_) => IndexedEntryKeyRef::Index,
@@ -994,10 +1066,12 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the key of this `IndexedEntryRef`.
     pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
+    /// Consumes this `IndexedEntryRef`, returning its value.
     pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B> {
         match self {
             Self::Index(v) => IndexedEntryValueRef::Index(v),
@@ -1005,10 +1079,12 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the value of this `IndexedEntryRef`.
     pub fn value(&self) -> IndexedEntryValueRef<'a, T, B> {
         self.into_value()
     }
 
+    /// Consumes this `IndexedEntryRef`, returning its key value.
     pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         match self {
             Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
@@ -1019,6 +1095,7 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `IndexedEntryRef` as key value, if it is one.
     pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         self.into_key_value()
     }
@@ -1040,6 +1117,7 @@ pub enum FragmentRef<'a, T, B> {
 }
 
 impl<'a, T, B> FragmentRef<'a, T, B> {
+    /// Consumes this `FragmentRef`, returning its id.
     pub fn into_id(self) -> Option<&'a Id<T, B>> {
         match self {
             Self::Key(EntryKeyRef::Property(id)) => Some(id),
@@ -1049,6 +1127,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `FragmentRef` as id, if it is one.
     pub fn as_id(&self) -> Option<&'a Id<T, B>> {
         match self {
             Self::Key(EntryKeyRef::Property(id)) => Some(id),
@@ -1058,6 +1137,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is JSON array.
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::Value(v) => v.is_json_array(),
@@ -1065,6 +1145,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is JSON object.
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_json_object(),
@@ -1072,6 +1153,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Returns the sub fragments of this `FragmentRef`.
     pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
         match self {
             Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
@@ -1081,13 +1163,21 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 }
 
+/// Iterator over the fragments directly held by a node object.
 pub enum SubFragments<'a, T, B> {
+    /// No value.
     None,
+    /// An object entry.
     Entry(Option<EntryKeyRef<'a, T, B>>, Option<EntryValueRef<'a, T, B>>),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(std::slice::Iter<'a, Id<T, B>>),
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph(std::slice::Iter<'a, IndexedObject<T, B>>),
+    /// The `@included` entry, holding node objects included alongside this one.
     Included(std::slice::Iter<'a, IndexedNode<T, B>>),
+    /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse(reverse_properties::Iter<'a, T, B>),
+    /// A property of a node object.
     Property(std::slice::Iter<'a, IndexedObject<T, B>>),
 }
 
@@ -1164,10 +1254,7 @@ impl<'a, T, B> Iterator for Nodes<'a, T, B> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
-    fn try_from_json_object_in(
-        vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-        mut object: jstrict::Object,
-    ) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, mut object: jstrict::Object) -> Result<Self, InvalidExpandedJson> {
         let id = match object.remove_unique("@id").map_err(InvalidExpandedJson::duplicate_key)? {
             Some(entry) => Some(Id::try_from_json_in(vocabulary, entry.value)?),
             None => None,
@@ -1215,16 +1302,17 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<
         }
 
         if let Some(types) = self.types
-            && !types.is_empty() {
-                // let value = if types.len() > 1 {
-                // 	types.value.into_with(vocabulary).into_json()
-                // } else {
-                // 	types.value.0.into_iter().next().unwrap().into_with(vocabulary).into_json()
-                // };
-                let value = types.into_with(vocabulary).into_json();
+            && !types.is_empty()
+        {
+            // let value = if types.len() > 1 {
+            // 	types.value.into_with(vocabulary).into_json()
+            // } else {
+            // 	types.value.0.into_iter().next().unwrap().into_with(vocabulary).into_json()
+            // };
+            let value = types.into_with(vocabulary).into_json();
 
-                obj.insert("@type".into(), value);
-            }
+            obj.insert("@type".into(), value);
+        }
 
         if let Some(graph) = self.graph {
             obj.insert("@graph".into(), graph.into_with(vocabulary).into_json());

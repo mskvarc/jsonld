@@ -1,20 +1,23 @@
 use crate::{Direction, LangString, LenientLangTag, object};
 use educe::Educe;
 use iri_rs::{Iri, IriBuf};
-use jstrict::{Number, NumberBuf};
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
-use rdf_rs::vocabulary::{IriVocabulary, IriVocabularyMut};
+use jstrict::{Number, NumberBuf};
+use rdfx::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{hash::Hash, marker::PhantomData};
 
 use super::InvalidExpandedJson;
 
 /// Value type.
 pub enum Type<T> {
+    /// A JSON literal.
     Json,
+    /// A type given by an IRI.
     Id(T),
 }
 
 impl<T> Type<T> {
+    /// Borrows this `Type` as id, if it is one.
     pub fn as_id(&self) -> Option<crate::id::Ref<'_, T>> {
         match self {
             Self::Json => None,
@@ -27,11 +30,14 @@ impl<T> Type<T> {
 #[derive(Educe)]
 #[educe(Clone, Copy)]
 pub enum TypeRef<'a, T> {
+    /// A JSON literal.
     Json,
+    /// A type given by an IRI.
     Id(&'a T),
 }
 
 impl<'a, T> TypeRef<'a, T> {
+    /// Borrows this `TypeRef` as syntax type, if it is one.
     pub fn as_syntax_type(&self) -> crate::Type<&'a T> {
         match self {
             Self::Json => crate::Type::Json,
@@ -39,6 +45,7 @@ impl<'a, T> TypeRef<'a, T> {
         }
     }
 
+    /// Consumes this `TypeRef`, returning its reference.
     pub fn into_reference<B>(self) -> Option<crate::id::Ref<'a, T, B>> {
         match self {
             Self::Json => None,
@@ -91,6 +98,7 @@ impl Literal {
         }
     }
 
+    /// Consumes this `Literal`, returning its JSON.
     pub fn into_json(self) -> jstrict::Value {
         match self {
             Self::Null => jstrict::Value::Null,
@@ -139,6 +147,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Value::Literal(lit, _) => lit.as_str(),
@@ -148,6 +157,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
+    /// Borrows this `Value` as literal, if it is one.
     pub fn as_literal(&self) -> Option<(&Literal, Option<&T>)> {
         match self {
             Self::Literal(lit, ty) => Some((lit, ty.as_ref())),
@@ -155,6 +165,7 @@ impl<T> Value<T> {
         }
     }
 
+    /// Returns the literal type of this `Value`.
     pub fn literal_type(&self) -> Option<&T> {
         match self {
             Self::Literal(_, ty) => ty.as_ref(),
@@ -185,6 +196,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
+    /// Borrows this `Value` as bool, if it is one.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Value::Literal(lit, _) => lit.as_bool(),
@@ -193,6 +205,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
+    /// Borrows this `Value` as number, if it is one.
     pub fn as_number(&self) -> Option<&Number> {
         match self {
             Value::Literal(lit, _) => lit.as_number(),
@@ -234,6 +247,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
+    /// Returns the entries of this `Value`.
     pub fn entries(&self) -> Entries<'_, T> {
         match self {
             Self::Literal(l, ty) => Entries {
@@ -348,14 +362,20 @@ impl<T, B> object::Any<T, B> for Value<T> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Entry of a value object, key and value together.
 pub enum EntryRef<'a, T> {
+    /// The `@value` entry, holding the literal value.
     Value(ValueEntryRef<'a>),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(TypeRef<'a, T>),
+    /// The `@language` entry, tagging string values with a language.
     Language(&'a LenientLangTag),
+    /// The `@direction` entry, setting the base direction of string values.
     Direction(Direction),
 }
 
 impl<'a, T> EntryRef<'a, T> {
+    /// Consumes this `EntryRef`, returning its key.
     pub fn into_key(self) -> EntryKey {
         match self {
             Self::Value(_) => EntryKey::Value,
@@ -365,10 +385,12 @@ impl<'a, T> EntryRef<'a, T> {
         }
     }
 
+    /// Returns the key of this `EntryRef`.
     pub fn key(&self) -> EntryKey {
         self.into_key()
     }
 
+    /// Consumes this `EntryRef`, returning its value.
     pub fn into_value(self) -> EntryValueRef<'a, T> {
         match self {
             Self::Value(v) => EntryValueRef::Value(v),
@@ -378,6 +400,7 @@ impl<'a, T> EntryRef<'a, T> {
         }
     }
 
+    /// Returns the value of this `EntryRef`.
     pub fn value(&self) -> EntryValueRef<'a, T> {
         match self {
             Self::Value(v) => EntryValueRef::Value(*v),
@@ -390,15 +413,24 @@ impl<'a, T> EntryRef<'a, T> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Value of a value object entry.
 pub enum EntryValueRef<'a, T> {
+    /// The `@value` entry, holding the literal value.
     Value(ValueEntryRef<'a>),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(TypeRef<'a, T>),
+    /// The `@language` entry, tagging string values with a language.
     Language(&'a LenientLangTag),
+    /// The `@direction` entry, setting the base direction of string values.
     Direction(Direction),
 }
+/// Value held by the `@value` entry.
 pub enum ValueEntryRef<'a> {
+    /// An RDF literal.
     Literal(&'a Literal),
+    /// A language-tagged string.
     LangString(&'a str),
+    /// A JSON literal.
     Json(&'a jstrict::Value),
 }
 
@@ -411,14 +443,20 @@ impl<'a> Clone for ValueEntryRef<'a> {
 impl<'a> Copy for ValueEntryRef<'a> {}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Key of a value object entry.
 pub enum EntryKey {
+    /// The `@value` entry, holding the literal value.
     Value,
+    /// The `@type` entry, giving the type of the node or the values.
     Type,
+    /// The `@language` entry, tagging string values with a language.
     Language,
+    /// The `@direction` entry, setting the base direction of string values.
     Direction,
 }
 
 impl EntryKey {
+    /// Consumes this `EntryKey`, returning its keyword.
     pub fn into_keyword(self) -> Keyword {
         match self {
             Self::Value => Keyword::Value,
@@ -428,10 +466,12 @@ impl EntryKey {
         }
     }
 
+    /// Borrows this `EntryKey` as keyword, if it is one.
     pub fn as_keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
+    /// Consumes this `EntryKey`, returning its str.
     pub fn into_str(&self) -> &'static str {
         match self {
             Self::Value => "@value",
@@ -441,6 +481,7 @@ impl EntryKey {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         self.into_str()
     }
@@ -448,6 +489,7 @@ impl EntryKey {
 
 #[derive(Educe)]
 #[educe(Clone)]
+/// Iterator over the entries of a value object.
 pub struct Entries<'a, T> {
     value: Option<ValueEntryRef<'a>>,
     type_: Option<TypeRef<'a, T>>,
@@ -521,6 +563,7 @@ pub enum FragmentRef<'a, T> {
 }
 
 impl<'a, T> FragmentRef<'a, T> {
+    /// Consumes this `FragmentRef`, returning its IRI.
     pub fn into_iri(self) -> Option<&'a T> {
         match self {
             Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -528,6 +571,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
+    /// Borrows this `FragmentRef` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<&'a T> {
         match self {
             Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -535,6 +579,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is JSON array.
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => json.is_array(),
@@ -543,6 +588,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is JSON object.
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => json.is_object(),
@@ -551,6 +597,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
+    /// Returns the sub fragments of this `FragmentRef`.
     pub fn sub_fragments(&self) -> SubFragments<'a, T> {
         match self {
             Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
@@ -565,9 +612,13 @@ impl<'a, T> FragmentRef<'a, T> {
     }
 }
 
+/// Iterator over the fragments held by a value object.
 pub enum SubFragments<'a, T> {
+    /// No value.
     None(PhantomData<T>),
+    /// An object entry.
     Entry(Option<EntryKey>, Option<EntryValueRef<'a, T>>),
+    /// A fragment of a JSON literal.
     JsonFragment(jstrict::SubFragments<'a>),
 }
 

@@ -75,9 +75,7 @@ impl<V: JsonValue> ToJsonValue<V> for Value {
             }
             Value::String(s) => V::string(s),
             Value::Array(arr) => V::array(arr.iter().map(ToJsonValue::<V>::to_json_value)),
-            Value::Object(map) => {
-                V::object(map.iter().map(|(k, v)| (k.clone(), v.to_json_value())))
-            }
+            Value::Object(map) => V::object(map.iter().map(|(k, v)| (k.clone(), v.to_json_value()))),
         }
     }
 }

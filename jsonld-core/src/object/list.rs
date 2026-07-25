@@ -1,9 +1,9 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
-use crate::{Id, IndexedObject, Relabel, TryFromJson, ValidId};
+use crate::{HashMap, Id, IndexedObject, Relabel, TryFromJson, ValidId};
 use contextual::WithContext;
 use educe::Educe;
 use jsonld_syntax::{IntoJson, IntoJsonWithContext};
-use rdf_rs::{
+use rdfx::{
     LocalGenerator,
     vocabulary::{Vocabulary, VocabularyMut},
 };
@@ -25,10 +25,12 @@ impl<T, B> List<T, B> {
         Self { entry: objects }
     }
 
+    /// Returns the number of entries of this `List`.
     pub fn len(&self) -> usize {
         self.entry.len()
     }
 
+    /// Checks whether this `List` is empty.
     pub fn is_empty(&self) -> bool {
         self.entry.is_empty()
     }
@@ -40,34 +42,42 @@ impl<T, B> List<T, B> {
         &self.entry
     }
 
+    /// Mutably borrows the objects of the `@list` entry.
     pub fn entry_mut(&mut self) -> &mut Vec<IndexedObject<T, B>> {
         &mut self.entry
     }
 
+    /// Borrows this `List` as slice, if it is one.
     pub fn as_slice(&self) -> &[IndexedObject<T, B>] {
         self.entry.as_slice()
     }
 
+    /// Borrows this `List` as mut slice, if it is one.
     pub fn as_mut_slice(&mut self) -> &mut [IndexedObject<T, B>] {
         self.entry.as_mut_slice()
     }
 
+    /// Consumes this `List`, returning its entry.
     pub fn into_entry(self) -> Vec<IndexedObject<T, B>> {
         self.entry
     }
 
+    /// Appends a value to this `List`.
     pub fn push(&mut self, object: IndexedObject<T, B>) {
         self.entry.push(object)
     }
 
+    /// Removes the last object of the list and returns it.
     pub fn pop(&mut self) -> Option<IndexedObject<T, B>> {
         self.entry.pop()
     }
 
+    /// Returns an iterator over the entries of this `List`.
     pub fn iter(&self) -> core::slice::Iter<'_, IndexedObject<T, B>> {
         self.entry.iter()
     }
 
+    /// Returns a mutable iterator over the entries of this `List`.
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, IndexedObject<T, B>> {
         self.entry.iter_mut()
     }
@@ -116,7 +126,7 @@ impl<T, B> Relabel<T, B> for List<T, B> {
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
-        relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
+        relabeling: &mut HashMap<B, ValidId<T, B>>,
     ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,

@@ -2,14 +2,20 @@ use crate::{Id, ValidId};
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
+/// Type of a node or value object.
 pub enum Type<T, B> {
+    /// A JSON literal.
     Json,
+    /// A type given by an IRI.
     Id(T),
+    /// A blank node identifier.
     Blank(B),
+    /// The value is invalid.
     Invalid(String),
 }
 
 impl<T, B> Type<T, B> {
+    /// Builds a type from the type of a value object.
     pub fn from_value_type(value_ty: super::value::Type<T>) -> Self {
         match value_ty {
             super::value::Type::Json => Self::Json,
@@ -17,6 +23,7 @@ impl<T, B> Type<T, B> {
         }
     }
 
+    /// Builds a type from a node identifier.
     pub fn from_reference(r: Id<T, B>) -> Self {
         match r {
             Id::Valid(ValidId::Iri(id)) => Self::Id(id),
@@ -25,6 +32,7 @@ impl<T, B> Type<T, B> {
         }
     }
 
+    /// Consumes this `Type`, returning its reference.
     pub fn into_reference(self) -> Result<Id<T, B>, Self> {
         match self {
             Type::Id(id) => Ok(Id::Valid(ValidId::Iri(id))),
@@ -36,6 +44,7 @@ impl<T, B> Type<T, B> {
 }
 
 impl<T, B> Type<T, B> {
+    /// Borrows this `Type` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<&T> {
         match self {
             Self::Id(id) => Some(id),
@@ -45,6 +54,7 @@ impl<T, B> Type<T, B> {
 }
 
 impl<T: AsRef<str>, B: AsRef<str>> Type<T, B> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Json => "@json",
@@ -78,14 +88,20 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Type<T, B> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+/// Borrowed type of a node or value object.
 pub enum TypeRef<'a, T, B> {
+    /// A JSON literal.
     Json,
+    /// A type given by an IRI.
     Id(&'a T),
+    /// A blank node identifier.
     Blank(&'a B),
+    /// The value is invalid.
     Invalid(&'a str),
 }
 
 impl<'a, T, B> TypeRef<'a, T, B> {
+    /// Builds a borrowed type from the type of a value object.
     pub fn from_value_type(value_ty: super::value::TypeRef<'a, T>) -> Self {
         match value_ty {
             super::value::TypeRef::Json => Self::Json,
@@ -93,6 +109,7 @@ impl<'a, T, B> TypeRef<'a, T, B> {
         }
     }
 
+    /// Builds a borrowed type from a node identifier.
     pub fn from_reference(r: &'a Id<T, B>) -> Self {
         match r {
             Id::Valid(ValidId::Iri(id)) => Self::Id(id),
@@ -101,6 +118,7 @@ impl<'a, T, B> TypeRef<'a, T, B> {
         }
     }
 
+    /// Clones this borrowed type into an owned one.
     pub fn cloned(self) -> Type<T, B>
     where
         T: Clone,
@@ -116,6 +134,7 @@ impl<'a, T, B> TypeRef<'a, T, B> {
 }
 
 impl<'a, T, B> TypeRef<'a, T, B> {
+    /// Borrows this `TypeRef` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<&'a T> {
         match self {
             Self::Id(id) => Some(id),
@@ -125,6 +144,7 @@ impl<'a, T, B> TypeRef<'a, T, B> {
 }
 
 impl<'a, T: AsRef<str>, B: AsRef<str>> TypeRef<'a, T, B> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Json => "@json",

@@ -52,6 +52,7 @@ impl<T> Nullable<T> {
         }
     }
 
+    /// Borrows this `Nullable` as deref, if it is one.
     pub fn as_deref(&self) -> Nullable<&T::Target>
     where
         T: std::ops::Deref,
@@ -83,6 +84,7 @@ impl<T> Nullable<T> {
         }
     }
 
+    /// Converts the contained value, keeping null as null.
     pub fn cast<U>(self) -> Nullable<U>
     where
         T: Into<U>,
@@ -93,6 +95,7 @@ impl<T> Nullable<T> {
         }
     }
 
+    /// Returns the contained value, or `default` if it is null.
     pub fn unwrap_or(self, default: T) -> T {
         match self {
             Self::Null => default,
@@ -100,6 +103,7 @@ impl<T> Nullable<T> {
         }
     }
 
+    /// Returns the contained value, or the default one if it is null.
     pub fn unwrap_or_default(self) -> T
     where
         T: Default,
@@ -180,6 +184,7 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Nullable<T> {
 
 #[cfg(feature = "serde")]
 impl<T> Nullable<T> {
+    /// Deserializes an entry that may be absent or null.
     pub fn optional<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
     where
         T: serde::Deserialize<'de>,

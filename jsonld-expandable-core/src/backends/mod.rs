@@ -1,7 +1,7 @@
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 pub mod serde_json;
 
-#[cfg(feature = "sonic_rs")]
+#[cfg(feature = "sonic-rs")]
 pub mod sonic_rs;
 
 #[cfg(feature = "jstrict")]

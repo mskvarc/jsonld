@@ -2,7 +2,7 @@
 use contextual::{DisplayWithContext, WithContext};
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
-use rdf_rs::{
+use rdfx::{
     GeneralizedQuad,
     LocalTerm,
     Term as RdfTerm,
@@ -188,14 +188,14 @@ impl to_rdf::Test {
             to_rdf::Description::Positive { expect } => {
                 let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 
-                let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+                let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
                 let mut to_rdf = json_ld.to_rdf_full(&mut vocabulary, &mut generator, &loader, options, ()).await.unwrap();
 
                 let dataset: IndexedBTreeDataset<IndexTerm> = to_rdf
                     .quads()
                     .cloned()
-                    .map(|rdf_rs::GeneralizedQuad(s, p, o, g)| {
-                        rdf_rs::Quad(
+                    .map(|rdfx::GeneralizedQuad(s, p, o, g)| {
+                        rdfx::Quad(
                             IndexTerm::from_id_index(s),
                             IndexTerm::from_id_index(p),
                             IndexTerm::from_value(o),
@@ -209,7 +209,7 @@ impl to_rdf::Test {
                 let expected_dataset: IndexedBTreeDataset<IndexTerm> = parsed
                     .into_iter()
                     .map(|GeneralizedQuad(s, p, o, g)| {
-                        rdf_rs::Quad(
+                        rdfx::Quad(
                             IndexTerm::from_local_term(s, &mut vocabulary),
                             IndexTerm::from_local_term(p, &mut vocabulary),
                             IndexTerm::from_local_term(o, &mut vocabulary),

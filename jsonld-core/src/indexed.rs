@@ -1,6 +1,6 @@
 use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
 use jsonld_syntax::{IntoJson, IntoJsonWithContext};
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use std::{
     convert::{TryFrom, TryInto},
     ops::{Deref, DerefMut},
@@ -39,6 +39,7 @@ impl<T> Indexed<T> {
         &self.value
     }
 
+    /// Mutably borrows the indexed value.
     pub fn inner_mut(&mut self) -> &mut T {
         &mut self.value
     }
@@ -105,10 +106,7 @@ impl<T, B, O: TryFromJsonObject<T, B>> TryFromJson<T, B> for Indexed<O> {
 }
 
 impl<T, B, O: TryFromJsonObject<T, B>> TryFromJsonObject<T, B> for Indexed<O> {
-    fn try_from_json_object_in(
-        vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-        mut object: jstrict::Object,
-    ) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, mut object: jstrict::Object) -> Result<Self, InvalidExpandedJson> {
         let index = match object.remove_unique("@index").map_err(InvalidExpandedJson::duplicate_key)? {
             Some(index_entry) => match index_entry.value {
                 jstrict::Value::String(index) => Some(index.to_string()),
@@ -164,9 +162,10 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Indexed<T> {
         let mut result = self.value.into_json_with(vocabulary);
 
         if let Some(obj) = result.as_object_mut()
-            && let Some(index) = self.index {
-                obj.insert("@index".into(), index.into_json());
-            }
+            && let Some(index) = self.index
+        {
+            obj.insert("@index".into(), index.into_json());
+        }
 
         result
     }

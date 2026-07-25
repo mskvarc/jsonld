@@ -1,9 +1,9 @@
 use crate::{ActiveProperty, WarningHandler, expand_iri, node_id_of_term};
-use jstrict::Number;
 use jsonld_context_processing::algorithm::{Action, RejectVocab};
 use jsonld_core::{Context, Environment, IndexedObject, LangString, Node, Object, Type, Value, object::value::Literal};
 use jsonld_syntax::{ErrorCode, LenientLangTag, Nullable};
-use rdf_rs::vocabulary::VocabularyMut;
+use jstrict::Number;
+use rdfx::vocabulary::VocabularyMut;
 
 pub(crate) enum GivenLiteralValue<'a> {
     Boolean(bool),

@@ -4,7 +4,7 @@ use crate::{Error, Options, Process, Processed, ProcessingCache, ProcessingResul
 use iri_rs::{Iri, IriBuf};
 use jsonld_core::{Context, Environment, ExtractContext, Loader, ProcessingMode, Term};
 use jsonld_syntax::{self as syntax, Nullable};
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 
 mod define;
 mod iri;
@@ -128,7 +128,7 @@ impl Process for syntax::context::Context {
 /// the vocabulary.
 fn resolve_iri<V, I>(vocabulary: &mut V, iri_ref: iri_rs::IriRef<&str>, base_iri: Option<&I>) -> Option<I>
 where
-    V: rdf_rs::vocabulary::IriVocabularyMut<Iri = I>,
+    V: rdfx::vocabulary::IriVocabularyMut<Iri = I>,
 {
     match base_iri {
         Some(base_iri) => {
@@ -170,13 +170,14 @@ where
     // 2) If `local_context` is an object containing the member @propagate,
     // its value MUST be boolean true or false, set `propagate` to that value.
     if let syntax::context::Context::One(syntax::ContextEntry::Definition(def)) = local_context
-        && let Some(propagate) = def.propagate {
-            if options.processing_mode == ProcessingMode::JsonLd1_0 {
-                return Err(Error::InvalidContextEntry);
-            }
-
-            options.propagate = propagate
+        && let Some(propagate) = def.propagate
+    {
+        if options.processing_mode == ProcessingMode::JsonLd1_0 {
+            return Err(Error::InvalidContextEntry);
         }
+
+        options.propagate = propagate
+    }
 
     // 3) If propagate is false, and result does not have a previous context,
     // set previous context in result to active context.

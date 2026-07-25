@@ -2,7 +2,7 @@
 use contextual::WithContext;
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
-use rdf_rs::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
+use rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 
 #[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/flatten-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
@@ -119,7 +119,7 @@ impl flatten::Test {
                 // Note: try it 10 times to reduce the chances of false negative
                 // with flatten_tin03. TODO proper fix.
                 for i in 0..10 {
-                    let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+                    let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
                     let flattened = json_ld
                         .flatten_full(&mut vocabulary, &mut generator, context.clone(), &loader, options.clone(), ())
                         .await
@@ -147,7 +147,7 @@ impl flatten::Test {
             flatten::Description::Negative { expected_error_code } => {
                 match loader.load_with(&mut vocabulary, input).await {
                     Ok(json_ld) => {
-                        let mut generator = rdf_rs::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+                        let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
                         let result = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &loader, options, ()).await;
 
                         match result {

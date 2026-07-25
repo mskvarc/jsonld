@@ -1,5 +1,6 @@
 use jstrict::Value;
 
+/// Checks whether this value simple JSON LD eq.
 pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Array(a), Value::Array(b)) if a.len() == b.len() => {

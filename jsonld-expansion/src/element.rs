@@ -13,12 +13,12 @@ use crate::{
     expand_node,
     expand_value,
 };
-use jstrict::{Value, object::Entry};
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
 use jsonld_core::{Context, Environment, Id, Indexed, Object, ParallelSafeVocabulary, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};
+use jstrict::{Value, object::Entry};
 use mown::Mown;
-use rdf_rs::vocabulary::VocabularyMut;
+use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
 use std::{borrow::Cow, hash::Hash, sync::Arc};
 
@@ -141,7 +141,15 @@ where
                 let mut has_value_entry = false;
                 let mut has_id_entry = false;
                 for Entry { key, value: _ } in element.entries() {
-                    match expand_iri(&mut env, active_context.as_ref(), Nullable::Some(key.as_str().into()), false, Some(options.policy.vocab))?.as_deref() {
+                    match expand_iri(
+                        &mut env,
+                        active_context.as_ref(),
+                        Nullable::Some(key.as_str().into()),
+                        false,
+                        Some(options.policy.vocab),
+                    )?
+                    .as_deref()
+                    {
                         Some(Term::Keyword(Keyword::Value)) => {
                             has_value_entry = true;
                         }
@@ -150,9 +158,10 @@ where
                     }
                 }
                 if !(has_value_entry || element.len() == 1 && has_id_entry)
-                    && let Some(previous_context) = active_context.previous_context() {
-                        active_context = Mown::Owned(previous_context.clone());
-                    }
+                    && let Some(previous_context) = active_context.previous_context()
+                {
+                    active_context = Mown::Owned(previous_context.clone());
+                }
             }
 
             // If `property_scoped_context` is defined, set `active_context` to the result of
@@ -267,29 +276,30 @@ where
                 sorted_value.sort_unstable();
                 for term in sorted_value {
                     if let Some(term_definition) = type_scoped_context.get(term)
-                        && let Some(local_context) = term_definition.context() {
-                            let base_url = term_definition.base_url().cloned();
-                            let options: ProcessingOptions = options.into();
-                            let processed = match cache {
-                                Some(cache) => local_context
-                                    .process_full_with_cache(
-                                        env.vocabulary,
-                                        active_context.as_ref(),
-                                        env.loader,
-                                        base_url,
-                                        options.without_propagation(),
-                                        jsonld_core::warning::Print,
-                                        cache,
-                                    )
-                                    .await?
-                                    .into_processed(),
-                                None => local_context
-                                    .process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url, options.without_propagation())
-                                    .await?
-                                    .into_processed(),
-                            };
-                            active_context = Mown::Owned(processed);
-                        }
+                        && let Some(local_context) = term_definition.context()
+                    {
+                        let base_url = term_definition.base_url().cloned();
+                        let options: ProcessingOptions = options.into();
+                        let processed = match cache {
+                            Some(cache) => local_context
+                                .process_full_with_cache(
+                                    env.vocabulary,
+                                    active_context.as_ref(),
+                                    env.loader,
+                                    base_url,
+                                    options.without_propagation(),
+                                    jsonld_core::warning::Print,
+                                    cache,
+                                )
+                                .await?
+                                .into_processed(),
+                            None => local_context
+                                .process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url, options.without_propagation())
+                                .await?
+                                .into_processed(),
+                        };
+                        active_context = Mown::Owned(processed);
+                    }
                 }
             }
 
@@ -344,10 +354,7 @@ where
             for ExpandedEntry(_, expanded_key, value) in expanded_entries.iter() {
                 match expanded_key.as_ref() {
                     Term::Keyword(Keyword::Value) => value_entry = Some(*value),
-                    Term::Keyword(Keyword::List)
-                        if active_property.is_some() && active_property != Keyword::Graph => {
-                            list_entry = Some(*value)
-                        }
+                    Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Keyword::Graph => list_entry = Some(*value),
                     Term::Keyword(Keyword::Set) => set_entry = Some(*value),
                     Term::Id(Id::Valid(ValidId::Blank(id))) => {
                         env.warnings.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));
@@ -425,7 +432,14 @@ where
                 .await
             } else if let Some(value_entry) = value_entry {
                 // Value objects.
-                let expanded_value = expand_value(&mut env, options.policy.vocab, input_type.as_deref(), type_scoped_context, expanded_entries, value_entry)?;
+                let expanded_value = expand_value(
+                    &mut env,
+                    options.policy.vocab,
+                    input_type.as_deref(),
+                    type_scoped_context,
+                    expanded_entries,
+                    value_entry,
+                )?;
 
                 if let Some(value) = expanded_value {
                     Ok(Expanded::Object(value))

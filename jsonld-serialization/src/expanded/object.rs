@@ -13,7 +13,7 @@ use jsonld_core::{
     rdf::{RDF_FIRST, RDF_REST, RDF_TYPE},
 };
 use ld_core::{CowRdfTerm, LinkedDataResource, OwnedRdfTerm};
-use rdf_rs::{
+use rdfx::{
     Interpretation,
     interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
     vocabulary::Vocabulary,
@@ -34,7 +34,7 @@ use super::{
 /// custom vocabulary and interpretation.
 pub fn serialize_object_with<I, V, T>(vocabulary: &mut V, interpretation: &mut I, value: &T) -> Result<Object<V::Iri, V::BlankId>, Error>
 where
-    V: Vocabulary + rdf_rs::vocabulary::VocabularyMut,
+    V: Vocabulary + rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,
@@ -95,7 +95,7 @@ impl<'a, I, V: Vocabulary> SerializeObject<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeObject<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,

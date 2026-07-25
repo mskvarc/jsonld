@@ -25,7 +25,7 @@ use jsonld_syntax::{
         term_definition::{self, IdRef},
     },
 };
-use rdf_rs::{BlankId, vocabulary::VocabularyMut};
+use rdfx::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};
 
 fn is_gen_delim(c: char) -> bool {
@@ -56,13 +56,18 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 }
 
 #[derive(Default)]
+/// Terms already defined or being defined, used to detect cyclic
+/// definitions.
 pub struct DefinedTerms(HashMap<KeyOrKeyword, DefinedTerm>);
 
 impl DefinedTerms {
+    /// Creates a new `DefinedTerms`.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Marks a term as being defined, failing on a cyclic definition and
+    /// reporting whether the work still has to be done.
     pub fn begin<E>(&mut self, key: &KeyOrKeyword) -> Result<bool, Error<E>> {
         match self.0.get(key) {
             Some(d) => {
@@ -80,12 +85,14 @@ impl DefinedTerms {
         }
     }
 
+    /// Marks a term as fully defined.
     pub fn end(&mut self, key: &KeyOrKeyword) {
         // SAFETY: `end` is paired with a successful `begin`.
         unsafe { self.0.get_mut(key).unwrap_unchecked() }.pending = false
     }
 }
 
+/// State of a term during context processing.
 pub struct DefinedTerm {
     pending: bool,
 }
@@ -157,18 +164,19 @@ where
                     // If override protected is false and previous_definition exists and is protected;
                     if !options.override_protected
                         && let Some(previous_definition) = previous_definition
-                            && previous_definition.protected {
-                                // If `definition` is not the same as `previous_definition`
-                                // (other than the value of protected), a protected term
-                                // redefinition error has been detected, and processing is aborted.
-                                if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
-                                    return Err(Error::ProtectedTermRedefinition);
-                                }
+                        && previous_definition.protected
+                    {
+                        // If `definition` is not the same as `previous_definition`
+                        // (other than the value of protected), a protected term
+                        // redefinition error has been detected, and processing is aborted.
+                        if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
+                            return Err(Error::ProtectedTermRedefinition);
+                        }
 
-                                // Set `definition` to `previous definition` to retain the value of
-                                // protected.
-                                definition.protected = true;
-                            }
+                        // Set `definition` to `previous definition` to retain the value of
+                        // protected.
+                        definition.protected = true;
+                    }
 
                     active_context.set_type(Some(definition));
                 }
@@ -453,9 +461,10 @@ where
 
                                         if let Some(prefix_key) = prefix_definition.value()
                                             && let Some(prefix_iri) = prefix_key.as_iri()
-                                                && let Some(iri) = env.vocabulary.iri(prefix_iri) {
-                                                    result = iri.to_string()
-                                                }
+                                            && let Some(iri) = env.vocabulary.iri(prefix_iri)
+                                        {
+                                            result = iri.to_string()
+                                        }
 
                                         result.push_str(compact_iri.suffix());
 
@@ -486,7 +495,9 @@ where
                                                         false,
                                                         Some(options.vocab),
                                                     )? {
-                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => definition.value = Some(arc),
+                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
+                                                            definition.value = Some(arc)
+                                                        }
                                                         // If the resulting IRI mapping is not an IRI, an invalid IRI mapping
                                                         // error has been detected and processing is aborted.
                                                         _ => return Err(Error::InvalidIriMapping),
@@ -595,7 +606,9 @@ where
                             Nullable::Some(index_value.as_str().into()),
                             false,
                             Some(options.vocab),
-                        )?.as_deref() {
+                        )?
+                        .as_deref()
+                        {
                             Some(Term::Id(Id::Valid(ValidId::Iri(_)))) => (),
                             _ => return Err(Error::InvalidTermDefinition),
                         }
@@ -703,18 +716,19 @@ where
                     // If override protected is false and previous_definition exists and is protected;
                     if !options.override_protected
                         && let Some(previous_definition) = previous_definition
-                            && previous_definition.protected {
-                                // If `definition` is not the same as `previous_definition`
-                                // (other than the value of protected), a protected term
-                                // redefinition error has been detected, and processing is aborted.
-                                if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
-                                    return Err(Error::ProtectedTermRedefinition);
-                                }
+                        && previous_definition.protected
+                    {
+                        // If `definition` is not the same as `previous_definition`
+                        // (other than the value of protected), a protected term
+                        // redefinition error has been detected, and processing is aborted.
+                        if definition.modulo_protected_field() != previous_definition.modulo_protected_field() {
+                            return Err(Error::ProtectedTermRedefinition);
+                        }
 
-                                // Set `definition` to `previous definition` to retain the value of
-                                // protected.
-                                definition.protected = true;
-                            }
+                        // Set `definition` to `previous definition` to retain the value of
+                        // protected.
+                        definition.protected = true;
+                    }
 
                     // Set the term definition of `term` in `active_context` to `definition` and
                     // set the value associated with `defined`'s entry term to true.

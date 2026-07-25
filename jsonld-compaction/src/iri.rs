@@ -11,11 +11,16 @@ use jsonld_core::{
     Term,
     Type,
     Value,
-    context::{CACHED_KEYWORDS, CompactIriKeyRef, KeywordAliases, inverse::{LangSelection, Selection, TypeSelection}},
+    context::{
+        CACHED_KEYWORDS,
+        CompactIriKeyRef,
+        KeywordAliases,
+        inverse::{LangSelection, Selection, TypeSelection},
+    },
     object,
 };
 use jsonld_syntax::{Keyword, is_keyword, is_keyword_like};
-use rdf_rs::vocabulary::Vocabulary;
+use rdfx::vocabulary::Vocabulary;
 use smallvec::SmallVec;
 use std::{hash::Hash, sync::Arc};
 
@@ -77,12 +82,7 @@ where
 /// active context via [`compact_iri`] and reused — saves Mutex traffic +
 /// HashMap lookups + the alias-selection walk in `compact_iri_full` for each
 /// of the ~25 hot keyword call-sites.
-pub(crate) fn keyword_alias<'a, N>(
-    vocabulary: &N,
-    active_context: &'a Context<N::Iri, N::BlankId>,
-    options: Options,
-    k: Keyword,
-) -> &'a str
+pub(crate) fn keyword_alias<'a, N>(vocabulary: &N, active_context: &'a Context<N::Iri, N::BlankId>, options: Options, k: Keyword) -> &'a str
 where
     N: Vocabulary + ParallelSafeVocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -153,10 +153,12 @@ where
             let mut type_lang_value = None;
 
             if let Some(value) = value
-                && value.index().is_some() && !value.is_graph() {
-                    containers.push(Container::Index);
-                    containers.push(Container::IndexSet);
-                }
+                && value.index().is_some()
+                && !value.is_graph()
+            {
+                containers.push(Container::Index);
+                containers.push(Container::IndexSet);
+            }
 
             let mut has_index = false;
             let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
@@ -312,9 +314,10 @@ where
             let mut is_empty_list = false;
             if let Some(value) = value
                 && let object::Ref::List(list) = value.inner().as_ref()
-                    && list.is_empty() {
-                        is_empty_list = true;
-                    }
+                && list.is_empty()
+            {
+                is_empty_list = true;
+            }
 
             // If type/language value is @reverse, append @reverse to preferred values.
             let selection = if is_empty_list {
@@ -331,25 +334,27 @@ where
                         let mut has_id_type = false;
                         if let Some(value) = value
                             && let Some(id) = value.id()
-                                && (type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse) {
-                                    has_id_type = true;
-                                    let mut vocab = false;
-                                    if let Some(compacted_iri) = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)?
-                                        && let Some(def) = active_context.get(&*compacted_iri)
-                                            && let Some(iri_mapping) = def.value() {
-                                                vocab = iri_mapping == id;
-                                            }
+                            && (type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse)
+                        {
+                            has_id_type = true;
+                            let mut vocab = false;
+                            if let Some(compacted_iri) = compact_iri(vocabulary, active_context, &id.clone().into_term(), true, false, options)?
+                                && let Some(def) = active_context.get(&*compacted_iri)
+                                && let Some(iri_mapping) = def.value()
+                            {
+                                vocab = iri_mapping == id;
+                            }
 
-                                    if vocab {
-                                        selection.push(TypeSelection::Type(Type::Vocab));
-                                        selection.push(TypeSelection::Type(Type::Id));
-                                    } else {
-                                        selection.push(TypeSelection::Type(Type::Id));
-                                        selection.push(TypeSelection::Type(Type::Vocab));
-                                    }
+                            if vocab {
+                                selection.push(TypeSelection::Type(Type::Vocab));
+                                selection.push(TypeSelection::Type(Type::Id));
+                            } else {
+                                selection.push(TypeSelection::Type(Type::Id));
+                                selection.push(TypeSelection::Type(Type::Vocab));
+                            }
 
-                                    selection.push(TypeSelection::Type(Type::None));
-                                }
+                            selection.push(TypeSelection::Type(Type::None));
+                        }
 
                         if !has_id_type {
                             selection.push(type_value);
@@ -389,9 +394,11 @@ where
             // suffix to the substring of var that does not match. If suffix does not have a term
             // definition in active context, then return suffix.
             if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(vocab_mapping.with(vocabulary).as_str())
-                && !suffix.is_empty() && active_context.get(suffix).is_none() {
-                    return Ok(Some(Arc::from(suffix)));
-                }
+                && !suffix.is_empty()
+                && active_context.get(suffix).is_none()
+            {
+                return Ok(Some(Arc::from(suffix)));
+            }
         }
     }
 
@@ -469,34 +476,36 @@ where
     // an IRI confused with prefix error has been detected, and processing is aborted.
     if let Some(iri) = var.as_iri()
         && let Some(iri) = vocabulary.iri(iri)
-            && active_context.contains_term(iri.scheme()) {
-                return Err(IriConfusedWithPrefix);
-            }
+        && active_context.contains_term(iri.scheme())
+    {
+        return Err(IriConfusedWithPrefix);
+    }
 
     // If vocab is false, transform var to a relative IRI reference using the
     // base IRI from active context, if it exists.
     if !vocab
         && let Some(base_iri) = active_context.base_iri()
-            && let Some(iri) = var.as_iri() {
-                let iri = match vocabulary.iri(iri) {
-                    Some(i) => i,
-                    None => return Ok(None),
-                };
-                let base = match vocabulary.iri(base_iri) {
-                    Some(b) => b,
-                    None => return Ok(None),
-                };
-                let rel = iri.relative_to(&base);
-                let s = rel.as_str();
-                // RFC 3986 relativization yields "" when target equals base;
-                // JSON-LD test 0076 expects last path segment of base instead.
-                let out = if s.is_empty() {
-                    base.as_str().rsplit('/').next().unwrap_or("").to_string()
-                } else {
-                    s.to_string()
-                };
-                return Ok(Some(Arc::from(disambiguate_keyword(out))));
-            }
+        && let Some(iri) = var.as_iri()
+    {
+        let iri = match vocabulary.iri(iri) {
+            Some(i) => i,
+            None => return Ok(None),
+        };
+        let base = match vocabulary.iri(base_iri) {
+            Some(b) => b,
+            None => return Ok(None),
+        };
+        let rel = iri.relative_to(&base);
+        let s = rel.as_str();
+        // RFC 3986 relativization yields "" when target equals base;
+        // JSON-LD test 0076 expects last path segment of base instead.
+        let out = if s.is_empty() {
+            base.as_str().rsplit('/').next().unwrap_or("").to_string()
+        } else {
+            s.to_string()
+        };
+        return Ok(Some(Arc::from(disambiguate_keyword(out))));
+    }
 
     // Finally, return var as is.
     Ok(Some(Arc::from(var.with(vocabulary).to_string())))

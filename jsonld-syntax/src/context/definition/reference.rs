@@ -4,6 +4,7 @@ use crate::{Direction, LenientLangTagBuf, Nullable, context::TermDefinition};
 use iri_rs::IriRefBuf;
 
 impl Definition {
+    /// Returns an iterator over the entries of this value.
     pub fn iter(&self) -> Entries<'_> {
         Entries {
             base: self.base.as_ref().map(Nullable::as_ref),
@@ -20,6 +21,7 @@ impl Definition {
     }
 }
 
+/// Iterator over the entries of a context definition.
 pub struct Entries<'a> {
     base: Option<Nullable<&'a IriRefBuf>>,
     import: Option<&'a IriRefBuf>,
@@ -112,20 +114,32 @@ impl<'a> Iterator for Entries<'a> {
 
 impl<'a> ExactSizeIterator for Entries<'a> {}
 
+/// Value of a context definition entry.
 pub enum EntryValueRef<'a> {
+    /// The `@base` entry, setting the base IRI against which relative IRIs are resolved.
     Base(Nullable<&'a IriRefBuf>),
+    /// The `@import` entry, referencing a context to merge into this one.
     Import(&'a IriRefBuf),
+    /// The `@language` entry, tagging string values with a language.
     Language(Nullable<&'a LenientLangTagBuf>),
+    /// The `@direction` entry, setting the base direction of string values.
     Direction(Nullable<Direction>),
+    /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate(bool),
+    /// The `@protected` entry, forbidding redefinition of the term.
     Protected(bool),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(Type),
+    /// The `@version` entry, declaring the processing mode.
     Version(Version),
+    /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab(Nullable<&'a Vocab>),
+    /// A term definition.
     Definition(Nullable<&'a TermDefinition>),
 }
 
 impl<'a> EntryValueRef<'a> {
+    /// Checks whether this `EntryValueRef` is object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Type(_) => true,
@@ -134,6 +148,7 @@ impl<'a> EntryValueRef<'a> {
         }
     }
 
+    /// Returns the sub items of this `EntryValueRef`.
     pub fn sub_items(&self) -> EntryValueSubItems<'a> {
         match self {
             Self::Definition(Nullable::Some(TermDefinition::Expanded(e))) => EntryValueSubItems::TermDefinitionFragment(Box::new(e.iter())),
@@ -142,34 +157,57 @@ impl<'a> EntryValueRef<'a> {
     }
 }
 
+/// Entry of a context definition, key and value together.
 pub enum EntryRef<'a> {
+    /// The `@base` entry, setting the base IRI against which relative IRIs are resolved.
     Base(Nullable<&'a IriRefBuf>),
+    /// The `@import` entry, referencing a context to merge into this one.
     Import(&'a IriRefBuf),
+    /// The `@language` entry, tagging string values with a language.
     Language(Nullable<&'a LenientLangTagBuf>),
+    /// The `@direction` entry, setting the base direction of string values.
     Direction(Nullable<Direction>),
+    /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate(bool),
+    /// The `@protected` entry, forbidding redefinition of the term.
     Protected(bool),
+    /// The `@type` entry, giving the type of the node or the values.
     Type(Type),
+    /// The `@version` entry, declaring the processing mode.
     Version(Version),
+    /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab(Nullable<&'a Vocab>),
+    /// A term definition.
     Definition(&'a Key, Nullable<&'a TermDefinition>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// Key of a context definition entry.
 pub enum EntryKeyRef<'a> {
+    /// The `@base` entry, setting the base IRI against which relative IRIs are resolved.
     Base,
+    /// The `@import` entry, referencing a context to merge into this one.
     Import,
+    /// The `@language` entry, tagging string values with a language.
     Language,
+    /// The `@direction` entry, setting the base direction of string values.
     Direction,
+    /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate,
+    /// The `@protected` entry, forbidding redefinition of the term.
     Protected,
+    /// The `@type` entry, giving the type of the node or the values.
     Type,
+    /// The `@version` entry, declaring the processing mode.
     Version,
+    /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab,
+    /// A term definition.
     Definition(&'a Key),
 }
 
 impl<'a> EntryKeyRef<'a> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Base => "@base",
@@ -187,6 +225,7 @@ impl<'a> EntryKeyRef<'a> {
 }
 
 impl<'a> EntryRef<'a> {
+    /// Consumes this `EntryKeyRef`, returning its key.
     pub fn into_key(self) -> EntryKeyRef<'a> {
         match self {
             Self::Base(_) => EntryKeyRef::Base,
@@ -202,6 +241,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
+    /// Returns the key of this `EntryKeyRef`.
     pub fn key(&self) -> EntryKeyRef<'a> {
         match self {
             Self::Base(_) => EntryKeyRef::Base,
@@ -217,6 +257,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
+    /// Consumes this `EntryKeyRef`, returning its value.
     pub fn into_value(self) -> EntryValueRef<'a> {
         match self {
             Self::Base(v) => EntryValueRef::Base(v),
@@ -232,6 +273,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
+    /// Returns the value of this `EntryKeyRef`.
     pub fn value(&self) -> EntryValueRef<'a> {
         match self {
             Self::Base(v) => EntryValueRef::Base(*v),
@@ -247,10 +289,12 @@ impl<'a> EntryRef<'a> {
         }
     }
 
+    /// Consumes this `EntryKeyRef`, returning its key value.
     pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
         self.key_value()
     }
 
+    /// Returns the key value of this `EntryKeyRef`.
     pub fn key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
         match self {
             Self::Base(v) => (EntryKeyRef::Base, EntryValueRef::Base(*v)),

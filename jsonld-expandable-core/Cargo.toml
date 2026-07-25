@@ -6,14 +6,18 @@ categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
+readme.workspace = true
 rust-version.workspace = true
 version.workspace = true
 description = "Runtime traits, attribute parser, and codegen for the JSON-LD `Expandable` derive"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
-serde_json = ["dep:serde_json"]
-sonic_rs = ["dep:sonic-rs"]
+serde-json = ["dep:serde_json"]
+sonic-rs = ["dep:sonic-rs"]
 jstrict = ["dep:jstrict"]
 chrono = ["dep:chrono"]
 
@@ -23,7 +27,7 @@ quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 serde_json = { version = "1.0", optional = true }
 sonic-rs = { version = "0.5", optional = true }
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git", optional = true }
+jstrict = { version = "0.13.0", optional = true }
 chrono = { version = "0.4", optional = true, default-features = false, features = ["alloc"] }
 
 [lints]

@@ -22,7 +22,7 @@ use crate::{
 };
 use contextual::WithContext;
 use jsonld_core::{Document, RemoteContextReference};
-use rdf_rs::{LocalGenerator, vocabulary::VocabularyMut};
+use rdfx::{LocalGenerator, vocabulary::VocabularyMut};
 use std::hash::Hash;
 
 impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
@@ -37,7 +37,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
     {
         if jsonld_syntax::Compare::compare(self.document(), other.document()) {
             let a = JsonLdProcessor::expand_full(self, vocabulary, loader, options.clone(), &mut warnings).await?;
@@ -58,7 +59,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
     {
         let mut active_context = Context::new(options.base.clone().or_else(|| self.url().cloned()));
 
@@ -123,7 +125,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: 'a + Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         let expanded = JsonLdProcessor::expand_full(&self, vocabulary, loader, options, warnings).await?;
         Ok(Document::new(self, expanded))
@@ -140,7 +143,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         let expanded_input = JsonLdProcessor::expand_full(self, vocabulary, loader, options.clone().unordered(), &mut warnings)
             .await
@@ -161,7 +165,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         let expanded_input = JsonLdProcessor::expand_full(self, vocabulary, loader, options.clone().unordered(), &mut warnings)
             .await
@@ -190,7 +195,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
     {
         let a = self.loaded_with(vocabulary, loader).await?;
         let b = other.loaded_with(vocabulary, loader).await?;
@@ -207,7 +213,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: Clone + Eq + Hash, L: Loader,
+        N::BlankId: Clone + Eq + Hash,
+        L: Loader,
     {
         let doc = self.loaded_with(vocabulary, loader).await?;
         JsonLdProcessor::expand_full(doc.as_ref(), vocabulary, loader, options, warnings).await
@@ -223,7 +230,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: 'a + Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         let doc = self.load_with(vocabulary, loader).await?;
         JsonLdProcessor::into_document_full(doc, vocabulary, loader, options, warnings).await
@@ -240,7 +248,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         let doc = self.loaded_with(vocabulary, loader).await?;
         JsonLdProcessor::compact_full(doc.as_ref(), vocabulary, context, loader, options, warnings).await
@@ -258,7 +267,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
     where
         N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
         I: Clone + Eq + Hash,
-        N::BlankId: 'a + Clone + Eq + Hash, L: Loader,
+        N::BlankId: 'a + Clone + Eq + Hash,
+        L: Loader,
     {
         let doc = self.loaded_with(vocabulary, loader).await?;
         JsonLdProcessor::flatten_full(doc.as_ref(), vocabulary, generator, context, loader, options, warnings).await

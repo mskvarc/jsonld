@@ -6,12 +6,13 @@ use contextual::WithContext;
 use iri_rs::{Iri, IriRef};
 use jsonld_core::{Context, Id, Loader, Term, warning};
 use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key};
-use rdf_rs::{
+use rdfx::{
     BlankId,
     vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut},
 };
 use syntax::{CompactIri, context::definition::KeyOrKeywordRef, is_keyword_like};
 
+/// Error raised when a term expands to something that is not a valid IRI.
 pub struct MalformedIri(pub String);
 
 impl From<MalformedIri> for Warning {
@@ -76,9 +77,10 @@ where
                 // If active context has a term definition for value, and the associated IRI mapping
                 // is a keyword, return that keyword.
                 if let Some(arc) = term_definition.value_arc()
-                    && arc.is_keyword() {
-                        return Ok(Some(Arc::clone(arc)));
-                    }
+                    && arc.is_keyword()
+                {
+                    return Ok(Some(Arc::clone(arc)));
+                }
 
                 // If vocab is true and the active context has a term definition for value, return the
                 // associated IRI mapping.
@@ -128,12 +130,13 @@ where
                     let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key)
                         && term_definition.prefix
-                            && let Some(mapping) = term_definition.value() {
-                                let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
-                                result.push_str(compact_iri.suffix());
+                        && let Some(mapping) = term_definition.value()
+                    {
+                        let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
+                        result.push_str(compact_iri.suffix());
 
-                                return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
-                            }
+                        return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
+                    }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
@@ -170,9 +173,10 @@ where
             // [RFC3987].
             if document_relative
                 && let Ok(iri_ref) = IriRef::parse(value)
-                    && let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
-                        return Ok(Some(Arc::new(Term::from(iri))));
-                    }
+                && let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
+            {
+                return Ok(Some(Arc::new(Term::from(iri))));
+            }
 
             // Return value as is.
             Ok(Some(Arc::new(invalid_iri(&mut env, value.to_string()))))
@@ -189,22 +193,29 @@ where
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+/// What to do with a term that expands to a malformed IRI.
 pub enum Action {
     #[default]
+    /// Keep the malformed IRI as it is.
     Keep,
+    /// Drop the entry carrying it.
     Drop,
+    /// Fail the algorithm.
     Reject,
 }
 
 impl Action {
+    /// Checks whether this `Action` is reject.
     pub fn is_reject(&self) -> bool {
         matches!(self, Self::Reject)
     }
 }
 
 #[derive(Debug)]
+/// Error raised when a term is expanded through `@vocab` but must not be.
 pub struct RejectVocab;
 
+/// Result of expanding a term into an IRI.
 pub type IriExpansionResult<N> = Result<Option<Arc<Term<<N as IriVocabulary>::Iri, <N as BlankIdVocabulary>::BlankId>>>, RejectVocab>;
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
@@ -238,17 +249,15 @@ where
     };
 
     if let Some(s) = cache_value
-        && let Some(arc) = active_context.term_resolution_cache().lock().get(s).cloned() {
-            return Ok(Some(arc));
-        }
+        && let Some(arc) = active_context.term_resolution_cache().lock().get(s).cloned()
+    {
+        return Ok(Some(arc));
+    }
 
     let result = expand_iri_simple_inner::<W, N, L, H>(env, active_context, value, document_relative, vocab)?;
 
     if let (Some(s), Some(arc)) = (cache_value, &result) {
-        active_context
-            .term_resolution_cache()
-            .lock()
-            .insert(Box::from(s), Arc::clone(arc));
+        active_context.term_resolution_cache().lock().insert(Box::from(s), Arc::clone(arc));
     }
 
     Ok(result)
@@ -280,9 +289,10 @@ where
                 // If active context has a term definition for value, and the associated IRI mapping
                 // is a keyword, return that keyword.
                 if let Some(arc) = term_definition.value_arc()
-                    && arc.is_keyword() {
-                        return Ok(Some(Arc::clone(arc)));
-                    }
+                    && arc.is_keyword()
+                {
+                    return Ok(Some(Arc::clone(arc)));
+                }
 
                 // If vocab is true and the active context has a term definition for value, return the
                 // associated IRI mapping.
@@ -310,12 +320,13 @@ where
                     let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key)
                         && term_definition.prefix
-                            && let Some(mapping) = term_definition.value() {
-                                let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
-                                result.push_str(compact_iri.suffix());
+                        && let Some(mapping) = term_definition.value()
+                    {
+                        let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
+                        result.push_str(compact_iri.suffix());
 
-                                return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
-                            }
+                        return Ok(Some(Arc::new(Term::Id(Id::from_string_in(env.vocabulary, result)))));
+                    }
                 }
 
                 if let Ok(iri) = Iri::parse(value) {
@@ -352,9 +363,10 @@ where
             // [RFC3987].
             if document_relative
                 && let Ok(iri_ref) = IriRef::parse(value)
-                    && let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri()) {
-                        return Ok(Some(Arc::new(Term::from(iri))));
-                    }
+                && let Some(iri) = super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
+            {
+                return Ok(Some(Arc::new(Term::from(iri))));
+            }
 
             // Return value as is.
             Ok(Some(Arc::new(invalid_iri_simple(env, value.to_string()))))

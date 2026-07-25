@@ -17,11 +17,7 @@ pub struct OldSpelling {
     pub cats: Vec<String>,
     #[jsonld(property = "https://example.com/tags", list)]
     pub tags: Vec<String>,
-    #[jsonld(
-        property = "https://example.com/at",
-        typed_value,
-        datatype = "http://www.w3.org/2001/XMLSchema#dateTime"
-    )]
+    #[jsonld(property = "https://example.com/at", typed_value, datatype = "http://www.w3.org/2001/XMLSchema#dateTime")]
     pub at: String,
 }
 
@@ -36,10 +32,7 @@ pub struct NewSpelling {
     pub cats: Vec<String>,
     #[jsonld(property = "https://example.com/tags", container = "list")]
     pub tags: Vec<String>,
-    #[jsonld(
-        property = "https://example.com/at",
-        coerce = "http://www.w3.org/2001/XMLSchema#dateTime"
-    )]
+    #[jsonld(property = "https://example.com/at", coerce = "http://www.w3.org/2001/XMLSchema#dateTime")]
     pub at: String,
 }
 

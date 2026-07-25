@@ -1,7 +1,9 @@
-use crate::{Id, Indexed, IndexSet, ValidId};
+use crate::{Id, IndexSet, Indexed, ValidId};
 use std::hash::Hash;
 
+/// Equality up to a renaming of blank node identifiers.
 pub trait MappedEq<T: ?Sized = Self> {
+    /// Blank node identifier type the renaming applies to.
     type BlankId;
     /// Structural equality with mapped blank identifiers.
     ///

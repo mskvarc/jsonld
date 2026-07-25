@@ -2,9 +2,11 @@ use std::{fmt, str::FromStr};
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid JSON-LD text direction `{0}`")]
+/// Error raised when a string is neither `ltr` nor `rtl`.
 pub struct InvalidDirection<T>(pub T);
 
 impl<T: ?Sized + ToOwned> InvalidDirection<&T> {
+    /// Converts this `InvalidDirection` into an owned one.
     pub fn into_owned(self) -> InvalidDirection<T::Owned> {
         InvalidDirection(self.0.to_owned())
     }
@@ -24,6 +26,7 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         match self {
             Direction::Ltr => "ltr",
@@ -31,6 +34,7 @@ impl Direction {
         }
     }
 
+    /// Consumes this `Direction`, returning its str.
     pub fn into_str(self) -> &'static str {
         self.as_str()
     }

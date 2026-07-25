@@ -9,7 +9,7 @@ use std::hash::Hash;
 use jsonld_context_processing::Context;
 use jsonld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
 use jstrict::Value;
-use rdf_rs::{
+use rdfx::{
     BlankIdBuf,
     vocabulary::{self, BlankIdVocabulary, VocabularyMut},
 };
@@ -74,7 +74,7 @@ impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where H: jsonld_core::warn
 /// # mod json_ld { pub use jsonld_syntax as syntax; pub use jsonld_core::{RemoteDocument, ExpandedDocument, NoLoader}; pub use jsonld_expansion::Expand; };
 ///
 /// use iri_rs::IriBuf;
-/// use rdf_rs::BlankIdBuf;
+/// use rdfx::BlankIdBuf;
 /// use iri_rs::iri;
 /// use jsonld::{syntax::Parse, RemoteDocument, Expand};
 ///

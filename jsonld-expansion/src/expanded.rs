@@ -1,12 +1,17 @@
 use jsonld_core::IndexedObject;
 
+/// Result of expanding a fragment: nothing, one object, or many.
 pub enum Expanded<T, B> {
+    /// The null value.
     Null,
+    /// A JSON object.
     Object(IndexedObject<T, B>),
+    /// A JSON array.
     Array(Vec<IndexedObject<T, B>>),
 }
 
 impl<T, B> Expanded<T, B> {
+    /// Returns the number of entries of this `Expanded`.
     pub fn len(&self) -> usize {
         match self {
             Expanded::Null => 0,
@@ -15,14 +20,17 @@ impl<T, B> Expanded<T, B> {
         }
     }
 
+    /// Checks whether this `Expanded` is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Checks whether this `Expanded` is null.
     pub fn is_null(&self) -> bool {
         matches!(self, Expanded::Null)
     }
 
+    /// Checks whether this `Expanded` is list.
     pub fn is_list(&self) -> bool {
         match self {
             Expanded::Object(o) => o.is_list(),
@@ -30,6 +38,7 @@ impl<T, B> Expanded<T, B> {
         }
     }
 
+    /// Returns an iterator over the entries of this `Expanded`.
     pub fn iter(&self) -> Iter<'_, T, B> {
         match self {
             Expanded::Null => Iter::Null,
@@ -61,9 +70,13 @@ impl<'a, T, B> IntoIterator for &'a Expanded<T, B> {
     }
 }
 
+/// Iterator over the objects of an expansion result.
 pub enum Iter<'a, T, B> {
+    /// The null value.
     Null,
+    /// A JSON object.
     Object(Option<&'a IndexedObject<T, B>>),
+    /// A JSON array.
     Array(std::slice::Iter<'a, IndexedObject<T, B>>),
 }
 
@@ -83,9 +96,13 @@ impl<'a, T, B> Iterator for Iter<'a, T, B> {
     }
 }
 
+/// Owning iterator over the objects of an expansion result.
 pub enum IntoIter<T, B> {
+    /// The null value.
     Null,
+    /// A JSON object.
     Object(Option<IndexedObject<T, B>>),
+    /// A JSON array.
     Array(std::vec::IntoIter<IndexedObject<T, B>>),
 }
 

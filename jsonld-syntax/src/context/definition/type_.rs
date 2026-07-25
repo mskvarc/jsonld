@@ -2,15 +2,19 @@ use std::{hash::Hash, str::FromStr};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// The `@type` entry of a context definition.
 pub struct Type {
     #[cfg_attr(feature = "serde", serde(rename = "@container"))]
+    /// The `@container` entry, declaring how values of the term are laid out.
     pub container: TypeContainer,
 
     #[cfg_attr(feature = "serde", serde(rename = "@protected"))]
+    /// The `@protected` entry, forbidding redefinition of the term.
     pub protected: Option<bool>,
 }
 
 impl Type {
+    /// Returns an iterator over the entries of this `Type`.
     pub fn iter(&self) -> ContextTypeEntries {
         ContextTypeEntries {
             container: Some(self.container),
@@ -19,6 +23,7 @@ impl Type {
     }
 }
 
+/// Iterator over the entries of a context `@type` definition.
 pub struct ContextTypeEntries {
     container: Option<TypeContainer>,
     protected: Option<bool>,
@@ -51,12 +56,16 @@ impl Iterator for ContextTypeEntries {
 
 impl ExactSizeIterator for ContextTypeEntries {}
 
+/// Entry of a context `@type` definition.
 pub enum ContextTypeEntry {
+    /// The `@container` entry.
     Container(TypeContainer),
+    /// The `@protected` entry.
     Protected(bool),
 }
 
 impl ContextTypeEntry {
+    /// Returns the key of this `ContextTypeEntry`.
     pub fn key(&self) -> ContextTypeKey {
         match self {
             Self::Container(_) => ContextTypeKey::Container,
@@ -65,12 +74,16 @@ impl ContextTypeEntry {
     }
 }
 
+/// Key of a context `@type` definition entry.
 pub enum ContextTypeKey {
+    /// The `@container` key.
     Container,
+    /// The `@protected` key.
     Protected,
 }
 
 impl ContextTypeKey {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Container => "@container",
@@ -81,20 +94,25 @@ impl ContextTypeKey {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid JSON-LD `@type` container `{0}`")]
+/// Error raised when a `@type` container is neither `@set` nor absent.
 pub struct InvalidTypeContainer<T = String>(pub T);
 
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
+/// Container allowed on a context `@type` definition.
 pub enum TypeContainer {
+    /// The `@set` container.
     Set,
 }
 
 impl TypeContainer {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Set => "@set",
         }
     }
 
+    /// Consumes this `TypeContainer`, returning its str.
     pub fn into_str(self) -> &'static str {
         self.as_str()
     }

@@ -1,15 +1,17 @@
 use super::{RdfDirection, triples::Value};
 use crate::{ExpandedDocument, FlattenedDocument, LdQuads, ValidId};
-use rdf_rs::{
+use rdfx::{
     GeneralizedTriple as Triple,
     LocalGenerator,
     vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary, Vocabulary, VocabularyMut},
 };
 use std::{borrow::Cow, convert::TryInto, hash::Hash};
 
-pub type Quad<T, B, L> = rdf_rs::GeneralizedQuad<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>, ValidId<T, B>>;
+/// RDF quad produced from an expanded document.
+pub type Quad<T, B, L> = rdfx::GeneralizedQuad<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>, ValidId<T, B>>;
 
-pub type QuadRef<'a, T, B, L> = rdf_rs::GeneralizedQuad<Cow<'a, ValidId<T, B>>, Cow<'a, ValidId<T, B>>, Value<T, B, L>, &'a ValidId<T, B>>;
+/// RDF quad whose terms are borrowed from the document.
+pub type QuadRef<'a, T, B, L> = rdfx::GeneralizedQuad<Cow<'a, ValidId<T, B>>, Cow<'a, ValidId<T, B>>, Value<T, B, L>, &'a ValidId<T, B>>;
 
 struct Compound<'a, T, B, L> {
     graph: Option<&'a ValidId<T, B>>,
@@ -29,6 +31,7 @@ pub struct Quads<'a, N: Vocabulary, G: LocalGenerator> {
 }
 
 impl<'a, N: Vocabulary, G: LocalGenerator> Quads<'a, N, G> {
+    /// Turns this iterator into one yielding owned quads.
     pub fn cloned(self) -> ClonedQuads<'a, N, G> {
         ClonedQuads { inner: self }
     }
@@ -48,7 +51,7 @@ where
                 match compound_value.triples.next(self.vocabulary, self.generator, self.rdf_direction) {
                     Some(Triple(subject, property, object)) => {
                         if self.produce_generalized_rdf || !property.is_blank() {
-                            break Some(rdf_rs::GeneralizedQuad(Cow::Owned(subject), Cow::Owned(property), object, compound_value.graph));
+                            break Some(rdfx::GeneralizedQuad(Cow::Owned(subject), Cow::Owned(property), object, compound_value.graph));
                         }
                     }
                     None => self.compound_value = None,
@@ -89,12 +92,7 @@ where
                             });
                         }
 
-                        break Some(rdf_rs::GeneralizedQuad(
-                            Cow::Borrowed(rdf_subject),
-                            rdf_property,
-                            compound_value.value,
-                            rdf_graph,
-                        ));
+                        break Some(rdfx::GeneralizedQuad(Cow::Borrowed(rdf_subject), rdf_property, compound_value.value, rdf_graph));
                     }
                 }
                 None => break None,
@@ -120,11 +118,14 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.inner
             .next()
-            .map(|rdf_rs::GeneralizedQuad(s, p, o, g)| rdf_rs::GeneralizedQuad(s.into_owned(), p.into_owned(), o, g.cloned()))
+            .map(|rdfx::GeneralizedQuad(s, p, o, g)| rdfx::GeneralizedQuad(s.into_owned(), p.into_owned(), o, g.cloned()))
     }
 }
 
+/// Documents that can be serialized as RDF quads.
 pub trait RdfQuads<T, B> {
+    /// Returns the RDF quads of this document, taking every parameter
+    /// explicitly.
     fn rdf_quads_full<'a, V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
         &'a self,
         vocabulary: &'a mut V,
@@ -133,6 +134,7 @@ pub trait RdfQuads<T, B> {
         produce_generalized_rdf: bool,
     ) -> Quads<'a, V, G>;
 
+    /// Returns the RDF quads of this document, using the given vocabulary.
     fn rdf_quads_with<'a, V: Vocabulary<Iri = T, BlankId = B>, G: LocalGenerator>(
         &'a self,
         vocabulary: &'a mut V,
@@ -142,11 +144,12 @@ pub trait RdfQuads<T, B> {
         self.rdf_quads_full(vocabulary, generator, rdf_direction, false)
     }
 
+    /// Returns the RDF quads of this document.
     fn rdf_quads<'a, G: LocalGenerator>(&'a self, generator: &'a mut G, rdf_direction: Option<RdfDirection>) -> Quads<'a, (), G>
     where
         (): Vocabulary<Iri = T, BlankId = B>,
     {
-        self.rdf_quads_with(rdf_rs::vocabulary::no_vocabulary_mut(), generator, rdf_direction)
+        self.rdf_quads_with(rdfx::vocabulary::no_vocabulary_mut(), generator, rdf_direction)
     }
 }
 

@@ -1,17 +1,21 @@
 use crate::{CompactIri, ExpandableRef, Keyword, context::definition::KeyOrKeywordRef};
 use iri_rs::Iri;
-use rdf_rs::BlankId;
+use rdfx::BlankId;
 use std::{fmt, hash::Hash};
 
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
+/// Value of the `@id` entry of a term definition.
 pub enum Id {
+    /// A JSON-LD keyword.
     Keyword(Keyword),
+    /// A term defined by the active context.
     Term(String),
 }
 
 impl Id {
+    /// Borrows this `Id` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         match self {
             Self::Term(t) => Iri::parse(t.as_str()).ok(),
@@ -19,6 +23,7 @@ impl Id {
         }
     }
 
+    /// Borrows this `Id` as blank id, if it is one.
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         match self {
             Self::Term(t) => BlankId::new(t).ok(),
@@ -26,6 +31,7 @@ impl Id {
         }
     }
 
+    /// Borrows this `Id` as compact IRI, if it is one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         match self {
             Self::Term(t) => CompactIri::new(t).ok(),
@@ -33,6 +39,7 @@ impl Id {
         }
     }
 
+    /// Borrows this `Id` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -40,6 +47,7 @@ impl Id {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t.as_str(),
@@ -47,6 +55,7 @@ impl Id {
         }
     }
 
+    /// Consumes this `Id`, returning its string.
     pub fn into_string(self) -> String {
         match self {
             Self::Term(t) => t,
@@ -54,14 +63,17 @@ impl Id {
         }
     }
 
+    /// Checks whether this `Id` is keyword.
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
 
+    /// Checks whether this `Id` is keyword like.
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }
 
+    /// Borrows this `Id` as id ref, if it is one.
     pub fn as_id_ref(&self) -> IdRef<'_> {
         match self {
             Self::Term(t) => IdRef::Term(t),
@@ -116,12 +128,16 @@ impl fmt::Display for Id {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Borrowed value of the `@id` entry of a term definition.
 pub enum IdRef<'a> {
+    /// A term defined by the active context.
     Term(&'a str),
+    /// A JSON-LD keyword.
     Keyword(Keyword),
 }
 
 impl<'a> IdRef<'a> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t,
@@ -129,10 +145,12 @@ impl<'a> IdRef<'a> {
         }
     }
 
+    /// Checks whether this `IdRef` is keyword.
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
 
+    /// Checks whether this `IdRef` is keyword like.
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }

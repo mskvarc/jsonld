@@ -2,13 +2,17 @@
 name = "jsonld-cli"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
 description = "Command line interface for JSON-LD"
-readme = "README.md"
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = []
@@ -20,10 +24,10 @@ clap = { version = "4.6.1", features = ["derive"] }
 contextual = "0.1.6"
 iri-rs = { version = "3.3.4", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
-jstrict = { git = "ssh://git@github.com/mskvarc/jstrict.git" }
+jstrict = "0.13.0"
 log = "0.4.29"
 mediatype = "0.21"
-rdf-rs = { git = "ssh://git@github.com/mskvarc/rdf-rs.git" }
+rdfx = "0.23.1"
 stderrlog = "0.6.0"
 thiserror = "2.0.18"
 tokio = { version = "1.52.1", features = ["rt-multi-thread", "net", "macros"] }

@@ -1,7 +1,7 @@
 use iri_rs::Iri;
 use jsonld_core::{Indexed, Node, Object, object::node::Multiset, rdf::RDF_TYPE};
 use ld_core::{CowRdfTerm, LinkedDataResource, OwnedRdfTerm};
-use rdf_rs::{
+use rdfx::{
     Interpretation,
     interpretation::{ReverseInterpretation, ReverseLocalInterpretation},
     vocabulary::{IriVocabulary, Vocabulary},
@@ -19,7 +19,7 @@ use super::{
 /// custom vocabulary and interpretation.
 pub fn serialize_node_with<I, V, T>(vocabulary: &mut V, interpretation: &mut I, value: &T) -> Result<Node<V::Iri, V::BlankId>, Error>
 where
-    V: Vocabulary + rdf_rs::vocabulary::VocabularyMut,
+    V: Vocabulary + rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,
@@ -60,7 +60,7 @@ impl<'a, I, V: Vocabulary> SerializeNode<'a, I, V> {
 
 impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeNode<'a, I, V>
 where
-    V: rdf_rs::vocabulary::VocabularyMut,
+    V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
     V::BlankId: Clone + Eq + Hash,
     I: ReverseInterpretation + ReverseLocalInterpretation,
@@ -156,9 +156,10 @@ pub(crate) fn into_type_value<I, B>(obj: Indexed<Object<I, B>>) -> Result<jsonld
         None => match obj.into_inner() {
             Object::Node(mut node) => {
                 if node.is_empty()
-                    && let Some(id) = node.id.take() {
-                        return Ok(id);
-                    }
+                    && let Some(id) = node.id.take()
+                {
+                    return Ok(id);
+                }
                 Err(Indexed::none(Object::Node(node)))
             }
             obj => Err(Indexed::none(obj)),

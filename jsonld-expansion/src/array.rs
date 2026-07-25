@@ -1,9 +1,9 @@
 use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler, expand_element};
-use jstrict::Array;
 use jsonld_context_processing::ProcessingCache;
 use jsonld_core::{Context, Environment, Object, ParallelSafeVocabulary, context::TermDefinitionRef, object};
 use jsonld_syntax::ContainerKind;
-use rdf_rs::vocabulary::VocabularyMut;
+use jstrict::Array;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Probe a sample of the array's items to decide whether the parallel branch
@@ -34,12 +34,8 @@ fn item_is_heavy(v: &jstrict::Value) -> bool {
 
 #[cfg(feature = "parallel")]
 fn is_value_object_shape(obj: &jstrict::Object) -> bool {
-    obj.iter().all(|entry| {
-        matches!(
-            entry.key.as_str(),
-            "@value" | "@language" | "@type" | "@direction" | "@index"
-        )
-    })
+    obj.iter()
+        .all(|entry| matches!(entry.key.as_str(), "@value" | "@language" | "@type" | "@direction" | "@index"))
 }
 
 pub(crate) async fn expand_array<'a, N, L, W>(
@@ -94,17 +90,7 @@ where
                             loader: env_loader,
                             warnings: &mut warn_buf,
                         };
-                        let r = expand_element(
-                            task_env,
-                            active_context,
-                            active_property,
-                            item,
-                            base_url,
-                            options,
-                            from_map,
-                            cache,
-                        )
-                        .await;
+                        let r = expand_element(task_env, active_context, active_property, item, base_url, options, from_map, cache).await;
                         (r, warn_buf)
                     })
                 })

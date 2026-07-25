@@ -3,7 +3,7 @@ use crate::{Direction, Id, Indexed, IndexedObject, Node, Object, ValidId, object
 use iri_rs::IriBuf;
 use jstrict::Print;
 use langtag::LangTagBuf;
-use rdf_rs::{
+use rdfx::{
     Literal,
     LocalGenerator,
     vocabulary::{IriVocabularyMut, Vocabulary, VocabularyMut},
@@ -11,20 +11,20 @@ use rdf_rs::{
 use smallvec::SmallVec;
 
 /// JSON-LD to RDF triple.
-pub type Triple<T, B, L> = rdf_rs::GeneralizedTriple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
+pub type Triple<T, B, L> = rdfx::GeneralizedTriple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
 
-/// Build a [`rdf_rs::Datatype`] from a static IRI constant. The IRIs used by
+/// Build a [`rdfx::Datatype`] from a static IRI constant. The IRIs used by
 /// jsonld-core are never `rdf:langString` / `rdf:dirLangString`, so we fall
 /// back to [`Datatype::new_unchecked`] only as a defensive last resort.
-fn static_datatype(iri: iri_rs::Iri<&'static str>) -> rdf_rs::Datatype {
-    rdf_rs::Datatype::new(IriBuf::from(iri)).unwrap_or_else(|e| unsafe { rdf_rs::Datatype::new_unchecked(e.into_iri()) })
+fn static_datatype(iri: iri_rs::Iri<&'static str>) -> rdfx::Datatype {
+    rdfx::Datatype::new(IriBuf::from(iri)).unwrap_or_else(|e| unsafe { rdfx::Datatype::new_unchecked(e.into_iri()) })
 }
 
-/// Build a [`rdf_rs::Datatype`] from a vocabulary handle.
-fn datatype_of<V: rdf_rs::vocabulary::IriVocabulary>(vocabulary: &V, iri: &V::Iri) -> rdf_rs::Datatype {
+/// Build a [`rdfx::Datatype`] from a vocabulary handle.
+fn datatype_of<V: rdfx::vocabulary::IriVocabulary>(vocabulary: &V, iri: &V::Iri) -> rdfx::Datatype {
     // SAFETY: `iri` was obtained from `vocabulary`.
     let buf = IriBuf::from(unsafe { vocabulary.iri(iri).unwrap_unchecked() });
-    rdf_rs::Datatype::new(buf).unwrap_or_else(|e| unsafe { rdf_rs::Datatype::new_unchecked(e.into_iri()) })
+    rdfx::Datatype::new(buf).unwrap_or_else(|e| unsafe { rdfx::Datatype::new_unchecked(e.into_iri()) })
 }
 
 impl<T: Clone, B: Clone> Id<T, B> {
@@ -52,11 +52,11 @@ pub struct CompoundLiteralTriples<T, B, L> {
 impl<T: Clone, B: Clone, L: Clone> CompoundLiteralTriples<T, B, L> {
     fn next(&mut self, vocabulary: &mut impl IriVocabularyMut<Iri = T>) -> Option<Triple<T, B, L>> {
         if let Some(value) = self.value.take() {
-            return Some(rdf_rs::GeneralizedTriple(self.id.clone(), ValidId::Iri(vocabulary.insert(RDF_VALUE)), value));
+            return Some(rdfx::GeneralizedTriple(self.id.clone(), ValidId::Iri(vocabulary.insert(RDF_VALUE)), value));
         }
 
         if let Some(direction) = self.direction.take() {
-            return Some(rdf_rs::GeneralizedTriple(
+            return Some(rdfx::GeneralizedTriple(
                 self.id.clone(),
                 ValidId::Iri(vocabulary.insert(RDF_DIRECTION)),
                 direction,
@@ -87,7 +87,7 @@ impl<T: Clone> crate::object::Value<T> {
             Self::Json(json) => Some(CompoundLiteral {
                 value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(
                     json.compact_print().to_string(),
-                    rdf_rs::LiteralType::Any(static_datatype(RDF_JSON)),
+                    rdfx::LiteralType::Any(static_datatype(RDF_JSON)),
                 ))),
                 triples: None,
             }),
@@ -105,10 +105,9 @@ impl<T: Clone> crate::object::Value<T> {
                 match direction {
                     Some(direction) => match rdf_direction {
                         Some(RdfDirection::I18nDatatype) => {
-                            let ty =
-                                rdf_rs::Datatype::new(i18n(language, *direction)).unwrap_or_else(|e| unsafe { rdf_rs::Datatype::new_unchecked(e.into_iri()) });
+                            let ty = rdfx::Datatype::new(i18n(language, *direction)).unwrap_or_else(|e| unsafe { rdfx::Datatype::new_unchecked(e.into_iri()) });
                             Some(CompoundLiteral {
-                                value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdf_rs::LiteralType::Any(ty)))),
+                                value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::Any(ty)))),
                                 triples: None,
                             })
                         }
@@ -123,12 +122,12 @@ impl<T: Clone> crate::object::Value<T> {
                         }
                         None => match language {
                             Some(tag) => Some(CompoundLiteral {
-                                value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdf_rs::LiteralType::LangString(tag)))),
+                                value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::LangString(tag)))),
                                 triples: None,
                             }),
                             None => Some(CompoundLiteral {
                                 value: Value::Literal(
-                                    vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdf_rs::LiteralType::Any(static_datatype(XSD_STRING)))),
+                                    vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::Any(static_datatype(XSD_STRING)))),
                                 ),
                                 triples: None,
                             }),
@@ -136,12 +135,12 @@ impl<T: Clone> crate::object::Value<T> {
                     },
                     None => match language {
                         Some(tag) => Some(CompoundLiteral {
-                            value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdf_rs::LiteralType::LangString(tag)))),
+                            value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::LangString(tag)))),
                             triples: None,
                         }),
                         None => Some(CompoundLiteral {
                             value: Value::Literal(
-                                vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdf_rs::LiteralType::Any(static_datatype(XSD_STRING)))),
+                                vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::Any(static_datatype(XSD_STRING)))),
                             ),
                             triples: None,
                         }),
@@ -174,7 +173,7 @@ impl<T: Clone> crate::object::Value<T> {
                 Some(CompoundLiteral {
                     value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(
                         rdf_lit,
-                        rdf_rs::LiteralType::Any(rdf_ty.unwrap_or_else(|| static_datatype(XSD_STRING))),
+                        rdfx::LiteralType::Any(rdf_ty.unwrap_or_else(|| static_datatype(XSD_STRING))),
                     ))),
                     triples: None,
                 })
@@ -228,12 +227,17 @@ impl<T: Clone, B: Clone> Object<T, B> {
     }
 }
 
+/// RDF value paired with the triples needed to describe it.
 pub struct CompoundValue<'a, T, B, L> {
+    /// The value itself.
     pub value: Value<T, B, L>,
+    /// Triples describing the value, for lists and JSON literals.
     pub triples: Option<CompoundValueTriples<'a, T, B, L>>,
 }
 
 impl<'a, T: Clone, B: Clone> crate::quad::ObjectRef<'a, T, B> {
+    /// Converts this object into an RDF value, emitting any triples it needs
+    /// through the given vocabulary and generator.
     pub fn rdf_value_with<V, G: LocalGenerator>(
         &self,
         vocabulary: &mut V,
@@ -304,16 +308,21 @@ impl<'a, T, B> NestedListTriples<'a, T, B> {
     }
 }
 
+/// Triples describing a compound RDF value.
 pub enum CompoundValueTriples<'a, T, B, L> {
+    /// An RDF literal.
     Literal(Box<CompoundLiteralTriples<T, B, L>>),
+    /// A list object.
     List(ListTriples<'a, T, B, L>),
 }
 
 impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
+    /// Builds the triples of a JSON literal.
     pub fn literal(l: CompoundLiteralTriples<T, B, L>) -> Self {
         Self::Literal(Box::new(l))
     }
 
+    /// Binds this iterator to a vocabulary and generator.
     pub fn with<'n, V: Vocabulary<Iri = T, BlankId = B, Literal = L>, G: LocalGenerator>(
         self,
         vocabulary: &'n mut V,
@@ -328,6 +337,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
         }
     }
 
+    /// Produces the next triple, allocating blank node identifiers as needed.
     pub fn next<V, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G, rdf_direction: Option<RdfDirection>) -> Option<Triple<T, B, L>>
     where
         T: Clone,
@@ -342,6 +352,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
     }
 }
 
+/// Compound value triples bound to a vocabulary and a generator.
 pub struct CompoundValueTriplesWith<'a, 'n, N: Vocabulary, G: LocalGenerator> {
     vocabulary: &'n mut N,
     generator: G,
@@ -371,6 +382,7 @@ pub struct ListTriples<'a, T, B, L> {
 }
 
 impl<'a, T, B, L> ListTriples<'a, T, B, L> {
+    /// Creates a new `ListTriples`.
     pub fn new(list: &'a [IndexedObject<T, B>], head_ref: ValidId<T, B>) -> Self {
         let mut stack = SmallVec::new();
         stack.push(ListItemTriples::NestedList(NestedListTriples::new(list, head_ref)));
@@ -378,6 +390,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
         Self { stack, pending: None }
     }
 
+    /// Binds this iterator to a vocabulary and generator.
     pub fn with<'n, V: Vocabulary<Iri = T, BlankId = B, Literal = L>, G: LocalGenerator>(
         self,
         vocabulary: &'n mut V,
@@ -392,6 +405,8 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
         }
     }
 
+    /// Produces the next triple of the list, allocating blank node identifiers
+    /// as needed.
     pub fn next<V, G: LocalGenerator>(&mut self, vocabulary: &mut V, generator: &mut G, rdf_direction: Option<RdfDirection>) -> Option<Triple<T, B, L>>
     where
         T: Clone,
@@ -425,14 +440,14 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
                                     }
                                 }
 
-                                self.pending = Some(rdf_rs::GeneralizedTriple(
+                                self.pending = Some(rdfx::GeneralizedTriple(
                                     id.clone(),
                                     ValidId::Iri(vocabulary.insert(RDF_FIRST)),
                                     compound_value.value,
                                 ));
 
                                 if let Some(previous_id) = previous {
-                                    break Some(rdf_rs::GeneralizedTriple(
+                                    break Some(rdfx::GeneralizedTriple(
                                         previous_id,
                                         ValidId::Iri(vocabulary.insert(RDF_REST)),
                                         Value::from_id(id),
@@ -443,7 +458,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
                         None => {
                             self.stack.pop();
                             if let Some(previous_id) = previous {
-                                break Some(rdf_rs::GeneralizedTriple(
+                                break Some(rdfx::GeneralizedTriple(
                                     previous_id,
                                     ValidId::Iri(vocabulary.insert(RDF_REST)),
                                     Value::Id(ValidId::Iri(vocabulary.insert(RDF_NIL))),
@@ -458,6 +473,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
     }
 }
 
+/// List triples bound to a vocabulary and a generator.
 pub struct ListTriplesWith<'a, 'n, V: Vocabulary, G: LocalGenerator> {
     vocabulary: &'n mut V,
     generator: G,
@@ -491,11 +507,14 @@ fn i18n(language: Option<LangTagBuf>, direction: Direction) -> IriBuf {
 /// RDF object value: either a node identifier or a literal handle.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value<T, B, L> {
+    /// A node identifier.
     Id(ValidId<T, B>),
+    /// An RDF literal.
     Literal(L),
 }
 
 impl<T, B, L> Value<T, B, L> {
+    /// Builds a value from a node identifier.
     pub fn from_id(id: ValidId<T, B>) -> Self {
         Self::Id(id)
     }

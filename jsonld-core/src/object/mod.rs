@@ -1,11 +1,11 @@
 //! Nodes, lists and values.
-use crate::{Id, Indexed, IndexSet, LenientLangTag, Relabel, ValidId};
+use crate::{HashMap, Id, IndexSet, Indexed, LenientLangTag, Relabel, ValidId};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use iri_rs::IriBuf;
-use jstrict::Number;
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
-use rdf_rs::{
+use jstrict::Number;
+use rdfx::{
     BlankIdBuf,
     LocalGenerator,
     vocabulary::{Vocabulary, VocabularyMut},
@@ -13,10 +13,13 @@ use rdf_rs::{
 use smallvec::SmallVec;
 use std::hash::Hash;
 
+/// List objects.
 pub mod list;
 mod mapped_eq;
+/// Node objects.
 pub mod node;
 mod typ;
+/// Value objects.
 pub mod value;
 
 pub use list::List;
@@ -27,9 +30,11 @@ pub use value::{Literal, Value};
 
 /// Abstract object.
 pub trait Any<T, B> {
+    /// Borrows this `Any`.
     fn as_ref(&self) -> Ref<'_, T, B>;
 
     #[inline]
+    /// Returns the id of this `Any`.
     fn id(&self) -> Option<&Id<T, B>> {
         match self.as_ref() {
             Ref::Node(n) => n.id.as_ref(),
@@ -38,6 +43,7 @@ pub trait Any<T, B> {
     }
 
     #[inline]
+    /// Returns the language tag of this value, if it carries one.
     fn language<'a>(&'a self) -> Option<&'a LenientLangTag>
     where
         T: 'a,
@@ -50,16 +56,19 @@ pub trait Any<T, B> {
     }
 
     #[inline]
+    /// Checks whether this `Any` is value.
     fn is_value(&self) -> bool {
         matches!(self.as_ref(), Ref::Value(_))
     }
 
     #[inline]
+    /// Checks whether this `Any` is node.
     fn is_node(&self) -> bool {
         matches!(self.as_ref(), Ref::Node(_))
     }
 
     #[inline]
+    /// Checks whether this `Any` is graph.
     fn is_graph(&self) -> bool {
         match self.as_ref() {
             Ref::Node(n) => n.is_graph(),
@@ -68,6 +77,7 @@ pub trait Any<T, B> {
     }
 
     #[inline]
+    /// Checks whether this `Any` is list.
     fn is_list(&self) -> bool {
         matches!(self.as_ref(), Ref::List(_))
     }
@@ -433,7 +443,7 @@ impl<T, B> Relabel<T, B> for Object<T, B> {
         &mut self,
         vocabulary: &mut N,
         generator: &mut G,
-        relabeling: &mut hashbrown::HashMap<B, ValidId<T, B>>,
+        relabeling: &mut HashMap<B, ValidId<T, B>>,
     ) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Clone + Eq + Hash,
@@ -448,6 +458,7 @@ impl<T, B> Relabel<T, B> for Object<T, B> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> Indexed<Object<T, B>> {
+    /// Checks whether this `Object` equivalent.
     pub fn equivalent(&self, other: &Self) -> bool {
         self.index() == other.index() && self.inner().equivalent(other.inner())
     }
@@ -487,6 +498,7 @@ impl<T, B> Indexed<Object<T, B>> {
         }
     }
 
+    /// Returns the entries of this `Object`.
     pub fn entries(&self) -> IndexedEntries<'_, T, B> {
         IndexedEntries {
             index: self.index(),
@@ -497,9 +509,13 @@ impl<T, B> Indexed<Object<T, B>> {
 
 #[derive(Educe)]
 #[educe(Clone)]
+/// Iterator over the entries of an object.
 pub enum Entries<'a, T, B> {
+    /// A value object.
     Value(value::Entries<'a, T>),
+    /// A list object.
     List(Option<&'a [IndexedObject<T, B>]>),
+    /// A node object.
     Node(node::Entries<'a, T, B>),
 }
 
@@ -529,6 +545,7 @@ impl<'a, T, B> ExactSizeIterator for Entries<'a, T, B> {}
 
 #[derive(Educe)]
 #[educe(Clone)]
+/// Iterator over the entries of an indexed object, `@index` included.
 pub struct IndexedEntries<'a, T, B> {
     index: Option<&'a str>,
     inner: Entries<'a, T, B>,
@@ -554,13 +571,18 @@ impl<'a, T, B> ExactSizeIterator for IndexedEntries<'a, T, B> {}
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
+/// Key of an object entry.
 pub enum EntryKeyRef<'a, T, B> {
+    /// A value object.
     Value(value::EntryKey),
+    /// A list object.
     List,
+    /// A node object.
     Node(node::EntryKeyRef<'a, T, B>),
 }
 
 impl<'a, T, B> EntryKeyRef<'a, T, B> {
+    /// Consumes this `EntryKeyRef`, returning its keyword.
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Value(e) => Some(e.into_keyword()),
@@ -569,10 +591,12 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `EntryKeyRef` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
+    /// Consumes this `EntryKeyRef`, returning its str.
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -585,6 +609,7 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -606,21 +631,30 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Value of an object entry.
 pub enum EntryValueRef<'a, T, B> {
+    /// A value object.
     Value(value::EntryRef<'a, T>),
+    /// A list object.
     List(&'a [IndexedObject<T, B>]),
+    /// A node object.
     Node(node::EntryValueRef<'a, T, B>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Entry of an object, key and value together.
 pub enum EntryRef<'a, T, B> {
+    /// A value object.
     Value(value::EntryRef<'a, T>),
+    /// A list object.
     List(&'a [IndexedObject<T, B>]),
+    /// A node object.
     Node(node::EntryRef<'a, T, B>),
 }
 
 impl<'a, T, B> EntryRef<'a, T, B> {
+    /// Consumes this `EntryRef`, returning its key.
     pub fn into_key(self) -> EntryKeyRef<'a, T, B> {
         match self {
             Self::Value(e) => EntryKeyRef::Value(e.key()),
@@ -629,10 +663,12 @@ impl<'a, T, B> EntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the key of this `EntryRef`.
     pub fn key(&self) -> EntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
+    /// Consumes this `EntryRef`, returning its value.
     pub fn into_value(self) -> EntryValueRef<'a, T, B> {
         match self {
             Self::Value(v) => EntryValueRef::Value(v),
@@ -641,10 +677,12 @@ impl<'a, T, B> EntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the value of this `EntryRef`.
     pub fn value(&self) -> EntryValueRef<'a, T, B> {
         self.into_value()
     }
 
+    /// Consumes this `EntryRef`, returning its key value.
     pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         match self {
             Self::Value(e) => (EntryKeyRef::Value(e.key()), EntryValueRef::Value(e)),
@@ -656,6 +694,7 @@ impl<'a, T, B> EntryRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `EntryRef` as key value, if it is one.
     pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         self.into_key_value()
     }
@@ -663,12 +702,16 @@ impl<'a, T, B> EntryRef<'a, T, B> {
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
+/// Key of an indexed object entry.
 pub enum IndexedEntryKeyRef<'a, T, B> {
+    /// The `@index` entry.
     Index,
+    /// A JSON object.
     Object(EntryKeyRef<'a, T, B>),
 }
 
 impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
+    /// Consumes this `IndexedEntryKeyRef`, returning its keyword.
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Index => Some(Keyword::Index),
@@ -676,10 +719,12 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `IndexedEntryKeyRef` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
+    /// Consumes this `IndexedEntryKeyRef`, returning its str.
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -691,6 +736,7 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str
     where
         T: AsRef<str>,
@@ -711,19 +757,26 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Value of an indexed object entry.
 pub enum IndexedEntryValueRef<'a, T, B> {
+    /// The value of the `@index` entry.
     Index(&'a str),
+    /// A JSON object.
     Object(EntryValueRef<'a, T, B>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
+/// Entry of an indexed object, key and value together.
 pub enum IndexedEntryRef<'a, T, B> {
+    /// The `@index` entry and its value.
     Index(&'a str),
+    /// A JSON object.
     Object(EntryRef<'a, T, B>),
 }
 
 impl<'a, T, B> IndexedEntryRef<'a, T, B> {
+    /// Consumes this `IndexedEntryRef`, returning its key.
     pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B> {
         match self {
             Self::Index(_) => IndexedEntryKeyRef::Index,
@@ -731,10 +784,12 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the key of this `IndexedEntryRef`.
     pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
+    /// Consumes this `IndexedEntryRef`, returning its value.
     pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B> {
         match self {
             Self::Index(v) => IndexedEntryValueRef::Index(v),
@@ -742,10 +797,12 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
         }
     }
 
+    /// Returns the value of this `IndexedEntryRef`.
     pub fn value(&self) -> IndexedEntryValueRef<'a, T, B> {
         self.into_value()
     }
 
+    /// Consumes this `IndexedEntryRef`, returning its key value.
     pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         match self {
             Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
@@ -756,6 +813,7 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `IndexedEntryRef` as key value, if it is one.
     pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         self.into_key_value()
     }
@@ -766,6 +824,8 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
 ///
 /// The input JSON value must be in expanded JSON-LD form.
 pub trait TryFromJson<T, B>: Sized {
+    /// Builds this fragment from a JSON value, interning terms in the given
+    /// vocabulary.
     fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson>;
 }
 
@@ -774,6 +834,8 @@ pub trait TryFromJson<T, B>: Sized {
 ///
 /// The input JSON object must be in expanded JSON-LD form.
 pub trait TryFromJsonObject<T, B>: Sized {
+    /// Builds this fragment from a JSON object, interning terms in the given
+    /// vocabulary.
     fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: jstrict::Object) -> Result<Self, InvalidExpandedJson>;
 }
 
@@ -821,10 +883,7 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Object<T, B> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Object<T, B> {
-    fn try_from_json_object_in(
-        vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-        mut object: jstrict::Object,
-    ) -> Result<Self, InvalidExpandedJson> {
+    fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, mut object: jstrict::Object) -> Result<Self, InvalidExpandedJson> {
         match object.remove_unique("@context").map_err(InvalidExpandedJson::duplicate_key)? {
             Some(_) => Err(InvalidExpandedJson::NotExpanded),
             None => {
@@ -847,22 +906,36 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Object<T, B> {
 /// expanded JSON-LD object without using the expansion algorithm.
 #[derive(Debug)]
 pub enum InvalidExpandedJson {
+    /// The value is not a JSON object.
     InvalidObject,
+    /// The `@list` entry does not hold an array.
     InvalidList,
+    /// The `@index` entry does not hold a string.
     InvalidIndex,
+    /// The `@id` entry does not hold a valid identifier.
     InvalidId,
+    /// The `@type` entry of a value object is invalid.
     InvalidValueType,
+    /// The `@value` entry does not hold a literal.
     InvalidLiteral,
+    /// The `@language` entry does not hold a language tag.
     InvalidLanguage,
+    /// The `@direction` entry does not hold `ltr` or `rtl`.
     InvalidDirection,
+    /// The value is not a well-formed language-tagged string.
     InvalidLangString,
+    /// The document is not in expanded form.
     NotExpanded,
+    /// The object carries an entry that is not allowed here.
     UnexpectedEntry,
+    /// The object carries the same key twice.
     DuplicateKey(jstrict::object::Key),
+    /// A value of the wrong JSON kind was found.
     Unexpected(jstrict::Kind, jstrict::Kind),
 }
 
 impl InvalidExpandedJson {
+    /// Builds a duplicate-key error from the duplicate `jstrict` reports.
     pub fn duplicate_key(jstrict::object::Duplicate(a, _): jstrict::object::Duplicate<jstrict::object::Entry>) -> Self {
         InvalidExpandedJson::DuplicateKey(a.key)
     }
@@ -895,8 +968,11 @@ impl<T, B> From<Node<T, B>> for Object<T, B> {
 
 /// Iterator through the types of an object.
 pub enum Types<'a, T, B> {
+    /// A value object.
     Value(Option<value::TypeRef<'a, T>>),
+    /// A node object.
     Node(std::slice::Iter<'a, Id<T, B>>),
+    /// A list object.
     List,
 }
 
@@ -971,6 +1047,7 @@ pub enum FragmentRef<'a, T, B> {
 }
 
 impl<'a, T, B> FragmentRef<'a, T, B> {
+    /// Consumes this `FragmentRef`, returning its ref.
     pub fn into_ref(self) -> Option<Ref<'a, T, B>> {
         match self {
             Self::Object(o) => Some(o.as_ref()),
@@ -981,6 +1058,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Consumes this `FragmentRef`, returning its id.
     pub fn into_id(self) -> Option<Id<&'a T, &'a B>> {
         match self {
             Self::ValueFragment(i) => i.into_iri().map(Id::iri),
@@ -989,6 +1067,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Borrows this `FragmentRef` as id, if it is one.
     pub fn as_id(&self) -> Option<Id<&'a T, &'a B>> {
         match self {
             Self::ValueFragment(i) => i.as_iri().map(Id::iri),
@@ -997,6 +1076,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is JSON array.
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::IndexedNodeList(_) => true,
@@ -1006,6 +1086,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `FragmentRef` is JSON object.
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Object(_) | Self::IndexedObject(_) | Self::Node(_) | Self::IndexedNode(_) => true,
@@ -1015,6 +1096,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
         }
     }
 
+    /// Returns the sub fragments of this `FragmentRef`.
     pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
         match self {
             Self::IndexEntry(v) => SubFragments::IndexEntry(Some(()), Some(v)),
@@ -1030,9 +1112,13 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 }
 
+/// Iterator over the fragments directly held by an object.
 pub enum ObjectSubFragments<'a, T, B> {
+    /// A list object.
     List(Option<&'a [IndexedObject<T, B>]>),
+    /// A value object.
     Value(value::Entries<'a, T>),
+    /// A node object.
     Node(node::Entries<'a, T, B>),
 }
 
@@ -1048,12 +1134,19 @@ impl<'a, T, B> Iterator for ObjectSubFragments<'a, T, B> {
     }
 }
 
+/// Iterator over the fragments directly held by a document fragment.
 pub enum SubFragments<'a, T, B> {
+    /// No value.
     None,
+    /// The `@index` entry of an indexed fragment.
     IndexEntry(Option<()>, Option<&'a str>),
+    /// A JSON object.
     Object(Option<&'a str>, ObjectSubFragments<'a, T, B>),
+    /// A value object.
     Value(value::SubFragments<'a, T>),
+    /// A node object.
     Node(node::SubFragments<'a, T, B>),
+    /// A list of indexed node objects.
     IndexedNodeList(std::slice::Iter<'a, IndexedNode<T, B>>),
 }
 
@@ -1075,6 +1168,7 @@ impl<'a, T, B> Iterator for SubFragments<'a, T, B> {
     }
 }
 
+/// Depth-first iterator over a fragment and everything it contains.
 pub struct Traverse<'a, T, B> {
     stack: SmallVec<[FragmentRef<'a, T, B>; 8]>,
 }

@@ -9,7 +9,7 @@ use jsonld_syntax::{
         term_definition::Index,
     },
 };
-use rdf_rs::{
+use rdfx::{
     BlankIdBuf,
     vocabulary::{IriVocabulary, Vocabulary},
 };
@@ -33,12 +33,16 @@ pub enum BindingRef<'a, T, B> {
     Type(&'a TypeTermDefinition),
 }
 
+/// Term a context binding defines.
 pub enum BindingTerm<'a> {
+    /// An ordinary term.
     Normal(&'a Key),
+    /// The `@type` entry of the context.
     Type,
 }
 
 impl<'a> BindingTerm<'a> {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Normal(key) => key.as_str(),
@@ -71,6 +75,7 @@ impl<'a, T, B> BindingRef<'a, T, B> {
     }
 }
 
+/// Term definitions of a context, split from its `@type` definition.
 pub type DefinitionParts<T, B> = (HashMap<Key, NormalTermDefinition<T, B>>, Option<TypeTermDefinition>);
 
 /// Context term definitions.
@@ -90,6 +95,7 @@ impl<T, B> Default for Definitions<T, B> {
 }
 
 impl<T, B> Definitions<T, B> {
+    /// Consumes this `Definitions`, returning its parts.
     pub fn into_parts(self) -> DefinitionParts<T, B> {
         (self.normal, self.type_)
     }
@@ -132,6 +138,7 @@ impl<T, B> Definitions<T, B> {
         self.type_.as_ref()
     }
 
+    /// Checks whether this `Definitions` contains term.
     pub fn contains_term<Q>(&self, term: &Q) -> bool
     where
         Q: ?Sized + Hash + Eq,
@@ -184,6 +191,8 @@ impl<T, B> Definitions<T, B> {
         }
     }
 
+    /// Rewrites every IRI and identifier of this definition with the given
+    /// functions.
     pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Definitions<U, C>
     where
         T: Clone,
@@ -196,6 +205,7 @@ impl<T, B> Definitions<T, B> {
     }
 }
 
+/// Iterator over the bindings of a context definition.
 pub struct Iter<'a, T, B> {
     type_: Option<&'a TypeTermDefinition>,
     normal: hashbrown::hash_map::Iter<'a, Key, NormalTermDefinition<T, B>>,
@@ -221,6 +231,7 @@ impl<'a, T, B> IntoIterator for &'a Definitions<T, B> {
     }
 }
 
+/// Owning iterator over the bindings of a context definition.
 pub struct IntoIter<T, B> {
     type_: Option<TypeTermDefinition>,
     normal: hashbrown::hash_map::IntoIter<Key, NormalTermDefinition<T, B>>,
@@ -272,10 +283,12 @@ impl Default for TypeTermDefinition {
 }
 
 impl TypeTermDefinition {
+    /// Returns the modulo protected field of this `TypeTermDefinition`.
     pub fn modulo_protected_field(&self) -> ModuloProtected<&Self> {
         ModuloProtected(self)
     }
 
+    /// Consumes this `TypeTermDefinition`, returning its syntax definition.
     pub fn into_syntax_definition(self) -> jsonld_syntax::context::definition::Type {
         jsonld_syntax::context::definition::Type {
             container: self.container,
@@ -295,6 +308,7 @@ pub enum TermDefinition<T, B> {
 }
 
 impl<T, B> TermDefinition<T, B> {
+    /// Borrows this `TermDefinition`.
     pub fn as_ref(&self) -> TermDefinitionRef<'_, T, B> {
         match self {
             Self::Type(t) => TermDefinitionRef::Type(t),
@@ -302,10 +316,12 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the modulo protected field of this `TermDefinition`.
     pub fn modulo_protected_field(&self) -> ModuloProtected<TermDefinitionRef<'_, T, B>> {
         ModuloProtected(self.as_ref())
     }
 
+    /// Returns the value of this `TermDefinition`.
     pub fn value(&self) -> Option<&Term<T, B>> {
         match self {
             Self::Type(_) => None,
@@ -313,6 +329,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Checks whether this `TermDefinition` prefix.
     pub fn prefix(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -320,6 +337,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Checks whether this `TermDefinition` protected.
     pub fn protected(&self) -> bool {
         match self {
             Self::Type(d) => d.protected,
@@ -327,6 +345,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Checks whether this `TermDefinition` reverse property.
     pub fn reverse_property(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -334,6 +353,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the base URL of this `TermDefinition`.
     pub fn base_url(&self) -> Option<&T> {
         match self {
             Self::Type(_) => None,
@@ -341,6 +361,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the context of this `TermDefinition`.
     pub fn context(&self) -> Option<&jsonld_syntax::context::Context> {
         match self {
             Self::Type(_) => None,
@@ -348,6 +369,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the container of this `TermDefinition`.
     pub fn container(&self) -> Container {
         match self {
             Self::Type(d) => d.container.into(),
@@ -355,6 +377,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the direction of this `TermDefinition`.
     pub fn direction(&self) -> Option<Nullable<Direction>> {
         match self {
             Self::Type(_) => None,
@@ -362,6 +385,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the index of this `TermDefinition`.
     pub fn index(&self) -> Option<&Index> {
         match self {
             Self::Type(_) => None,
@@ -369,6 +393,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the language of this `TermDefinition`.
     pub fn language(&self) -> Option<Nullable<&LenientLangTagBuf>> {
         match self {
             Self::Type(_) => None,
@@ -376,6 +401,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the nest of this `TermDefinition`.
     pub fn nest(&self) -> Option<&Nest> {
         match self {
             Self::Type(_) => None,
@@ -383,6 +409,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
+    /// Returns the typ of this `TermDefinition`.
     pub fn typ(&self) -> Option<&Type<T>> {
         match self {
             Self::Type(_) => None,
@@ -402,10 +429,12 @@ pub enum TermDefinitionRef<'a, T = IriBuf, B = BlankIdBuf> {
 }
 
 impl<'a, T, B> TermDefinitionRef<'a, T, B> {
+    /// Returns the modulo protected field of this `TermDefinitionRef`.
     pub fn modulo_protected_field(&self) -> ModuloProtected<Self> {
         ModuloProtected(*self)
     }
 
+    /// Returns the value of this `TermDefinitionRef`.
     pub fn value(&self) -> Option<&'a Term<T, B>> {
         match self {
             Self::Type(_) => None,
@@ -422,6 +451,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `TermDefinitionRef` prefix.
     pub fn prefix(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -429,6 +459,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `TermDefinitionRef` protected.
     pub fn protected(&self) -> bool {
         match self {
             Self::Type(d) => d.protected,
@@ -436,6 +467,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Checks whether this `TermDefinitionRef` reverse property.
     pub fn reverse_property(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -443,6 +475,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the base URL of this `TermDefinitionRef`.
     pub fn base_url(&self) -> Option<&'a T> {
         match self {
             Self::Type(_) => None,
@@ -450,6 +483,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the context of this `TermDefinitionRef`.
     pub fn context(&self) -> Option<&'a jsonld_syntax::context::Context> {
         match self {
             Self::Type(_) => None,
@@ -457,6 +491,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the container of this `TermDefinitionRef`.
     pub fn container(&self) -> Container {
         match self {
             Self::Type(d) => d.container.into(),
@@ -464,6 +499,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the direction of this `TermDefinitionRef`.
     pub fn direction(&self) -> Option<Nullable<Direction>> {
         match self {
             Self::Type(_) => None,
@@ -471,6 +507,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the index of this `TermDefinitionRef`.
     pub fn index(&self) -> Option<&'a Index> {
         match self {
             Self::Type(_) => None,
@@ -478,6 +515,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the language of this `TermDefinitionRef`.
     pub fn language(&self) -> Option<Nullable<&'a LenientLangTagBuf>> {
         match self {
             Self::Type(_) => None,
@@ -485,6 +523,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the nest of this `TermDefinitionRef`.
     pub fn nest(&self) -> Option<&'a Nest> {
         match self {
             Self::Type(_) => None,
@@ -492,6 +531,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
+    /// Returns the typ of this `TermDefinitionRef`.
     pub fn typ(&self) -> Option<&'a Type<T>> {
         match self {
             Self::Type(_) => None,
@@ -510,6 +550,7 @@ impl<'a, T, B> Copy for TermDefinitionRef<'a, T, B> {}
 
 // A term definition.
 #[derive(PartialEq, Eq, Clone)]
+/// Definition of an ordinary term, as processed from a context.
 pub struct NormalTermDefinition<T = IriBuf, B = BlankIdBuf> {
     // IRI mapping.
     //
@@ -517,47 +558,61 @@ pub struct NormalTermDefinition<T = IriBuf, B = BlankIdBuf> {
     // `expand_iri_simple` returns a refcount bump instead of deep-cloning the
     // (potentially `IriBuf`-backed) term. External direct field access becomes
     // a breaking change; use `value()` / `value_arc()` accessors.
+    /// Term the definition maps to.
     pub value: Option<Arc<Term<T, B>>>,
 
     // Prefix flag.
+    /// Whether the term may expand compact IRIs.
     pub prefix: bool,
 
     // Protected flag.
+    /// Whether the term is protected against redefinition.
     pub protected: bool,
 
     // Reverse property flag.
+    /// Whether the term denotes a reverse property.
     pub reverse_property: bool,
 
     // Optional base URL.
+    /// Base URL used to resolve relative IRIs of the term.
     pub base_url: Option<T>,
 
     // Optional context.
+    /// Context local to the term.
     pub context: Option<Box<jsonld_syntax::context::Context>>,
 
     // Container mapping.
+    /// Container mapping of the term.
     pub container: Container,
 
     // Optional direction mapping.
+    /// Base direction of the term's string values.
     pub direction: Option<Nullable<Direction>>,
 
     // Optional index mapping.
+    /// Index mapping of the term.
     pub index: Option<Index>,
 
     // Optional language mapping.
+    /// Default language of the term's string values.
     pub language: Option<Nullable<LenientLangTagBuf>>,
 
     // Optional nest value.
+    /// Nesting term the property is gathered under.
     pub nest: Option<Nest>,
 
     // Optional type mapping.
+    /// Type mapping of the term.
     pub typ: Option<Type<T>>,
 }
 
 impl<T, B> NormalTermDefinition<T, B> {
+    /// Returns the modulo protected field of this `NormalTermDefinition`.
     pub fn modulo_protected_field(&self) -> ModuloProtected<&Self> {
         ModuloProtected(self)
     }
 
+    /// Returns the base URL of this `NormalTermDefinition`.
     pub fn base_url(&self) -> Option<&T> {
         self.base_url.as_ref()
     }
@@ -572,7 +627,11 @@ impl<T, B> NormalTermDefinition<T, B> {
         self.value.as_ref()
     }
 
-    pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<Nullable<jsonld_syntax::context::TermDefinition>, super::InvalidContextError>
+    /// Consumes this `NormalTermDefinition`, returning its syntax definition.
+    pub fn into_syntax_definition(
+        self,
+        vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
+    ) -> Result<Nullable<jsonld_syntax::context::TermDefinition>, super::InvalidContextError>
     where
         T: Clone,
         B: Clone,

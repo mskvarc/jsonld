@@ -6,6 +6,7 @@
 use proc_macro2::TokenStream;
 
 #[derive(Debug, Default)]
+/// Container a field's values are laid out in.
 pub struct ContainerIr {
     /// Static `@type` IRI. Mutually exclusive with `type_field` and `fragment`.
     pub type_iri: Option<String>,
@@ -22,25 +23,39 @@ pub struct ContainerIr {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Coercion applied to a field's value.
 pub enum Coerce {
+    /// Coerce to `@id`.
     Id,
+    /// Coerce to `@vocab`.
     Vocab,
+    /// A JSON literal.
     Json,
+    /// Coerce to the given datatype IRI.
     Datatype(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Kind of container declared on a field.
 pub enum ContainerKind {
+    /// The `@list` entry, marking the values as an ordered list.
     List,
+    /// The `@set` entry, marking the values as an unordered set.
     Set,
+    /// The `@language` entry, tagging string values with a language.
     Language,
+    /// The `@index` entry, indexing the value within its container.
     Index,
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id,
+    /// The `@type` entry, giving the type of the node or the values.
     Type,
+    /// The `@graph` entry, holding the node objects of a named graph.
     Graph,
 }
 
 #[derive(Debug, Default)]
+/// Everything the derive learned about one field.
 pub struct FieldIr {
     /// Field is the `@id` of the surrounding node.
     pub is_id: bool,

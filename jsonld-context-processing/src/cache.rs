@@ -64,20 +64,24 @@ pub struct ProcessingCache<T, B> {
 }
 
 impl<T, B> ProcessingCache<T, B> {
+    /// Creates a new `ProcessingCache`.
     pub fn new() -> Self {
         Self {
             entries: Mutex::new(HashMap::default()),
         }
     }
 
+    /// Removes every entry from this `ProcessingCache`.
     pub fn clear(&self) {
         self.entries.lock().clear();
     }
 
+    /// Returns the number of entries of this `ProcessingCache`.
     pub fn len(&self) -> usize {
         self.entries.lock().len()
     }
 
+    /// Checks whether this `ProcessingCache` is empty.
     pub fn is_empty(&self) -> bool {
         self.entries.lock().is_empty()
     }

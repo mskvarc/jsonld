@@ -1,9 +1,11 @@
 use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 use iri_rs::IriBuf;
-use rdf_rs::BlankIdBuf;
+use rdfx::BlankIdBuf;
 
+/// Expanded documents.
 pub mod expanded;
+/// Flattened documents.
 pub mod flattened;
 
 pub use expanded::ExpandedDocument;
@@ -11,6 +13,7 @@ pub use flattened::FlattenedDocument;
 
 use crate::RemoteDocument;
 
+/// Remote document paired with its expanded form.
 pub type DocumentParts<I, B> = (RemoteDocument<I>, ExpandedDocument<I, B>);
 
 /// JSON-LD document in both compact and expanded form.
@@ -21,34 +24,42 @@ pub struct Document<I = IriBuf, B = BlankIdBuf> {
 }
 
 impl<I, B> Document<I, B> {
+    /// Creates a new `Document`.
     pub fn new(remote: RemoteDocument<I>, expanded: ExpandedDocument<I, B>) -> Self {
         Self { remote, expanded }
     }
 
+    /// Consumes this `Document`, returning its remote.
     pub fn into_remote(self) -> RemoteDocument<I> {
         self.remote
     }
 
+    /// Consumes this `Document`, returning its compact.
     pub fn into_compact(self) -> jsonld_syntax::Value {
         self.remote.into_document()
     }
 
+    /// Consumes this `Document`, returning its expanded.
     pub fn into_expanded(self) -> ExpandedDocument<I, B> {
         self.expanded
     }
 
+    /// Consumes this `Document`, returning its parts.
     pub fn into_parts(self) -> DocumentParts<I, B> {
         (self.remote, self.expanded)
     }
 
+    /// Borrows this `Document` as remote, if it is one.
     pub fn as_remote(&self) -> &RemoteDocument<I> {
         &self.remote
     }
 
+    /// Borrows this `Document` as compact, if it is one.
     pub fn as_compact(&self) -> &jsonld_syntax::Value {
         self.remote.document()
     }
 
+    /// Borrows this `Document` as expanded, if it is one.
     pub fn as_expanded(&self) -> &ExpandedDocument<I, B> {
         &self.expanded
     }

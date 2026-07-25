@@ -1,6 +1,7 @@
 use std::{borrow::Borrow, convert::TryFrom, fmt};
 
 #[derive(Clone, Copy, Debug)]
+/// Error raised when a string is not a JSON-LD keyword.
 pub struct NotAKeyword<T>(pub T);
 
 /// JSON-LD keywords.
@@ -141,6 +142,7 @@ pub enum Keyword {
 }
 
 impl Keyword {
+    /// Consumes this `Keyword`, returning its str.
     pub fn into_str(self) -> &'static str {
         use Keyword::*;
         match self {
@@ -223,6 +225,7 @@ impl fmt::Display for Keyword {
 // 	}
 // }
 
+/// Checks whether this `Keyword` is keyword.
 pub fn is_keyword(str: &str) -> bool {
     Keyword::try_from(str).is_ok()
 }
@@ -232,6 +235,7 @@ fn is_alpha(c: char) -> bool {
     (0x41..=0x5a).contains(&c) || (0x61..=0x7a).contains(&c)
 }
 
+/// Checks whether this `Keyword` is keyword like.
 pub fn is_keyword_like(s: &str) -> bool {
     if s.len() > 1 {
         for (i, c) in s.chars().enumerate() {
@@ -247,9 +251,11 @@ pub fn is_keyword_like(s: &str) -> bool {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+/// The `@type` keyword, as a type of its own.
 pub struct KeywordType;
 
 impl KeywordType {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         "@type"
     }

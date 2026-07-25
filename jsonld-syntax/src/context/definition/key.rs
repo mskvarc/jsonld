@@ -1,6 +1,6 @@
 use crate::{CompactIri, Keyword, intern::intern_static};
 use iri_rs::Iri;
-use rdf_rs::BlankId;
+use rdfx::BlankId;
 use std::{borrow::Borrow, cmp::Ordering, fmt, hash::Hash};
 
 /// Context key.
@@ -13,34 +13,42 @@ use std::{borrow::Borrow, cmp::Ordering, fmt, hash::Hash};
 pub struct Key(&'static str);
 
 impl Key {
+    /// Borrows this `Key` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0).ok()
     }
 
+    /// Borrows this `Key` as compact IRI, if it is one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(self.0).ok()
     }
 
+    /// Borrows this `Key` as blank id, if it is one.
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         BlankId::new(self.0).ok()
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         self.0
     }
 
+    /// Returns the number of entries of this `Key`.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Checks whether this `Key` is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Consumes this `Key`, returning its string.
     pub fn into_string(self) -> String {
         self.0.to_owned()
     }
 
+    /// Checks whether this `Key` is keyword like.
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.0)
     }
@@ -64,11 +72,7 @@ impl PartialOrd for Key {
 
 impl Ord for Key {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self == other {
-            Ordering::Equal
-        } else {
-            self.0.cmp(other.0)
-        }
+        if self == other { Ordering::Equal } else { self.0.cmp(other.0) }
     }
 }
 
@@ -133,21 +137,26 @@ impl<'de> serde::Deserialize<'de> for Key {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// Borrowed context definition key.
 pub struct KeyRef<'a>(&'a str);
 
 impl<'a> KeyRef<'a> {
+    /// Checks whether this `KeyRef` is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Checks whether this `KeyRef` is keyword like.
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str {
         self.0
     }
 
+    /// Clones this `KeyRef` into an owned one.
     pub fn to_owned(self) -> Key {
         Key::from(self.0)
     }
@@ -172,12 +181,16 @@ impl<'a> fmt::Display for KeyRef<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+/// Context definition key that may also be a JSON-LD keyword.
 pub enum KeyOrKeyword {
+    /// A JSON-LD keyword.
     Keyword(Keyword),
+    /// An entry key.
     Key(Key),
 }
 
 impl KeyOrKeyword {
+    /// Checks whether this `KeyOrKeyword` is empty.
     pub fn is_empty(&self) -> bool {
         match self {
             Self::Keyword(_) => false,
@@ -185,6 +198,7 @@ impl KeyOrKeyword {
         }
     }
 
+    /// Consumes this `KeyOrKeyword`, returning its keyword.
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(k),
@@ -192,6 +206,7 @@ impl KeyOrKeyword {
         }
     }
 
+    /// Consumes this `KeyOrKeyword`, returning its key.
     pub fn into_key(self) -> Option<Key> {
         match self {
             Self::Keyword(_) => None,
@@ -199,6 +214,7 @@ impl KeyOrKeyword {
         }
     }
 
+    /// Borrows this `KeyOrKeyword` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -206,6 +222,7 @@ impl KeyOrKeyword {
         }
     }
 
+    /// Borrows this `KeyOrKeyword` as key, if it is one.
     pub fn as_key(&self) -> Option<&Key> {
         match self {
             Self::Keyword(_) => None,
@@ -213,6 +230,7 @@ impl KeyOrKeyword {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Keyword(k) => k.into_str(),
@@ -238,12 +256,16 @@ impl fmt::Display for KeyOrKeyword {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// Borrowed context definition key that may also be a keyword.
 pub enum KeyOrKeywordRef<'a> {
+    /// A JSON-LD keyword.
     Keyword(Keyword),
+    /// An entry key.
     Key(KeyRef<'a>),
 }
 
 impl<'a> KeyOrKeywordRef<'a> {
+    /// Clones this `KeyOrKeywordRef` into an owned one.
     pub fn to_owned(self) -> KeyOrKeyword {
         match self {
             Self::Keyword(k) => KeyOrKeyword::Keyword(k),
@@ -251,6 +273,7 @@ impl<'a> KeyOrKeywordRef<'a> {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Keyword(k) => k.into_str(),
@@ -289,12 +312,16 @@ impl<'a> From<&'a Key> for KeyOrKeywordRef<'a> {
     }
 }
 
+/// Context definition key that may also be the `@type` entry.
 pub enum KeyOrType {
+    /// An entry key.
     Key(Key),
+    /// The `@type` entry.
     Type,
 }
 
 impl KeyOrType {
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Key(k) => k.as_str(),

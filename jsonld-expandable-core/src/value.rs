@@ -12,18 +12,26 @@ use std::collections::{BTreeMap, HashMap};
 /// let v = thing.expand::<jstrict::Value>();        // turbofish
 /// ```
 pub trait JsonValue: Sized {
+    /// Builds the null value.
     fn null() -> Self;
+    /// Builds a boolean value.
     fn bool(b: bool) -> Self;
+    /// Builds a signed integer value.
     fn integer(n: i64) -> Self;
+    /// Builds an unsigned integer value.
     fn unsigned(n: u64) -> Self;
     /// Non-finite (`NaN`, `±Infinity`) values become [`Self::null`] — JSON has
     /// no representation for them.
     fn float(n: f64) -> Self;
+    /// Builds a string value from a slice.
     fn string(s: &str) -> Self;
+    /// Builds a string value from an owned string.
     fn from_string(s: String) -> Self {
         Self::string(&s)
     }
+    /// Builds an array from the given items.
     fn array<I: IntoIterator<Item = Self>>(items: I) -> Self;
+    /// Builds an object from the given entries.
     fn object<I: IntoIterator<Item = (String, Self)>>(entries: I) -> Self;
     /// Destructure an object value back into its entries. Returns `None` for
     /// non-object variants. Used by `flatten` to merge a sub-fragment into its
@@ -36,6 +44,7 @@ pub trait JsonValue: Sized {
 /// Generated code calls this for fields that should land in a `{"@value": ...}`
 /// object (i.e. anything not marked `nested` / `coerce` / `container`).
 pub trait ToJsonValue<V: JsonValue> {
+    /// Returns the to JSON value of this `ToJsonValue`.
     fn to_json_value(&self) -> V;
 }
 
@@ -146,10 +155,7 @@ where
 {
     #[inline]
     fn to_json_value(&self) -> V {
-        V::object(
-            self.iter()
-                .map(|(k, v)| (k.as_ref().to_string(), v.to_json_value())),
-        )
+        V::object(self.iter().map(|(k, v)| (k.as_ref().to_string(), v.to_json_value())))
     }
 }
 
@@ -160,9 +166,6 @@ where
 {
     #[inline]
     fn to_json_value(&self) -> V {
-        V::object(
-            self.iter()
-                .map(|(k, v)| (k.as_ref().to_string(), v.to_json_value())),
-        )
+        V::object(self.iter().map(|(k, v)| (k.as_ref().to_string(), v.to_json_value())))
     }
 }

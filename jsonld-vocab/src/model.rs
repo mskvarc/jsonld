@@ -2,7 +2,10 @@ use proc_macro2::Span;
 use serde_json::{Map, Value};
 use std::{collections::BTreeMap, path::PathBuf};
 use syn::{
-    LitStr, Result, Token, bracketed,
+    LitStr,
+    Result,
+    Token,
+    bracketed,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
 };
@@ -28,35 +31,24 @@ impl Parse for MacroInput {
                 let span = key.span();
                 let bracketed_content;
                 bracketed!(bracketed_content in input);
-                let punct: Punctuated<LitStr, Token![,]> =
-                    Punctuated::parse_terminated(&bracketed_content)?;
+                let punct: Punctuated<LitStr, Token![,]> = Punctuated::parse_terminated(&bracketed_content)?;
                 contexts_span = Some(span);
                 contexts = Some(punct.into_iter().collect());
             } else {
-                return Err(syn::Error::new(
-                    key.span(),
-                    format!("unknown field `{key}`, expected `contexts`"),
-                ));
+                return Err(syn::Error::new(key.span(), format!("unknown field `{key}`, expected `contexts`")));
             }
 
             let _ = input.parse::<Option<Token![,]>>()?;
         }
 
-        let contexts_span = contexts_span
-            .ok_or_else(|| syn::Error::new(Span::call_site(), "missing required field `contexts`"))?;
+        let contexts_span = contexts_span.ok_or_else(|| syn::Error::new(Span::call_site(), "missing required field `contexts`"))?;
         let contexts = contexts.unwrap_or_default();
 
         if contexts.is_empty() {
-            return Err(syn::Error::new(
-                contexts_span,
-                "`contexts` must contain at least one path",
-            ));
+            return Err(syn::Error::new(contexts_span, "`contexts` must contain at least one path"));
         }
 
-        Ok(Self {
-            contexts,
-            contexts_span,
-        })
+        Ok(Self { contexts, contexts_span })
     }
 }
 
@@ -86,12 +78,7 @@ impl InputContexts {
     pub fn resolve(input: MacroInput) -> Result<InputContexts> {
         let base_dir = std::env::var("JSONLD_VOCAB_BASE_DIR")
             .or_else(|_| std::env::var("CARGO_MANIFEST_DIR"))
-            .map_err(|error| {
-                syn::Error::new(
-                    input.contexts_span,
-                    format!("CARGO_MANIFEST_DIR is not set: {error}"),
-                )
-            })?;
+            .map_err(|error| syn::Error::new(input.contexts_span, format!("CARGO_MANIFEST_DIR is not set: {error}")))?;
         let base = PathBuf::from(base_dir);
 
         let files = input
@@ -129,18 +116,12 @@ pub struct ParsedDocument {
 impl ParsedDocument {
     /// Return the top-level `@context` object.
     pub fn top_level_context(&self) -> syn::Result<&Map<String, Value>> {
-        self.root
-            .get("@context")
-            .and_then(Value::as_object)
-            .ok_or_else(|| {
-                syn::Error::new(
-                    self.input.span,
-                    format!(
-                        "context {} is missing a top-level @context object",
-                        self.input.resolved_path.display()
-                    ),
-                )
-            })
+        self.root.get("@context").and_then(Value::as_object).ok_or_else(|| {
+            syn::Error::new(
+                self.input.span,
+                format!("context {} is missing a top-level @context object", self.input.resolved_path.display()),
+            )
+        })
     }
 }
 

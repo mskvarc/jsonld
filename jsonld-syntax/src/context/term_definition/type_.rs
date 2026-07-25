@@ -5,12 +5,16 @@ use std::hash::Hash;
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
+/// Value of the `@type` entry of a term definition.
 pub enum Type {
+    /// A JSON-LD keyword.
     Keyword(TypeKeyword),
+    /// A term defined by the active context.
     Term(String),
 }
 
 impl Type {
+    /// Borrows this `Type` as IRI, if it is one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         match self {
             Self::Term(t) => Iri::parse(t.as_str()).ok(),
@@ -18,6 +22,7 @@ impl Type {
         }
     }
 
+    /// Borrows this `Type` as compact IRI, if it is one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         match self {
             Self::Term(t) => CompactIri::new(t).ok(),
@@ -25,6 +30,7 @@ impl Type {
         }
     }
 
+    /// Borrows this `Type` as keyword, if it is one.
     pub fn as_keyword(&self) -> Option<TypeKeyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -32,6 +38,7 @@ impl Type {
         }
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t.as_str(),
@@ -39,6 +46,7 @@ impl Type {
         }
     }
 
+    /// Consumes this `Type`, returning its string.
     pub fn into_string(self) -> String {
         match self {
             Self::Term(t) => t,
@@ -80,15 +88,19 @@ impl From<String> for Type {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TypeKeyword {
     #[cfg_attr(feature = "serde", serde(rename = "@id"))]
+    /// The `@id` entry, identifying the node or mapping the term to an IRI.
     Id,
 
     #[cfg_attr(feature = "serde", serde(rename = "@json"))]
+    /// The `@json` type, marking the value as a JSON literal.
     Json,
 
     #[cfg_attr(feature = "serde", serde(rename = "@none"))]
+    /// The `@none` entry, used as the index of values without one.
     None,
 
     #[cfg_attr(feature = "serde", serde(rename = "@vocab"))]
+    /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab,
 }
 
@@ -110,27 +122,35 @@ impl Hash for TypeKeyword {
 }
 
 impl TypeKeyword {
+    /// Returns the keyword of this `TypeKeyword`.
     pub fn keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
+    /// Consumes this `TypeKeyword`, returning its keyword.
     pub fn into_keyword(self) -> Keyword {
         self.into()
     }
 
+    /// Returns this value as a string slice.
     pub fn as_str(&self) -> &'static str {
         self.into_keyword().into_str()
     }
 
+    /// Consumes this `TypeKeyword`, returning its str.
     pub fn into_str(self) -> &'static str {
         self.into_keyword().into_str()
     }
 }
 
+/// Error raised when a keyword is not allowed as a `@type` value.
 pub struct NotATypeKeyword(pub Keyword);
 
+/// Error raised when a `@type` value is not a usable keyword.
 pub enum InvalidTypeKeyword<T> {
+    /// The value is not a keyword at all.
     NotAKeyword(T),
+    /// The value is a keyword, but not one `@type` accepts.
     NotATypeKeyword(Keyword),
 }
 

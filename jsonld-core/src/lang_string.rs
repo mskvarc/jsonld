@@ -73,10 +73,12 @@ impl LangString {
         }
     }
 
+    /// Consumes this `MissingLangQualifier`, returning its parts.
     pub fn into_parts(self) -> (jsonld_syntax::String, Option<LenientLangTagBuf>, Option<Direction>) {
         (self.data, self.language, self.direction)
     }
 
+    /// Returns the parts of this `MissingLangQualifier`.
     pub fn parts(&self) -> (&str, Option<&LenientLangTagBuf>, Option<&Direction>) {
         (&self.data, self.language.as_ref(), self.direction.as_ref())
     }
@@ -241,6 +243,7 @@ impl<'a> LangStr<'a> {
         }
     }
 
+    /// Consumes this `LangStr`, returning its parts.
     pub fn into_parts(self) -> (&'a str, Option<&'a LenientLangTag>, Option<Direction>) {
         (self.data, self.language, self.direction)
     }

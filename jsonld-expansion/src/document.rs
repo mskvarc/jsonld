@@ -1,8 +1,8 @@
 use super::expand_element;
 use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
-use jstrict::Value;
 use jsonld_core::{Context, Environment, ExpandedDocument, IndexedObject, Object, ParallelSafeVocabulary};
-use rdf_rs::vocabulary::VocabularyMut;
+use jstrict::Value;
+use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
 /// Expand the given JSON-LD document.

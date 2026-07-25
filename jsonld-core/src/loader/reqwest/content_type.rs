@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use crate::{HashMap, loader::{JSON_MEDIA_TYPE, LD_JSON_MEDIA_TYPE}};
+use crate::{
+    HashMap,
+    loader::{JSON_MEDIA_TYPE, LD_JSON_MEDIA_TYPE},
+};
 use mediatype::MediaTypeBuf;
 use reqwest::header::HeaderValue;
 
@@ -25,7 +28,7 @@ impl ContentType {
         let mut mime = Vec::new();
         let mut current_key = Vec::new();
         let mut current_value = Vec::new();
-        let mut params = HashMap::new();
+        let mut params = HashMap::default();
 
         let mut bytes = value.as_bytes().iter();
 
