@@ -1,6 +1,8 @@
 //! Unit tests for the attribute parser. Covers both new spec-aligned
 //! spellings and legacy NGSI-flavored aliases.
 
+#![allow(clippy::unwrap_used)]
+
 use jsonld_expandable_core::attrs::{parse_container, parse_field};
 use jsonld_expandable_core::ir::{Coerce, ContainerKind};
 
@@ -100,6 +102,60 @@ fn legacy_language_map_lowers_to_container_language() {
 fn legacy_flatten_object_lowers_to_flatten() {
     let f = parse_field_attrs("#[jsonld(flatten_object)]");
     assert!(f.flatten);
+    assert!(!f.flatten_map);
+}
+
+#[test]
+fn legacy_flatten_map_lowers_to_flatten_map() {
+    let f = parse_field_attrs("#[jsonld(flatten_map)]");
+    assert!(f.flatten_map);
+    assert!(!f.flatten);
+    assert!(f.container.is_none());
+}
+
+#[test]
+fn flatten_with_property_errors() {
+    let item: syn::ItemStruct = syn::parse_str(
+        "struct S { #[jsonld(flatten_object, property = \"https://e.com/p\")] pub x: String, }",
+    )
+    .unwrap();
+    let field = item.fields.iter().next().unwrap();
+    assert!(parse_field(&field.attrs).is_err());
+}
+
+#[test]
+fn flatten_and_flatten_map_mutually_exclusive() {
+    let item: syn::ItemStruct =
+        syn::parse_str("struct S { #[jsonld(flatten_object, flatten_map)] pub x: String, }")
+            .unwrap();
+    let field = item.fields.iter().next().unwrap();
+    assert!(parse_field(&field.attrs).is_err());
+}
+
+#[test]
+fn legacy_custom_lowers_to_passthrough() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", custom)]");
+    assert!(f.passthrough);
+    assert!(f.coerce.is_none());
+    assert!(f.container.is_none());
+    assert!(!f.nested);
+}
+
+#[test]
+fn passthrough_with_coerce_errors() {
+    let item: syn::ItemStruct = syn::parse_str(
+        "struct S { #[jsonld(property = \"https://e.com/p\", custom, vocab)] pub x: String, }",
+    )
+    .unwrap();
+    let field = item.fields.iter().next().unwrap();
+    assert!(parse_field(&field.attrs).is_err());
+}
+
+#[test]
+fn list_plus_coerce_id_parses() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", list, id_ref)]");
+    assert_eq!(f.container, Some(ContainerKind::List));
+    assert_eq!(f.coerce, Some(Coerce::Id));
 }
 
 #[test]

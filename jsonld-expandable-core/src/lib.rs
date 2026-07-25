@@ -25,6 +25,9 @@ mod value;
 #[cfg(any(feature = "serde_json", feature = "sonic_rs", feature = "jstrict"))]
 mod backends;
 
+#[cfg(feature = "chrono")]
+mod interop_chrono;
+
 pub use value::{JsonValue, ToJsonValue};
 
 /// Convert `&self` into the expanded JSON-LD form for the chosen backend `V`.

@@ -139,9 +139,10 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
                 out.nested = true;
             } else if meta.path.is_ident("vec") {
                 out.is_vec = true;
-            } else if meta.path.is_ident("custom") {
-                // No-op; nested types recurse via Expandable automatically
-                // when marked `nested`.
+            } else if meta.path.is_ident("custom") || meta.path.is_ident("passthrough") {
+                // Field's own Expandable impl produces the final shape;
+                // codegen calls expand() and inserts the value verbatim.
+                out.passthrough = true;
             } else if meta.path.is_ident("list") {
                 out.container = Some(ContainerKind::List);
             } else if meta.path.is_ident("vocab") || meta.path.is_ident("id_ref") {
@@ -152,7 +153,7 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
             } else if meta.path.is_ident("language_map") {
                 out.container = Some(ContainerKind::Language);
             } else if meta.path.is_ident("flatten_map") {
-                out.container = Some(ContainerKind::Index);
+                out.flatten_map = true;
             } else if meta.path.is_ident("flatten_object") {
                 out.flatten = true;
             } else if meta.path.is_ident("typed_value") {
@@ -203,7 +204,8 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
             || f.nested
             || f.coerce.is_some()
             || f.container.is_some()
-            || f.flatten)
+            || f.flatten
+            || f.flatten_map)
     {
         return Err(syn::Error::new(
             span,
@@ -216,11 +218,46 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
             || f.coerce.is_some()
             || f.container.is_some()
             || f.flatten
+            || f.flatten_map
             || f.property.is_some())
     {
         return Err(syn::Error::new(
             span,
             "`skip` cannot be combined with other attributes",
+        ));
+    }
+    if f.flatten && f.flatten_map {
+        return Err(syn::Error::new(
+            span,
+            "`flatten` / `flatten_object` and `flatten_map` are mutually exclusive",
+        ));
+    }
+    if (f.flatten || f.flatten_map) && f.property.is_some() {
+        return Err(syn::Error::new(
+            span,
+            "`flatten` / `flatten_object` / `flatten_map` cannot be combined with `property`",
+        ));
+    }
+    if (f.flatten || f.flatten_map)
+        && (f.coerce.is_some() || f.container.is_some() || f.nested)
+    {
+        return Err(syn::Error::new(
+            span,
+            "`flatten` / `flatten_map` cannot be combined with coerce, container, or nested",
+        ));
+    }
+    if f.passthrough
+        && (f.coerce.is_some()
+            || f.container.is_some()
+            || f.nested
+            || f.flatten
+            || f.flatten_map
+            || f.is_id)
+    {
+        return Err(syn::Error::new(
+            span,
+            "`custom` / `passthrough` cannot be combined with coerce, container, \
+             nested, flatten, flatten_map, or id",
         ));
     }
     if f.is_vec && !f.nested && !matches!(f.coerce, Some(Coerce::Id)) {

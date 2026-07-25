@@ -58,6 +58,15 @@ pub struct FieldIr {
     pub nested: bool,
     /// Field is a `Vec<_>` (used with `nested`).
     pub is_vec: bool,
-    /// Merge expanded properties into parent.
+    /// Merge expanded properties of a nested `Expandable` into the parent
+    /// (drops `@id` / `@type`). Field type must implement `Expandable`.
     pub flatten: bool,
+    /// Merge a map (`HashMap<K, V>` / `IndexMap<K, V>`) into the parent
+    /// where each entry's key becomes a property and each value is the
+    /// recursively expanded `V`.
+    pub flatten_map: bool,
+    /// Field's `Expandable` impl (manual or derived) produces the final
+    /// JSON-LD form for this property — emit it verbatim, no wrapping in
+    /// `[{"@value": ...}]` or `[obj]`. Legacy spelling: `#[jsonld(custom)]`.
+    pub passthrough: bool,
 }

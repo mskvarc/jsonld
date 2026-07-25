@@ -36,6 +36,7 @@ expandable = ["dep:jsonld-expandable", "dep:jsonld-expandable-core"]
 expandable-serde_json = ["expandable", "jsonld-expandable-core/serde_json"]
 expandable-sonic_rs = ["expandable", "jsonld-expandable-core/sonic_rs"]
 expandable-jstrict = ["expandable", "jsonld-expandable-core/jstrict"]
+expandable-chrono = ["expandable", "jsonld-expandable-core/chrono"]
 vocab = ["dep:jsonld-vocab", "iri-rs/static"]
 
 [dependencies]

@@ -25,6 +25,10 @@ pub trait JsonValue: Sized {
     }
     fn array<I: IntoIterator<Item = Self>>(items: I) -> Self;
     fn object<I: IntoIterator<Item = (String, Self)>>(entries: I) -> Self;
+    /// Destructure an object value back into its entries. Returns `None` for
+    /// non-object variants. Used by `flatten` to merge a sub-fragment into its
+    /// parent.
+    fn into_object_entries(self) -> Option<Vec<(String, Self)>>;
 }
 
 /// Convert a leaf field value to the chosen `JsonValue` backend.

@@ -44,4 +44,9 @@ impl JsonValue for Value {
         }
         Value::from(obj)
     }
+    #[inline]
+    fn into_object_entries(self) -> Option<Vec<(String, Self)>> {
+        let obj = self.into_object()?;
+        Some(obj.iter().map(|(k, v)| (k.to_owned(), v.clone())).collect())
+    }
 }

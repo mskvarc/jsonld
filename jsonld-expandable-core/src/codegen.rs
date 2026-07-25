@@ -109,29 +109,75 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
             continue;
         }
 
+        let is_option = is_option_type(&field.ty);
+
+        if f.flatten {
+            let frag_stmt = quote! {
+                let __frag: V = #crate_path::Expandable::expand::<V>(__src);
+                if let ::core::option::Option::Some(__items) =
+                    <V as #crate_path::JsonValue>::into_object_entries(__frag)
+                {
+                    for (__k, __v) in __items {
+                        if __k != "@id" && __k != "@type" {
+                            __entries.push((__k, __v));
+                        }
+                    }
+                }
+            };
+            prop_stmts.push(if is_option {
+                quote! {
+                    if let ::core::option::Option::Some(__src) = &self.#field_ident {
+                        #frag_stmt
+                    }
+                }
+            } else {
+                quote! {
+                    {
+                        let __src = &self.#field_ident;
+                        #frag_stmt
+                    }
+                }
+            });
+            continue;
+        }
+
+        if f.flatten_map {
+            let map_stmt = quote! {
+                for (__k, __v) in __src.iter() {
+                    __entries.push((
+                        ::core::convert::AsRef::<str>::as_ref(__k).to_string(),
+                        #crate_path::Expandable::expand::<V>(__v),
+                    ));
+                }
+            };
+            prop_stmts.push(if is_option {
+                quote! {
+                    if let ::core::option::Option::Some(__src) = &self.#field_ident {
+                        #map_stmt
+                    }
+                }
+            } else {
+                quote! {
+                    {
+                        let __src = &self.#field_ident;
+                        #map_stmt
+                    }
+                }
+            });
+            continue;
+        }
+
         let property_iri = match &f.property {
             Some(iri) => expand_curie(iri, &container.prefixes),
             None => {
-                if f.flatten {
-                    String::new() // unused for flatten
-                } else {
-                    return Err(syn::Error::new_spanned(
-                        field,
-                        "field needs `#[jsonld(property = \"...\")]`, `id`, `skip`, \
-                         or `flatten`",
-                    ));
-                }
+                return Err(syn::Error::new_spanned(
+                    field,
+                    "field needs `#[jsonld(property = \"...\")]`, `id`, `skip`, \
+                     `flatten`, or `flatten_map`",
+                ));
             }
         };
 
-        if f.flatten {
-            return Err(syn::Error::new_spanned(
-                field,
-                "`flatten` / `flatten_object` is reserved but not yet implemented",
-            ));
-        }
-
-        let is_option = is_option_type(&field.ty);
         let value_expr = build_field_expr(&field_ident, &f, is_option, &crate_path)?;
 
         prop_stmts.push(if is_option {
@@ -183,7 +229,58 @@ fn build_field_expr(
         quote!(&self.#id)
     };
 
-    // Coerce / nested / container cases.
+    // `passthrough` (legacy `custom`): emit the field's own Expandable
+    // output verbatim — the user supplies the wrapping shape.
+    if f.passthrough {
+        return Ok(quote! {
+            #crate_path::Expandable::expand::<V>(#src)
+        });
+    }
+
+    let in_list = matches!(f.container, Some(ContainerKind::List));
+
+    // Container = "list" + coerce / nested combinations: wrap each item
+    // in its coerced shape, then enclose the whole sequence in
+    // `[{"@list": [...]}]`. Source must be iterable (Vec, IndexMap-like, or
+    // any type implementing `iter()` over items).
+    if in_list {
+        if f.nested {
+            return Ok(quote! {
+                <V as #crate_path::JsonValue>::array(::std::iter::once(
+                    <V as #crate_path::JsonValue>::object(::std::iter::once(
+                        ("@list".to_string(),
+                         <V as #crate_path::JsonValue>::array(
+                             (#src).iter().map(|__item|
+                                 #crate_path::Expandable::expand::<V>(__item))
+                         ))
+                    ))
+                ))
+            });
+        }
+        if let Some(coerce) = &f.coerce {
+            let item_shape = item_shape_for_coerce(coerce, crate_path);
+            return Ok(quote! {
+                <V as #crate_path::JsonValue>::array(::std::iter::once(
+                    <V as #crate_path::JsonValue>::object(::std::iter::once(
+                        ("@list".to_string(),
+                         <V as #crate_path::JsonValue>::array(
+                             (#src).iter().map(|__item| #item_shape)
+                         ))
+                    ))
+                ))
+            });
+        }
+        // Plain list: pass the value through `ToJsonValue` (Vec, etc.).
+        return Ok(quote! {
+            <V as #crate_path::JsonValue>::array(::std::iter::once(
+                <V as #crate_path::JsonValue>::object(::std::iter::once(
+                    ("@list".to_string(),
+                     <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src))
+                ))
+            ))
+        });
+    }
+
     if f.nested {
         if f.is_vec {
             return Ok(quote! {
@@ -261,14 +358,18 @@ fn build_field_expr(
 
     if let Some(c) = &f.container {
         return Ok(match c {
-            ContainerKind::List => quote! {
-                <V as #crate_path::JsonValue>::array(::std::iter::once(
-                    <V as #crate_path::JsonValue>::object(::std::iter::once(
-                        ("@list".to_string(),
-                         <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src))
+            ContainerKind::List => {
+                // already handled in the in_list branch above; treat as
+                // a defensive fallback equivalent to the plain-list shape
+                quote! {
+                    <V as #crate_path::JsonValue>::array(::std::iter::once(
+                        <V as #crate_path::JsonValue>::object(::std::iter::once(
+                            ("@list".to_string(),
+                             <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src))
+                        ))
                     ))
-                ))
-            },
+                }
+            }
             ContainerKind::Set => quote! {
                 <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src)
             },
@@ -306,6 +407,42 @@ fn build_field_expr(
             ))
         ))
     })
+}
+
+/// Produce the per-item token stream that wraps a single `__item`
+/// in the JSON-LD shape implied by the field's coercion.
+fn item_shape_for_coerce(coerce: &Coerce, crate_path: &TokenStream) -> TokenStream {
+    match coerce {
+        Coerce::Id | Coerce::Vocab => {
+            let key = if matches!(coerce, Coerce::Id) { "@id" } else { "@vocab" };
+            quote! {
+                <V as #crate_path::JsonValue>::object(::std::iter::once(
+                    (#key.to_string(),
+                     <V as #crate_path::JsonValue>::string(
+                         ::core::convert::AsRef::<str>::as_ref(__item))),
+                ))
+            }
+        }
+        Coerce::Json => quote! {
+            <V as #crate_path::JsonValue>::object([
+                ("@value".to_string(),
+                 <_ as #crate_path::ToJsonValue<V>>::to_json_value(__item)),
+                ("@type".to_string(),
+                 <V as #crate_path::JsonValue>::string("@json")),
+            ])
+        },
+        Coerce::Datatype(d) => {
+            let dlit = d.clone();
+            quote! {
+                <V as #crate_path::JsonValue>::object([
+                    ("@value".to_string(),
+                     <_ as #crate_path::ToJsonValue<V>>::to_json_value(__item)),
+                    ("@type".to_string(),
+                     <V as #crate_path::JsonValue>::string(#dlit)),
+                ])
+            }
+        }
+    }
 }
 
 fn is_option_type(ty: &Type) -> bool {
