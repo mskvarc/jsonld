@@ -151,8 +151,12 @@ where
     // For each `key` and `value` in `element`, ordered lexicographically by key
     // if `ordered` is `true`:
     for ExpandedEntry(key, expanded_key, value) in expanded_entries {
-        let expanded_key = Arc::try_unwrap(expanded_key).unwrap_or_else(|a| (*a).clone());
-        match expanded_key {
+        // The term-resolution cache and the keyword table both keep their own
+        // reference to this term, so `Arc::try_unwrap` here always failed and
+        // fell through to a full clone — an allocation per key under an
+        // `IriBuf` vocabulary. Match through the `Arc` and clone only in the
+        // one arm that needs an owned id.
+        match &*expanded_key {
             Term::Null => (),
 
             // If key is @context, continue to the next key.
@@ -165,6 +169,7 @@ where
 
             // If `expanded_property` is a keyword:
             Term::Keyword(expanded_property) => {
+                let expanded_property = *expanded_property;
                 // If `active_property` equals `@reverse`, an invalid reverse property
                 // map error has been detected and processing is aborted.
                 if active_property == Keyword::Reverse {
@@ -516,6 +521,8 @@ where
             }
 
             Term::Id(prop) if prop.with(&*env.vocabulary).as_str().contains(':') => {
+                // Consumed by `insert_all` below, so this one needs to own it.
+                let prop = prop.clone();
                 if let Id::Invalid(name) = &prop {
                     match options.policy.invalid {
                         Action::Keep => (),
@@ -956,7 +963,7 @@ where
 
             Term::Id(prop) => {
                 // non-keyword properties that does not include a ':' are skipped.
-                if let Id::Invalid(name) = &prop {
+                if let Id::Invalid(name) = prop {
                     match options.policy.invalid {
                         Action::Drop | Action::Keep => (),
                         Action::Reject => return Err(Error::KeyExpansionFailed(name.to_owned())),
