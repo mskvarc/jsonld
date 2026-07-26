@@ -16,18 +16,80 @@ use rdfx::{
     LocalGenerator,
     vocabulary::{Vocabulary, VocabularyMut},
 };
-use std::{collections::HashSet, hash::Hash};
+use smallvec::SmallVec;
+use std::{
+    collections::HashSet,
+    hash::{BuildHasher, Hash, Hasher},
+};
 
-/// Result of the document expansion algorithm.
+/// Bucket key standing in for a full object hash.
 ///
-/// It is just an alias for a set of (indexed) objects.
+/// Deduplicating the objects of a document needs a hash, and hashing an object
+/// walks its entire subtree — every property, every nested node. That is a
+/// steep price for what is almost always a miss.
+///
+/// This reads only the shallow fields: the kind of object, its `@index`, and,
+/// for a node, its `@id`. Equal objects necessarily agree on all three, so
+/// they always land in the same bucket, which is the property that matters.
+/// Unequal objects sharing a bucket cost nothing but the `Eq` comparison that
+/// follows.
+struct Discriminant<'a, T, B>(&'a IndexedObject<T, B>);
+
+impl<T: Hash, B: Hash> Hash for Discriminant<'_, T, B> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.index().hash(state);
+
+        match self.0.inner() {
+            Object::Value(_) => 0u8.hash(state),
+            Object::List(_) => 1u8.hash(state),
+            Object::Node(node) => {
+                2u8.hash(state);
+                node.id.hash(state);
+            }
+        }
+    }
+}
+
+/// Result of the document expansion algorithm: a set of (indexed) objects.
+///
+/// Objects are kept in insertion order, and deduplicated through an index of
+/// [`Discriminant`] buckets rather than by hashing each object in full.
 #[derive(Debug, Clone)]
-pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf>(IndexSet<IndexedObject<T, B>>);
+pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf> {
+    objects: Vec<IndexedObject<T, B>>,
+
+    /// Positions in `objects`, bucketed by discriminant. One entry inline:
+    /// collisions are the exception, not the rule.
+    buckets: HashMap<u64, SmallVec<[Entry; 1]>>,
+}
+
+/// One object's slot in a bucket.
+#[derive(Debug, Clone)]
+struct Entry {
+    /// Position in `ExpandedDocument::objects`.
+    index: usize,
+
+    /// Hash of the whole object, filled in only once this bucket holds more
+    /// than one entry.
+    ///
+    /// A bucket with a single occupant never needs it — the discriminant
+    /// already separated everything else — and computing it walks the object's
+    /// whole subtree. Documents whose objects carry distinct `@id`s therefore
+    /// never hash an object in full. Where the discriminant cannot separate
+    /// them (top-level nodes with no `@id`, say), this restores what a plain
+    /// hash set would have done: compare cheap hashes first, and reach for a
+    /// deep equality check only when they match.
+    full_hash: Option<u64>,
+}
 
 impl<T, B> Default for ExpandedDocument<T, B> {
     #[inline(always)]
     fn default() -> Self {
-        Self(IndexSet::default())
+        Self {
+            objects: Vec::new(),
+            buckets: HashMap::default(),
+        }
     }
 }
 
@@ -39,33 +101,47 @@ impl<T, B> ExpandedDocument<T, B> {
     }
 
     #[inline(always)]
+    /// Creates a new `ExpandedDocument` with room for `capacity` objects.
+    ///
+    /// Worth reaching for whenever the object count is known up front: growing
+    /// the set re-hashes every object already in it, and hashing an object
+    /// walks its whole subtree.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            objects: Vec::with_capacity(capacity),
+            buckets: HashMap::with_capacity_and_hasher(capacity, Default::default()),
+        }
+    }
+
+    #[inline(always)]
     /// Returns the number of entries of this `ExpandedDocument`.
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.objects.len()
     }
 
     #[inline(always)]
     /// Checks whether this `ExpandedDocument` is empty.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.objects.is_empty()
     }
 
     #[inline(always)]
-    /// Returns the objects of this `ExpandedDocument`.
-    pub fn objects(&self) -> &IndexSet<IndexedObject<T, B>> {
-        &self.0
+    /// Returns the objects of this `ExpandedDocument`, in insertion order.
+    pub fn objects(&self) -> &[IndexedObject<T, B>] {
+        &self.objects
     }
 
     #[inline(always)]
-    /// Consumes this `ExpandedDocument`, returning its objects.
-    pub fn into_objects(self) -> IndexSet<IndexedObject<T, B>> {
-        self.0
+    /// Consumes this `ExpandedDocument`, returning its objects in insertion
+    /// order.
+    pub fn into_objects(self) -> Vec<IndexedObject<T, B>> {
+        self.objects
     }
 
     #[inline(always)]
     /// Returns an iterator over the entries of this `ExpandedDocument`.
-    pub fn iter(&self) -> indexmap::set::Iter<'_, IndexedObject<T, B>> {
-        self.0.iter()
+    pub fn iter(&self) -> std::slice::Iter<'_, IndexedObject<T, B>> {
+        self.objects.iter()
     }
 
     #[inline(always)]
@@ -92,10 +168,9 @@ impl<T, B> ExpandedDocument<T, B> {
         T: Eq + Hash,
         B: Eq + Hash,
     {
-        let objects = std::mem::take(&mut self.0);
-        for mut object in objects {
+        for mut object in self.drain() {
             object.identify_all_with(vocabulary, generator)?;
-            self.0.insert(object);
+            self.insert(object);
         }
         Ok(())
     }
@@ -125,13 +200,12 @@ impl<T, B> ExpandedDocument<T, B> {
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
     {
-        let objects = std::mem::take(&mut self.0);
         let mut relabeling = HashMap::default();
         let mut buffer = ryu_js::Buffer::new();
-        for mut object in objects {
+        for mut object in self.drain() {
             object.relabel_with(vocabulary, generator, &mut relabeling)?;
             object.canonicalize_with(&mut buffer);
-            self.0.insert(object);
+            self.insert(object);
         }
         Ok(())
     }
@@ -160,11 +234,10 @@ impl<T, B> ExpandedDocument<T, B> {
         T: Clone + Eq + Hash,
         B: Clone + Eq + Hash,
     {
-        let objects = std::mem::take(&mut self.0);
         let mut relabeling = HashMap::default();
-        for mut object in objects {
+        for mut object in self.drain() {
             object.relabel_with(vocabulary, generator, &mut relabeling)?;
-            self.0.insert(object);
+            self.insert(object);
         }
         Ok(())
     }
@@ -189,10 +262,9 @@ impl<T, B> ExpandedDocument<T, B> {
         T: Eq + Hash,
         B: Eq + Hash,
     {
-        let objects = std::mem::take(&mut self.0);
-        for mut object in objects {
+        for mut object in self.drain() {
             object.canonicalize_with(buffer);
-            self.0.insert(object);
+            self.insert(object);
         }
     }
 
@@ -212,7 +284,10 @@ impl<T, B> ExpandedDocument<T, B> {
         U: Eq + Hash,
         C: Eq + Hash,
     {
-        ExpandedDocument(self.0.into_iter().map(|i| i.map_inner(|o| o.map_ids(&mut map_iri, &mut map_id))).collect())
+        self.objects
+            .into_iter()
+            .map(|i| i.map_inner(|o| o.map_ids(&mut map_iri, &mut map_id)))
+            .collect()
     }
 
     /// Returns the set of all blank identifiers in the given document.
@@ -265,10 +340,63 @@ impl<T, B> ExpandedDocument<T, B> {
 }
 
 impl<T: Hash + Eq, B: Hash + Eq> ExpandedDocument<T, B> {
-    #[inline(always)]
-    /// Inserts an entry into this `ExpandedDocument`, returning the entry it replaced.
+    /// Inserts an object, unless an equal one is already present.
+    ///
+    /// Returns `true` if the object was added.
     pub fn insert(&mut self, object: IndexedObject<T, B>) -> bool {
-        self.0.insert(object)
+        // Cloned rather than borrowed so it stays usable while `buckets` is
+        // borrowed mutably below. A clone hashes identically to its original,
+        // which is what the cached `full_hash` values rely on.
+        let hasher = self.buckets.hasher().clone();
+        let discriminant = hasher.hash_one(Discriminant(&object));
+
+        // Split the borrow: the bucket lives in `buckets`, the candidates it
+        // points at live in `objects`.
+        let Self { objects, buckets } = self;
+        let bucket = buckets.entry(discriminant).or_default();
+
+        let full_hash = if bucket.is_empty() {
+            None
+        } else {
+            let full_hash = hasher.hash_one(&object);
+
+            for entry in bucket.iter_mut() {
+                let candidate = entry.full_hash.get_or_insert_with(|| hasher.hash_one(&objects[entry.index]));
+
+                if *candidate == full_hash && objects[entry.index] == object {
+                    return false;
+                }
+            }
+
+            Some(full_hash)
+        };
+
+        bucket.push(Entry {
+            index: objects.len(),
+            full_hash,
+        });
+        objects.push(object);
+        true
+    }
+
+    /// Checks whether an equal object is present.
+    pub fn contains(&self, object: &IndexedObject<T, B>) -> bool {
+        let discriminant = self.buckets.hasher().hash_one(Discriminant(object));
+
+        match self.buckets.get(&discriminant) {
+            Some(bucket) => bucket.iter().any(|entry| self.objects[entry.index] == *object),
+            None => false,
+        }
+    }
+
+    /// Empties the document, handing back its objects.
+    ///
+    /// Used by the passes that rewrite every object and put it back: rewriting
+    /// can make two objects equal, so the index has to be rebuilt rather than
+    /// patched.
+    fn drain(&mut self) -> std::vec::IntoIter<IndexedObject<T, B>> {
+        self.buckets.clear();
+        std::mem::take(&mut self.objects).into_iter()
     }
 }
 
@@ -301,8 +429,11 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ExpandedDocument<T, B> {
 
 impl<T: Eq + Hash, B: Eq + Hash> PartialEq for ExpandedDocument<T, B> {
     /// Comparison between two expanded documents.
+    ///
+    /// Order-independent, as it was when this was backed by a set: both sides
+    /// are deduplicated, so equal lengths plus containment one way is enough.
     fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
+        self.len() == other.len() && self.objects.iter().all(|object| other.contains(object))
     }
 }
 
@@ -314,12 +445,12 @@ impl<T, B> IntoIterator for ExpandedDocument<T, B> {
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        IntoIter(self.0.into_iter())
+        IntoIter(self.objects.into_iter())
     }
 }
 
 impl<'a, T, B> IntoIterator for &'a ExpandedDocument<T, B> {
-    type IntoIter = indexmap::set::Iter<'a, IndexedObject<T, B>>;
+    type IntoIter = std::slice::Iter<'a, IndexedObject<T, B>>;
     type Item = &'a IndexedObject<T, B>;
 
     #[inline(always)]
@@ -328,7 +459,7 @@ impl<'a, T, B> IntoIterator for &'a ExpandedDocument<T, B> {
     }
 }
 /// Owning iterator over the objects of an expanded document.
-pub struct IntoIter<T, B>(indexmap::set::IntoIter<IndexedObject<T, B>>);
+pub struct IntoIter<T, B>(std::vec::IntoIter<IndexedObject<T, B>>);
 
 impl<T, B> Iterator for IntoIter<T, B> {
     type Item = IndexedObject<T, B>;
@@ -340,25 +471,30 @@ impl<T, B> Iterator for IntoIter<T, B> {
 
 impl<T: Hash + Eq, B: Hash + Eq> FromIterator<IndexedObject<T, B>> for ExpandedDocument<T, B> {
     fn from_iter<I: IntoIterator<Item = IndexedObject<T, B>>>(iter: I) -> Self {
-        Self(iter.into_iter().collect())
+        let iter = iter.into_iter();
+        let mut result = Self::with_capacity(iter.size_hint().0);
+        result.extend(iter);
+        result
     }
 }
 
 impl<T: Hash + Eq, B: Hash + Eq> Extend<IndexedObject<T, B>> for ExpandedDocument<T, B> {
     fn extend<I: IntoIterator<Item = IndexedObject<T, B>>>(&mut self, iter: I) {
-        self.0.extend(iter)
+        for object in iter {
+            self.insert(object);
+        }
     }
 }
 
-impl<T, B> From<IndexSet<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
+impl<T: Hash + Eq, B: Hash + Eq> From<IndexSet<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
     fn from(set: IndexSet<IndexedObject<T, B>>) -> Self {
-        Self(set)
+        set.into_iter().collect()
     }
 }
 
 impl<T: Hash + Eq, B: Hash + Eq> From<Vec<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
     fn from(items: Vec<IndexedObject<T, B>>) -> Self {
-        Self(items.into_iter().collect())
+        items.into_iter().collect()
     }
 }
 
@@ -392,7 +528,7 @@ impl<T, B> ExpandedDocument<T, B> {
         N: Vocabulary<Iri = T, BlankId = B>,
     {
         use jsonld_syntax::IntoJsonWithContext;
-        self.0.into_json_with(vocabulary).into_serde_json()
+        self.objects.into_json_with(vocabulary).into_serde_json()
     }
 }
 

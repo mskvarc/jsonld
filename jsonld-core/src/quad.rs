@@ -69,7 +69,7 @@ pub struct Quads<'a, T, B> {
 
 enum QuadsFrame<'a, T, B> {
     NodeMapGraph(Option<&'a Id<T, B>>, crate::flattening::NodeMapGraphNodes<'a, T, B>),
-    IndexedObjectSet(Option<&'a Id<T, B>>, indexmap::set::Iter<'a, IndexedObject<T, B>>),
+    IndexedObjectSet(Option<&'a Id<T, B>>, std::slice::Iter<'a, IndexedObject<T, B>>),
     IndexedObjectSlice(Option<&'a Id<T, B>>, std::slice::Iter<'a, IndexedObject<T, B>>),
     IndexedNodeSlice(Option<&'a Id<T, B>>, std::slice::Iter<'a, IndexedNode<T, B>>),
     NodeTypes(Option<&'a Id<T, B>>, &'a Id<T, B>, std::slice::Iter<'a, Id<T, B>>),

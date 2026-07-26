@@ -496,7 +496,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
     }
 }
 
-impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T] {
+impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for [T] {
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
