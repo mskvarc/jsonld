@@ -172,28 +172,26 @@ where
             if let Some(property_scoped_context) = property_scoped_context {
                 let options: ProcessingOptions = options.into();
                 let processed = match cache {
-                    Some(cache) => property_scoped_context
-                        .process_full_with_cache(
-                            env.vocabulary,
-                            active_context.as_ref(),
-                            env.loader,
-                            property_scoped_base_url,
-                            options.with_override(),
-                            jsonld_core::warning::Print,
-                            cache,
-                        )
-                        .await?
-                        .into_processed(),
-                    None => property_scoped_context
-                        .process_with(
-                            env.vocabulary,
-                            active_context.as_ref(),
-                            env.loader,
-                            property_scoped_base_url,
-                            options.with_override(),
-                        )
-                        .await?
-                        .into_processed(),
+                    Some(cache) => Box::pin(property_scoped_context.process_full_with_cache(
+                        env.vocabulary,
+                        active_context.as_ref(),
+                        env.loader,
+                        property_scoped_base_url,
+                        options.with_override(),
+                        jsonld_core::warning::Print,
+                        cache,
+                    ))
+                    .await?
+                    .into_processed(),
+                    None => Box::pin(property_scoped_context.process_with(
+                        env.vocabulary,
+                        active_context.as_ref(),
+                        env.loader,
+                        property_scoped_base_url,
+                        options.with_override(),
+                    ))
+                    .await?
+                    .into_processed(),
                 };
                 active_context = Mown::Owned(processed);
             }
@@ -206,20 +204,18 @@ where
                 let local_context = jsonld_syntax::context::Context::try_from_json(local_context)?;
 
                 let processed = match cache {
-                    Some(cache) => local_context
-                        .process_full_with_cache(
-                            env.vocabulary,
-                            active_context.as_ref(),
-                            env.loader,
-                            base_url.cloned(),
-                            options.into(),
-                            jsonld_core::warning::Print,
-                            cache,
-                        )
-                        .await?
-                        .into_processed(),
-                    None => local_context
-                        .process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url.cloned(), options.into())
+                    Some(cache) => Box::pin(local_context.process_full_with_cache(
+                        env.vocabulary,
+                        active_context.as_ref(),
+                        env.loader,
+                        base_url.cloned(),
+                        options.into(),
+                        jsonld_core::warning::Print,
+                        cache,
+                    ))
+                    .await?
+                    .into_processed(),
+                    None => Box::pin(local_context.process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url.cloned(), options.into()))
                         .await?
                         .into_processed(),
                 };
@@ -281,22 +277,26 @@ where
                         let base_url = term_definition.base_url().cloned();
                         let options: ProcessingOptions = options.into();
                         let processed = match cache {
-                            Some(cache) => local_context
-                                .process_full_with_cache(
-                                    env.vocabulary,
-                                    active_context.as_ref(),
-                                    env.loader,
-                                    base_url,
-                                    options.without_propagation(),
-                                    jsonld_core::warning::Print,
-                                    cache,
-                                )
-                                .await?
-                                .into_processed(),
-                            None => local_context
-                                .process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url, options.without_propagation())
-                                .await?
-                                .into_processed(),
+                            Some(cache) => Box::pin(local_context.process_full_with_cache(
+                                env.vocabulary,
+                                active_context.as_ref(),
+                                env.loader,
+                                base_url,
+                                options.without_propagation(),
+                                jsonld_core::warning::Print,
+                                cache,
+                            ))
+                            .await?
+                            .into_processed(),
+                            None => Box::pin(local_context.process_with(
+                                env.vocabulary,
+                                active_context.as_ref(),
+                                env.loader,
+                                base_url,
+                                options.without_propagation(),
+                            ))
+                            .await?
+                            .into_processed(),
                         };
                         active_context = Mown::Owned(processed);
                     }
@@ -454,7 +454,7 @@ where
                 }
             } else {
                 // Node objects.
-                let e = expand_node(
+                let e = Box::pin(expand_node(
                     env,
                     active_context.as_ref(),
                     type_scoped_context,
@@ -463,7 +463,7 @@ where
                     base_url,
                     options,
                     cache,
-                )
+                ))
                 .await?;
                 if let Some(result) = e {
                     Ok(Expanded::Object(result.cast::<Object<N::Iri, N::BlankId>>()))
@@ -492,20 +492,18 @@ where
                 let base_url = active_property.get_from(active_context).and_then(|definition| definition.base_url().cloned());
 
                 let result = match cache {
-                    Some(cache) => property_scoped_context
-                        .process_full_with_cache(
-                            env.vocabulary,
-                            active_context,
-                            env.loader,
-                            base_url,
-                            options.into(),
-                            jsonld_core::warning::Print,
-                            cache,
-                        )
-                        .await?
-                        .into_processed(),
-                    None => property_scoped_context
-                        .process_with(env.vocabulary, active_context, env.loader, base_url, options.into())
+                    Some(cache) => Box::pin(property_scoped_context.process_full_with_cache(
+                        env.vocabulary,
+                        active_context,
+                        env.loader,
+                        base_url,
+                        options.into(),
+                        jsonld_core::warning::Print,
+                        cache,
+                    ))
+                    .await?
+                    .into_processed(),
+                    None => Box::pin(property_scoped_context.process_with(env.vocabulary, active_context, env.loader, base_url, options.into()))
                         .await?
                         .into_processed(),
                 };

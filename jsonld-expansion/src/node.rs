@@ -73,7 +73,7 @@ where
     // let mut result = Indexed::new(Node::new(), None);
     // let mut has_value_object_entries = false;
 
-    let (result, has_value_object_entries) = expand_node_entries(
+    let (result, has_value_object_entries) = Box::pin(expand_node_entries(
         env,
         Indexed::new(Node::new(), None),
         false,
@@ -84,7 +84,7 @@ where
         base_url,
         options,
         cache,
-    )
+    ))
     .await?;
 
     // If result contains the entry @value:
@@ -432,22 +432,26 @@ where
                                 Some(property_scoped_context) => {
                                     let options: ProcessingOptions = options.into();
                                     let processed = match cache {
-                                        Some(cache) => property_scoped_context
-                                            .process_full_with_cache(
-                                                env.vocabulary,
-                                                active_context,
-                                                env.loader,
-                                                property_scoped_base_url,
-                                                options.with_override(),
-                                                jsonld_core::warning::Print,
-                                                cache,
-                                            )
-                                            .await?
-                                            .into_processed(),
-                                        None => property_scoped_context
-                                            .process_with(env.vocabulary, active_context, env.loader, property_scoped_base_url, options.with_override())
-                                            .await?
-                                            .into_processed(),
+                                        Some(cache) => Box::pin(property_scoped_context.process_full_with_cache(
+                                            env.vocabulary,
+                                            active_context,
+                                            env.loader,
+                                            property_scoped_base_url,
+                                            options.with_override(),
+                                            jsonld_core::warning::Print,
+                                            cache,
+                                        ))
+                                        .await?
+                                        .into_processed(),
+                                        None => Box::pin(property_scoped_context.process_with(
+                                            env.vocabulary,
+                                            active_context,
+                                            env.loader,
+                                            property_scoped_base_url,
+                                            options.with_override(),
+                                        ))
+                                        .await?
+                                        .into_processed(),
                                     };
                                     Mown::Owned(processed)
                                 }
@@ -698,22 +702,22 @@ where
                                 {
                                     let base_url = index_definition.base_url().cloned();
                                     let processed = match cache {
-                                        Some(cache) => local_context
-                                            .process_full_with_cache(
-                                                env.vocabulary,
-                                                map_context.as_ref(),
-                                                env.loader,
-                                                base_url,
-                                                options.into(),
-                                                jsonld_core::warning::Print,
-                                                cache,
-                                            )
-                                            .await?
-                                            .into_processed(),
-                                        None => local_context
-                                            .process_with(env.vocabulary, map_context.as_ref(), env.loader, base_url, options.into())
-                                            .await?
-                                            .into_processed(),
+                                        Some(cache) => Box::pin(local_context.process_full_with_cache(
+                                            env.vocabulary,
+                                            map_context.as_ref(),
+                                            env.loader,
+                                            base_url,
+                                            options.into(),
+                                            jsonld_core::warning::Print,
+                                            cache,
+                                        ))
+                                        .await?
+                                        .into_processed(),
+                                        None => {
+                                            Box::pin(local_context.process_with(env.vocabulary, map_context.as_ref(), env.loader, base_url, options.into()))
+                                                .await?
+                                                .into_processed()
+                                        }
                                     };
                                     map_context = Mown::Owned(processed)
                                 }
