@@ -18,7 +18,7 @@ resolver = "3"
 [workspace.package]
 version = "0.22.0"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.96.0"
 authors = [
     "Timothée Haudebourg <author@haudebourg.net>",
     "Matej Škvarč <matej.skvarc@senlab.io>",

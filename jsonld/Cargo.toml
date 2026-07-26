@@ -50,8 +50,8 @@ jsonld-expansion.workspace = true
 jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true
 jsonld-vocab = { workspace = true, optional = true }
-jstrict = "0.13.0"
-rdfx = "0.23.2"
+jstrict = "0.14.0"
+rdfx = "0.24.0"
 thiserror = "2.0.19"
 
 [dev-dependencies]
@@ -60,7 +60,7 @@ iri-rs = { version = "3.3.7", features = ["static"] }
 jsonld-testing.workspace = true
 log = "0.4.33"
 mimalloc = { version = "0.1.52", default-features = false }
-n-quads = "0.20.0"
+n-quads = "0.21.0"
 serde_json = "1.0.151"
 stacker = "0.1.24"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }

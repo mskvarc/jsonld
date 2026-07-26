@@ -23,7 +23,7 @@ iri-rs = { version = "3.3.7", features = ["static", "enum"] }
 jsonld.workspace = true
 proc-macro2 = "1.0.107"
 quote = "1.0.47"
-rdfx = { version = "0.23.2", features = ["contextual"] }
+rdfx = { version = "0.24.0", features = ["contextual"] }
 syn = { version = "3.0.3", features = ["full"] }
 tokio = { version = "1.53.1", features = ["rt"] }
 yansi = "1.0.1"

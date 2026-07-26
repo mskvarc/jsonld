@@ -46,7 +46,7 @@ Upstream builds on `rdf-types`, `xsd-types`, `iref`, `static-iref` and `json-syn
 
 The crate names moved with the dependencies — `json-ld` became `jsonld`, and every member crate followed.
 
-The workspace is Rust 2024 with MSRV 1.85, uses `mediatype` for content negotiation instead of hand-rolled parsing, and carries a reworked error surface.
+The workspace is Rust 2024 with MSRV 1.96, uses `mediatype` for content negotiation instead of hand-rolled parsing, and carries a reworked error surface.
 
 ### Performance
 
@@ -151,7 +151,7 @@ cargo test -p jsonld
 
 ## MSRV
 
-Rust 1.85 (edition 2024).
+Rust 1.96 (edition 2024).
 
 ## Attribution
 
