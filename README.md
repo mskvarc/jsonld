@@ -161,5 +161,5 @@ Original crates: [`json-ld`](https://crates.io/crates/json-ld) and its members b
 
 Dual-licensed, same as upstream. Pick whichever fits:
 
-- [Apache-2.0](https://github.com/mskvarc/jsonld/blob/master/LICENSE-APACHE)
-- [MIT](https://github.com/mskvarc/jsonld/blob/master/LICENSE-MIT)
+- [Apache-2.0](https://github.com/mskvarc/jsonld/blob/master/LICENSE-APACHE.md)
+- [MIT](https://github.com/mskvarc/jsonld/blob/master/LICENSE-MIT.md)
