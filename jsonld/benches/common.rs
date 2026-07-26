@@ -116,6 +116,100 @@ pub fn corpus() -> Vec<Scenario> {
     ]
 }
 
+/// Corpus for the IRI-resolution benchmarks.
+///
+/// This is the only shape in the whole corpus that reaches `iri-rs`'s resolver
+/// in anger. `expand_iri` returns early for a value that already parses as an
+/// absolute IRI, so a document built from absolute `@id`s — which is every
+/// other scenario here — never calls `resolved` at all. Resolution happens only
+/// when a value is a *relative* reference and the active context carries a
+/// `@base`.
+///
+/// The three scenarios split by which branch of RFC 3986 §5.2.2 they take,
+/// because the branches have very different costs and only some of them were
+/// touched by the dot-segment fix:
+///
+/// - `clean` — relative-path references with no dot segments. The dominant
+///   real-world shape, and the branch that always walked the path segment by
+///   segment, before and after the fix.
+/// - `dot_segments` — relative-path references containing `./` and `../`, so
+///   the walker also has to unwind segments.
+/// - `network_path` — `//host/path` references, one of the two branches the
+///   fix changed, and the shape behind the `expand_t0062` conformance failure.
+///
+/// `absolute_control` is the same document with absolute `@id`s and no
+/// `@base`, so `expand_iri` short-circuits and never calls the resolver. The
+/// gap between it and `clean` is the share of expansion that IRI resolution
+/// actually accounts for, which is what says whether a resolver change can move
+/// JSON-LD at all.
+pub fn base_relative_corpus() -> Vec<Scenario> {
+    vec![
+        base_absolute_control(300),
+        base_relative_clean(300),
+        base_relative_dot_segments(300),
+        base_relative_network_path(300),
+    ]
+}
+
+/// `@base` mirroring the deep document URL that real `@base` values take, and
+/// the one the W3C `expand_t0062` test uses.
+const DEEP_BASE: &str = "https://example.com/some/deep/directory/and/file";
+
+/// Builds a `@graph` of `n` nodes whose `@id` and `link` are relative
+/// references produced by `reference`, resolved against [`DEEP_BASE`].
+fn base_relative_scenario(name: &'static str, n: usize, reference: impl Fn(usize, &str) -> String) -> Scenario {
+    let context = format!(r#"{{"@base":"{DEEP_BASE}","@vocab":"https://ex.org/vocab/","link":{{"@id":"https://ex.org/vocab/link","@type":"@id"}}}}"#);
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
+    for index in 0..n {
+        if index > 0 {
+            doc.push(',');
+        }
+        doc.push_str(&format!(
+            r#"{{"@id":"{id}","title":"Node {index}","link":"{link}"}}"#,
+            id = reference(index, "entity"),
+            link = reference(index, "other"),
+        ));
+    }
+    doc.push_str("]}");
+    scenario(name, doc, context)
+}
+
+/// Control: identical shape, absolute `@id`s, no `@base`. `expand_iri` returns
+/// before reaching the resolver, so this measures everything *except*
+/// resolution.
+fn base_absolute_control(n: usize) -> Scenario {
+    let context = r#"{"@vocab":"https://ex.org/vocab/","link":{"@id":"https://ex.org/vocab/link","@type":"@id"}}"#;
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
+    for index in 0..n {
+        if index > 0 {
+            doc.push(',');
+        }
+        doc.push_str(&format!(
+            r#"{{"@id":"{DEEP_BASE_DIR}/entity/{index}","title":"Node {index}","link":"{DEEP_BASE_DIR}/other/{index}"}}"#
+        ));
+    }
+    doc.push_str("]}");
+    scenario("base_absolute_control_300", doc, context.to_string())
+}
+
+/// Directory part of [`DEEP_BASE`], so the control's absolute IRIs come out the
+/// same length as the resolved forms in the relative scenarios.
+const DEEP_BASE_DIR: &str = "https://example.com/some/deep/directory/and";
+
+fn base_relative_clean(n: usize) -> Scenario {
+    base_relative_scenario("base_relative_clean_300", n, |index, kind| format!("{kind}/{index}"))
+}
+
+fn base_relative_dot_segments(n: usize) -> Scenario {
+    base_relative_scenario("base_relative_dot_segments_300", n, |index, kind| format!("../{kind}/./nested/../{index}"))
+}
+
+fn base_relative_network_path(n: usize) -> Scenario {
+    base_relative_scenario("base_relative_network_path_300", n, |index, kind| {
+        format!("//cdn.example.com/{kind}/../item/{index}")
+    })
+}
+
 /// Corpus for the interning-vocabulary benchmarks.
 ///
 /// Every scenario here has its widest array inside the `PAR_LO..=PAR_HI`

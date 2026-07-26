@@ -46,7 +46,7 @@ vocab = ["dep:jsonld-vocab", "iri-rs/static"]
 [dependencies]
 contextual = "0.1.6"
 futures = "0.3.32"
-iri-rs = "3.3.5"
+iri-rs = "3.3.6"
 jsonld-compaction.workspace = true
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
@@ -65,7 +65,7 @@ thiserror = "2.0.18"
 async-std = { version = "1.13.2", features = ["attributes"] }
 criterion = "0.8.2"
 serde_json = "1.0"
-iri-rs = { version = "3.3.5", features = ["static"] }
+iri-rs = { version = "3.3.6", features = ["static"] }
 jsonld-testing.workspace = true
 log = "0.4.29"
 mimalloc = { version = "0.1", default-features = false }
