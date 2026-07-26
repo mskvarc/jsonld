@@ -3,8 +3,7 @@
 use contextual::{DisplayWithContext, WithContext};
 use iri_rs::{Iri, IriBuf, IriRefBuf};
 use jsonld::{Expand, FsLoader, LoadError};
-use proc_macro_error::proc_macro_error;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use rdfx::{
     Quad,
@@ -173,7 +172,6 @@ fn expand_iri(vocabulary: &mut IndexVocabulary, bindings: &mut HashMap<String, I
 /// The manifest is loaded at compile time, so a manifest the build cannot
 /// reach is a compile error rather than a silently empty test run.
 #[proc_macro_attribute]
-#[proc_macro_error]
 pub fn test_suite(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = syn::parse_macro_input!(input as syn::ItemMod);
     let mut vocabulary = IndexVocabulary::new();
@@ -182,14 +180,16 @@ pub fn test_suite(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
     // I/O or time driver is all the expansion futures need to make progress.
     let runtime = match Builder::new_current_thread().build() {
         Ok(runtime) => runtime,
-        Err(e) => proc_macro_error::abort_call_site!("could not start the async runtime: {}", e),
+        Err(e) => {
+            return syn::Error::new(Span::call_site(), format!("could not start the async runtime: {e}"))
+                .to_compile_error()
+                .into();
+        }
     };
 
     match runtime.block_on(derive_test_suite(&mut vocabulary, &mut input, args)) {
         Ok(tokens) => quote! { #input #tokens }.into(),
-        Err(e) => {
-            proc_macro_error::abort_call_site!("test suite generation failed: {}", (*e).with(&vocabulary))
-        }
+        Err(e) => (*e).into_syn_error(&vocabulary).to_compile_error().into(),
     }
 }
 
@@ -293,9 +293,7 @@ fn parse_struct_type(
 
         let id = match field.ident.clone() {
             Some(id) => id,
-            None => {
-                proc_macro_error::abort!(span, "only named fields are supported")
-            }
+            None => return Err(parse_error(span, "only named fields are supported")),
         };
 
         let mut iri: Option<IriIndex> = None;
@@ -316,14 +314,10 @@ fn parse_struct_type(
                     Ok(ty::Parsed { ty, required, multiple }) => {
                         fields.insert(iri, ty::Field { id, ty, required, multiple });
                     }
-                    Err(UnknownType) => {
-                        proc_macro_error::abort!(ty_span, "unknown type")
-                    }
+                    Err(UnknownType) => return Err(parse_error(ty_span, "unknown type")),
                 }
             }
-            None => {
-                proc_macro_error::abort!(span, "no IRI specified for field")
-            }
+            None => return Err(parse_error(span, "no IRI specified for field")),
         }
     }
 
@@ -370,9 +364,7 @@ fn parse_enum_type(
                     let field_span = field.span();
                     let id = match field.ident.clone() {
                         Some(id) => id,
-                        None => {
-                            proc_macro_error::abort!(field_span, "only named fields are supported")
-                        }
+                        None => return Err(parse_error(field_span, "only named fields are supported")),
                     };
 
                     let mut field_iri: Option<IriIndex> = None;
@@ -388,9 +380,7 @@ fn parse_enum_type(
 
                     let field_iri = match field_iri {
                         Some(iri) => iri,
-                        None => {
-                            proc_macro_error::abort!(field_span, "no IRI specified for field")
-                        }
+                        None => return Err(parse_error(field_span, "no IRI specified for field")),
                     };
 
                     let ty_span = field.ty.span();
@@ -398,9 +388,7 @@ fn parse_enum_type(
                         Ok(ty::Parsed { ty, required, multiple }) => {
                             fields.insert(field_iri, ty::Field { id, ty, required, multiple });
                         }
-                        Err(UnknownType) => {
-                            proc_macro_error::abort!(ty_span, "unknown type")
-                        }
+                        Err(UnknownType) => return Err(parse_error(ty_span, "unknown type")),
                     }
                 }
 
@@ -412,13 +400,21 @@ fn parse_enum_type(
                     },
                 );
             }
-            None => {
-                proc_macro_error::abort!(span, "no IRI specified for variant")
-            }
+            None => return Err(parse_error(span, "no IRI specified for variant")),
         }
     }
 
     Ok(ty::Enum { variants })
+}
+
+/// Builds a boxed [`Error`] reporting a malformed test-suite declaration at
+/// `span`.
+///
+/// The span is that of the offending syntax, so the resulting compile error
+/// points at the field, variant or type that could not be interpreted rather
+/// than at the macro invocation.
+fn parse_error<M: fmt::Display>(span: Span, message: M) -> Box<Error> {
+    Box::new(Error::Parse(syn::Error::new(span, message)))
 }
 
 enum Error {
@@ -430,6 +426,28 @@ enum Error {
     InvalidTypeField,
     NoTypeVariants(IndexTerm),
     MultipleTypeVariants(IndexTerm),
+}
+
+impl Error {
+    /// Converts this error into a [`syn::Error`] ready to be emitted as a
+    /// compile error.
+    ///
+    /// [`Error::Parse`] already carries the span of the offending syntax and is
+    /// returned unchanged. The remaining variants describe failures of the
+    /// manifest itself, which has no span in the caller's source, so they are
+    /// reported at the macro call site.
+    fn into_syn_error(self, vocabulary: &IndexVocabulary) -> syn::Error {
+        match self {
+            Self::Parse(e) => e,
+            e @ (Self::Load(_)
+            | Self::Expand(_)
+            | Self::InvalidIri(_)
+            | Self::InvalidValue(..)
+            | Self::InvalidTypeField
+            | Self::NoTypeVariants(_)
+            | Self::MultipleTypeVariants(_)) => syn::Error::new(Span::call_site(), format!("test suite generation failed: {}", e.with(vocabulary))),
+        }
+    }
 }
 
 impl From<syn::Error> for Error {

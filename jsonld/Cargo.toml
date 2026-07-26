@@ -53,18 +53,18 @@ jsonld-vocab = { workspace = true, optional = true }
 jstrict = "0.13.0"
 locspan = "0.8.2"
 rdfx = "0.23.2"
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 
 [dev-dependencies]
 criterion = "0.8.2"
 iri-rs = { version = "3.3.6", features = ["static"] }
 jsonld-testing.workspace = true
-log = "0.4.29"
-mimalloc = { version = "0.1", default-features = false }
+log = "0.4.33"
+mimalloc = { version = "0.1.52", default-features = false }
 n-quads = "0.20.0"
-serde_json = "1.0"
+serde_json = "1.0.151"
 stacker = "0.1.24"
-tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
 
 [lib]
 # The lib target has no benchmarks of its own; leaving it bench-enabled makes

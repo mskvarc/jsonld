@@ -22,12 +22,9 @@ contextual = "0.1.6"
 iri-rs = { version = "3.3.6", features = ["static", "enum"] }
 jsonld.workspace = true
 litrs = "1.0.0"
-proc-macro2 = "1.0.106"
-proc-macro-error = "1.0.4"
-quote = "1.0.45"
-rdfx = { version = "0.23.2", features = [
-    "contextual",
-] }
-syn = { version = "2.0.117", features = ["full"] }
-tokio = { version = "1.52.1", features = ["rt"] }
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+rdfx = { version = "0.23.2", features = ["contextual"] }
+syn = { version = "3.0.3", features = ["full"] }
+tokio = { version = "1.53.1", features = ["rt"] }
 yansi = "1.0.1"

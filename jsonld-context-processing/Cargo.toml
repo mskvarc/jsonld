@@ -32,7 +32,7 @@ jsonld-syntax.workspace = true
 mown = "1.0.0"
 parking_lot = "0.12.5"
 rdfx = "0.23.2"
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 
 [lints]
 workspace = true

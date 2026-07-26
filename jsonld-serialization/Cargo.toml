@@ -26,15 +26,13 @@ jsonld-core.workspace = true
 jstrict = "0.13.0"
 ld-core = "0.2.0"
 rdfx = "0.23.2"
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 xsd-rs = "0.10.0"
 
 [dev-dependencies]
 contextual = "0.1.6"
 jstrict = "0.13.0"
-ld-core = { version = "0.2.0", features = [
-    "derive",
-] }
+ld-core = { version = "0.2.0", features = ["derive"] }
 
 [lints]
 workspace = true

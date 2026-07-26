@@ -30,26 +30,22 @@ ahash = ["dep:ahash"]
 gxhash = ["dep:gxhash"]
 
 [dependencies]
-ahash = { version = "0.8", optional = true }
+ahash = { version = "0.8.12", optional = true }
 contextual = "0.1.6"
 decoded-char = "0.1.1"
-educe = "0.6.0"
-gxhash = { version = "3", optional = true }
-hashbrown = "0.17.0"
+educe = "0.7.4"
+gxhash = { version = "3.5.0", optional = true }
+hashbrown = "0.17.1"
 indexmap = "2.14.0"
 iri-rs = "3.3.6"
 jstrict = "0.13.0"
 langtag = "1.1.0"
-lasso = { version = "0.7", features = [
-    "multi-threaded",
-    "inline-more",
-    "ahasher",
-] }
+lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more", "ahasher"] }
 locspan = "0.8.2"
 rdfx = "0.23.2"
-serde = { version = "1.0.228", features = ["derive"], optional = true }
-smallvec = "1.15.1"
-thiserror = "2.0.18"
+serde = { version = "1.0.229", features = ["derive"], optional = true }
+smallvec = "1.15.2"
+thiserror = "2.0.19"
 
 [lints]
 workspace = true

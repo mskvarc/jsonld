@@ -27,8 +27,13 @@ impl<T> Type<T> {
 }
 
 /// Value type reference.
+// `bound(false)`: every variant payload is a shared reference or a `Copy` value
+// type, so this borrow type is unconditionally `Clone + Copy` regardless of `T`.
+// Educe's automatic bounds would instead propagate a predicate per field type,
+// which makes the impl conditional and breaks `&self` methods that consume
+// `self` by copy.
 #[derive(Educe)]
-#[educe(Clone, Copy)]
+#[educe(Clone(bound(false)), Copy(bound(false)))]
 pub enum TypeRef<'a, T> {
     /// A JSON literal.
     Json,
@@ -361,7 +366,7 @@ impl<T, B> object::Any<T, B> for Value<T> {
 }
 
 #[derive(Educe)]
-#[educe(Clone, Copy)]
+#[educe(Clone(bound(false)), Copy(bound(false)))]
 /// Entry of a value object, key and value together.
 pub enum EntryRef<'a, T> {
     /// The `@value` entry, holding the literal value.
@@ -412,7 +417,7 @@ impl<'a, T> EntryRef<'a, T> {
 }
 
 #[derive(Educe)]
-#[educe(Clone, Copy)]
+#[educe(Clone(bound(false)), Copy(bound(false)))]
 /// Value of a value object entry.
 pub enum EntryValueRef<'a, T> {
     /// The `@value` entry, holding the literal value.

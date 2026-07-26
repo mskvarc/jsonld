@@ -119,8 +119,12 @@ impl<'a, M: Clone> Iterator for ContextEntryIter<'a, M> {
 }
 
 /// Reference to context.
+// `bound(false)`: every variant payload is a shared reference or an
+// unconditionally-`Copy` borrow type, so the impls hold for any `M`. Educe's
+// automatic bounds would instead propagate a predicate per field type, making the
+// impl conditional and breaking the `&self` methods that consume `self` by copy.
 #[derive(Educe)]
-#[educe(Clone, Copy)]
+#[educe(Clone(bound(false)), Copy(bound(false)))]
 pub enum ContextRef<'a, M = ()> {
 	Null,
 	IriRef(IriRef<'a>),
