@@ -15,10 +15,13 @@ readme.workspace = true
 [package.metadata.docs.rs]
 all-features = true
 
+[package.metadata.cargo-machete]
+# Used only by the doc test in `src/lib.rs`, which cargo-machete does not parse.
+ignored = ["iri-rs", "jsonld", "tokio"]
+
 [features]
 default = ["fast-hash"]
 fast-hash = [
-    "iri-rs/fast-hash",
     "jsonld-core/fast-hash",
     "jsonld-syntax/fast-hash",
     "jsonld-context-processing/fast-hash",
@@ -26,9 +29,6 @@ fast-hash = [
 
 [dependencies]
 contextual = "0.1.6"
-educe = "0.7.4"
-indexmap = "2.14.0"
-iri-rs = "3.3.7"
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true

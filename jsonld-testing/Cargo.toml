@@ -21,7 +21,6 @@ proc-macro = true
 contextual = "0.1.6"
 iri-rs = { version = "3.3.7", features = ["static", "enum"] }
 jsonld.workspace = true
-litrs = "1.0.0"
 proc-macro2 = "1.0.107"
 quote = "1.0.47"
 rdfx = { version = "0.23.2", features = ["contextual"] }

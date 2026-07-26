@@ -18,7 +18,6 @@ all-features = true
 [features]
 default = ["fast-hash"]
 fast-hash = [
-    "iri-rs/fast-hash",
     "jsonld-core/fast-hash",
     "jsonld-syntax/fast-hash",
     "jsonld-context-processing/fast-hash",
@@ -26,15 +25,11 @@ fast-hash = [
 
 [dependencies]
 contextual = "0.1.6"
-educe = "0.7.4"
-indexmap = "2.14.0"
-iri-rs = "3.3.7"
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-expansion.workspace = true
 jsonld-syntax.workspace = true
 jstrict = "0.13.0"
-langtag = "1.1.0"
 mown = "1.0.0"
 rdfx = "0.23.2"
 smallvec = "1.15.2"

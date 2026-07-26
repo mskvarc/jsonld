@@ -51,7 +51,6 @@ jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true
 jsonld-vocab = { workspace = true, optional = true }
 jstrict = "0.13.0"
-locspan = "0.8.2"
 rdfx = "0.23.2"
 thiserror = "2.0.19"
 
@@ -59,6 +58,7 @@ thiserror = "2.0.19"
 criterion = "0.8.2"
 iri-rs = { version = "3.3.7", features = ["static"] }
 jsonld-testing.workspace = true
+locspan = "0.8.2"
 log = "0.4.33"
 mimalloc = { version = "0.1.52", default-features = false }
 n-quads = "0.20.0"
@@ -86,6 +86,11 @@ path = "examples/profile.rs"
 
 [package.metadata.docs.rs]
 all-features = true
+
+[package.metadata.cargo-machete]
+# `criterion` is used by the `benches/*` targets and `locspan` by the doc tests
+# in `src/processor/mod.rs`; cargo-machete parses neither.
+ignored = ["criterion", "locspan"]
 
 [lints]
 workspace = true
