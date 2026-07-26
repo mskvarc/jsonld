@@ -25,7 +25,7 @@ iri-rs = "3.3.5"
 jsonld-core.workspace = true
 jstrict = "0.13.0"
 ld-core = "0.2.0"
-rdfx = "0.23.1"
+rdfx = "0.23.2"
 thiserror = "2.0.18"
 xsd-rs = "0.10.0"
 

@@ -1,4 +1,5 @@
-use jsonld_core::IndexedObject;
+use jsonld_core::{Id, IndexedObject};
+use std::hash::Hash;
 
 /// Result of expanding a fragment: nothing, one object, or many.
 pub enum Expanded<T, B> {
@@ -44,6 +45,28 @@ impl<T, B> Expanded<T, B> {
             Expanded::Null => Iter::Null,
             Expanded::Object(o) => Iter::Object(Some(o)),
             Expanded::Array(ary) => Iter::Array(ary.iter()),
+        }
+    }
+
+    /// Maps the identifiers present in this expansion result (recursively).
+    ///
+    /// Used to rewrite the output of a task that ran against a forked
+    /// vocabulary into the identifier space of the vocabulary the fork was
+    /// merged into.
+    pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Expanded<U, C>
+    where
+        U: Eq + Hash,
+        C: Eq + Hash,
+    {
+        match self {
+            Expanded::Null => Expanded::Null,
+            Expanded::Object(object) => Expanded::Object(object.map_inner(|o| o.map_ids(&mut map_iri, &mut map_id))),
+            Expanded::Array(array) => Expanded::Array(
+                array
+                    .into_iter()
+                    .map(|object| object.map_inner(|o| o.map_ids(&mut map_iri, &mut map_id)))
+                    .collect(),
+            ),
         }
     }
 }

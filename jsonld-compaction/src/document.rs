@@ -23,7 +23,7 @@ pub trait EmbedContext {
         options: crate::Options,
     ) -> Result<(), IriConfusedWithPrefix>
     where
-        N: Vocabulary + jsonld_core::ParallelSafeVocabulary,
+        N: Vocabulary,
         N::Iri: Clone + Hash + Eq,
         N::BlankId: Clone + Hash + Eq;
 }
@@ -39,7 +39,7 @@ pub trait Compact<I, B> {
         options: crate::Options,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader;
@@ -53,7 +53,7 @@ pub trait Compact<I, B> {
         loader: &'a L,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -82,7 +82,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
         options: crate::Options,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -107,7 +107,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
         options: crate::Options,
     ) -> CompactDocumentResult<L::Error>
     where
-        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B> + jsonld_core::ParallelSafeVocabulary,
+        N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -130,7 +130,7 @@ impl EmbedContext for jstrict::Value {
         options: crate::Options,
     ) -> Result<(), IriConfusedWithPrefix>
     where
-        N: Vocabulary + jsonld_core::ParallelSafeVocabulary,
+        N: Vocabulary,
         N::Iri: Clone + Hash + Eq,
         N::BlankId: Clone + Hash + Eq,
     {

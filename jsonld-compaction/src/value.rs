@@ -1,6 +1,6 @@
 use crate::{Error, Options, compact_iri, iri::keyword_alias};
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
-use jsonld_core::{Container, ContainerKind, Context, Id, Loader, ParallelSafeVocabulary, Term, Type, Value, object};
+use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Term, Type, Value, object};
 use jsonld_syntax::Keyword;
 use mown::Mown;
 use rdfx::vocabulary::VocabularyMut;
@@ -17,7 +17,7 @@ pub async fn compact_indexed_value_with<N, L>(
     options: Options,
 ) -> Result<jstrict::Value, Error<L::Error>>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,

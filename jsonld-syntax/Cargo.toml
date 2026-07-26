@@ -46,7 +46,7 @@ lasso = { version = "0.7", features = [
     "ahasher",
 ] }
 locspan = "0.8.2"
-rdfx = "0.23.1"
+rdfx = "0.23.2"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
 smallvec = "1.15.1"
 thiserror = "2.0.18"

@@ -26,7 +26,7 @@ litrs = "1.0.0"
 proc-macro2 = "1.0.106"
 proc-macro-error = "1.0.4"
 quote = "1.0.45"
-rdfx = { version = "0.23.1", features = [
+rdfx = { version = "0.23.2", features = [
     "contextual",
 ] }
 syn = { version = "2.0.117", features = ["full"] }

@@ -6,7 +6,6 @@ use jsonld_core::{
     Indexed,
     Nullable,
     Object,
-    ParallelSafeVocabulary,
     ProcessingMode,
     Term,
     Type,
@@ -59,7 +58,7 @@ pub(crate) fn compact_iri<N>(
     options: Options,
 ) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
-    N: Vocabulary + ParallelSafeVocabulary,
+    N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
 {
@@ -84,7 +83,7 @@ where
 /// of the ~25 hot keyword call-sites.
 pub(crate) fn keyword_alias<'a, N>(vocabulary: &N, active_context: &'a Context<N::Iri, N::BlankId>, options: Options, k: Keyword) -> &'a str
 where
-    N: Vocabulary + ParallelSafeVocabulary,
+    N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
 {
@@ -114,7 +113,7 @@ pub(crate) fn compact_iri_with<N, O>(
     options: Options,
 ) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
-    N: Vocabulary + ParallelSafeVocabulary,
+    N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     O: object::Any<N::Iri, N::BlankId>,
@@ -135,7 +134,7 @@ pub(crate) fn compact_iri_full<N, O>(
     options: Options,
 ) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
-    N: Vocabulary + ParallelSafeVocabulary,
+    N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     O: object::Any<N::Iri, N::BlankId>,

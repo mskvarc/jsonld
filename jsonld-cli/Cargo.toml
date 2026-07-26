@@ -27,7 +27,7 @@ jsonld = { workspace = true, features = ["reqwest"] }
 jstrict = "0.13.0"
 log = "0.4.29"
 mediatype = "0.21"
-rdfx = "0.23.1"
+rdfx = "0.23.2"
 stderrlog = "0.6.0"
 thiserror = "2.0.18"
 tokio = { version = "1.52.1", features = ["rt-multi-thread", "net", "macros"] }

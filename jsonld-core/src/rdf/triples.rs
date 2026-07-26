@@ -95,10 +95,9 @@ impl<T: Clone> crate::object::Value<T> {
                 let (string, language, direction) = lang_string.parts();
 
                 let language = match language {
-                    Some(language) => match language.as_well_formed() {
-                        Some(tag) => Some(tag.to_owned()),
-                        None => return None,
-                    },
+                    // A malformed language tag has no RDF representation, so
+                    // the whole literal is dropped rather than emitted untagged.
+                    Some(language) => Some(language.as_well_formed()?.to_owned()),
                     None => None,
                 };
 

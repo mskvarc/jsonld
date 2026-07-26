@@ -20,7 +20,6 @@ use jsonld_core::{
     Loader,
     Node,
     Object,
-    ParallelSafeVocabulary,
     Term,
     context::Nest,
     object::{self, List},
@@ -42,7 +41,7 @@ async fn compact_property_list<N, L>(
     options: Options,
 ) -> Result<(), Error<L::Error>>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
@@ -111,7 +110,7 @@ async fn compact_property_graph<N, L>(
     options: Options,
 ) -> Result<(), Error<L::Error>>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
@@ -316,7 +315,7 @@ pub async fn compact_property<'a, N, L, O, T>(
     options: Options,
 ) -> Result<(), Error<L::Error>>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     O: IntoIterator<Item = &'a Indexed<T>>,

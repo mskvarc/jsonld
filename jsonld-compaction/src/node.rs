@@ -1,7 +1,7 @@
 use crate::{Error, Options, add_value, compact_iri, compact_property, iri::keyword_alias};
 use contextual::WithContext;
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
-use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, ParallelSafeVocabulary, Term, Type};
+use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, Term, Type};
 use jsonld_syntax::Keyword;
 use mown::Mown;
 use rdfx::vocabulary::VocabularyMut;
@@ -23,7 +23,7 @@ pub async fn compact_indexed_node_with<N, L>(
     options: Options,
 ) -> Result<jstrict::Value, Error<L::Error>>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
@@ -330,7 +330,7 @@ fn compact_types<N, E>(
     options: Options,
 ) -> Result<(), Error<E>>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
 {

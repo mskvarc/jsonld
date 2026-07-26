@@ -10,6 +10,10 @@ rust-version.workspace = true
 version.workspace = true
 description = "JSON-LD implementation"
 readme.workspace = true
+# `benches/common.rs` is a shared fixture module, not a benchmark. Auto-
+# discovery would turn it into a libtest-harness bench target, which rejects
+# the criterion flags before `expansion` or `compaction` ever run.
+autobenches = false
 
 [features]
 default = ["fast-hash"]
@@ -54,7 +58,7 @@ jsonld-syntax.workspace = true
 jsonld-vocab = { workspace = true, optional = true }
 jstrict = "0.13.0"
 locspan = "0.8.2"
-rdfx = "0.23.1"
+rdfx = "0.23.2"
 thiserror = "2.0.18"
 
 [dev-dependencies]
@@ -67,6 +71,12 @@ log = "0.4.29"
 mimalloc = { version = "0.1", default-features = false }
 n-quads = "0.20.0"
 stacker = "0.1.24"
+
+[lib]
+# The lib target has no benchmarks of its own; leaving it bench-enabled makes
+# `cargo bench -p jsonld` run the libtest harness first, which rejects the
+# criterion flags (`--save-baseline`, `--baseline`) before any bench runs.
+bench = false
 
 [[bench]]
 name = "expansion"

@@ -76,32 +76,53 @@ where
     {
         if (crate::PAR_LO..=crate::PAR_HI).contains(&element.len()) && array_has_heavy_items(element) {
             use futures::stream::{FuturesOrdered, StreamExt};
-            use jsonld_core::warning::WarningBuf;
+            use jsonld_core::{ForkableVocabulary, warning::WarningBuf};
 
             let env_loader: &'a L = env.loader;
             let mut stream: FuturesOrdered<_> = element
                 .iter()
                 .map(|item| {
-                    let mut vocab: N = (*env.vocabulary).clone();
+                    let mut vocab = env.vocabulary.fork();
                     let mut warn_buf: WarningBuf<crate::Warning<N::BlankId>> = WarningBuf::new();
+                    // Every memo a task can reach has to be private to it,
+                    // because each one holds or is keyed on `N::Iri` values
+                    // that only mean something inside the fork that produced
+                    // them. The processing cache would otherwise serve one
+                    // fork a context built under another fork's indices, and
+                    // the context's own term-resolution cache would serve one
+                    // fork an identifier that a different fork interned.
+                    let task_context = active_context.with_private_caches();
+                    let task_cache = ProcessingCache::new();
                     Box::pin(async move {
                         let task_env = Environment {
                             vocabulary: &mut vocab,
                             loader: env_loader,
                             warnings: &mut warn_buf,
                         };
-                        let r = expand_element(task_env, active_context, active_property, item, base_url, options, from_map, cache).await;
-                        (r, warn_buf)
+                        let r = expand_element(task_env, &task_context, active_property, item, base_url, options, from_map, Some(&task_cache)).await;
+                        (r, warn_buf, vocab)
                     })
                 })
                 .collect();
 
-            while let Some((res, buf)) = stream.next().await {
+            while let Some((res, buf, vocab)) = stream.next().await {
                 let e = res?;
-                for w in buf.0 {
-                    env.warnings.handle(env.vocabulary, w);
+                // Fold the fork's interned terms back before anything it
+                // produced is mixed with `result`: until this runs, the task's
+                // identifiers index a table that is about to be dropped.
+                let remap = env.vocabulary.merge(vocab);
+                if remap.is_identity() {
+                    for w in buf.0 {
+                        env.warnings.handle(env.vocabulary, w);
+                    }
+                    result.extend(e);
+                } else {
+                    for w in buf.0 {
+                        let w = w.map_blank_id(|b| remap.blank_id(b));
+                        env.warnings.handle(env.vocabulary, w);
+                    }
+                    result.extend(e.map_ids(|iri| remap.iri(iri), |id| remap.id(id)));
                 }
-                result.extend(e);
             }
 
             if is_list {

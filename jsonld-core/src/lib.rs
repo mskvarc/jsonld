@@ -24,6 +24,8 @@ mod serialization;
 mod term;
 mod ty;
 pub mod utils;
+/// Forking a vocabulary for concurrent work, and merging it back.
+pub mod vocabulary;
 /// Warnings raised by the algorithms.
 pub mod warning;
 
@@ -43,6 +45,7 @@ pub use quad::LdQuads;
 pub use rdf::RdfQuads;
 pub use term::*;
 pub use ty::*;
+pub use vocabulary::{ForkableVocabulary, ParallelSafeVocabulary, VocabularyRemap};
 
 /// Vocabulary, loader and warning handler an algorithm runs against.
 pub struct Environment<'a, N, L, W> {
@@ -53,30 +56,3 @@ pub struct Environment<'a, N, L, W> {
     /// Handler collecting the warnings raised along the way.
     pub warnings: &'a mut W,
 }
-
-/// Marker trait for vocabularies that may be cloned and shared across
-/// concurrent expansion and compaction tasks.
-///
-/// When `parallel` is off, every type satisfies this trait via a blanket
-/// impl — code that bounds on it still compiles in default builds.
-///
-/// When `parallel` is on, the bound widens to `Send + Sync + Clone`,
-/// because the concurrent paths hand each task its own copy of the
-/// vocabulary. A `&mut V` therefore does *not* qualify: with this feature
-/// enabled the algorithms must be given an owned vocabulary.
-#[cfg(not(feature = "parallel"))]
-pub trait ParallelSafeVocabulary {}
-
-#[cfg(not(feature = "parallel"))]
-impl<T: ?Sized> ParallelSafeVocabulary for T {}
-
-#[cfg(feature = "parallel")]
-/// Vocabularies usable from the parallel algorithms.
-///
-/// With the `parallel` feature this demands `Send + Sync + Clone`, since
-/// each task works on its own clone; without it, every vocabulary
-/// qualifies.
-pub trait ParallelSafeVocabulary: Send + Sync + Clone {}
-
-#[cfg(feature = "parallel")]
-impl<T: Send + Sync + Clone> ParallelSafeVocabulary for T {}

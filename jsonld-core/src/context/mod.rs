@@ -219,6 +219,45 @@ impl<T, B> Context<T, B> {
         }
     }
 
+    /// Returns a copy of this context whose IRI memoisation caches are private
+    /// to the copy.
+    ///
+    /// [`Self::term_resolution_cache`][c] maps a term to an already-resolved
+    /// [`Term`], which carries `T`-typed identifiers. Sharing it across
+    /// vocabulary forks is unsound: a term that one fork resolved by interning
+    /// a *new* IRI would be served to another fork, where that identifier
+    /// denotes something else entirely — or nothing. Concurrent expansion
+    /// therefore gives each task a context of its own.
+    ///
+    /// Only the caches are fresh. Definitions, prefix terms and keyword
+    /// aliases are shared through their `Arc`s: they are derived from the
+    /// context's own definitions, whose identifiers every fork inherits, so
+    /// they stay valid. The same reasoning covers the inverse context.
+    ///
+    /// [c]: Self::term_resolution_cache
+    pub fn with_private_caches(&self) -> Context<T, B>
+    where
+        T: Clone,
+        B: Clone,
+    {
+        Context {
+            original_base_url: self.original_base_url.clone(),
+            base_iri: self.base_iri.clone(),
+            vocabulary: self.vocabulary.clone(),
+            default_language: self.default_language.clone(),
+            default_base_direction: self.default_base_direction,
+            // A previous context is consulted on the same code paths, so its
+            // caches have to be private too.
+            previous_context: self.previous_context.as_ref().map(|previous| Arc::new(previous.with_private_caches())),
+            definitions: Arc::clone(&self.definitions),
+            inverse: Arc::clone(&self.inverse),
+            prefix_terms: Arc::clone(&self.prefix_terms),
+            compact_iri_cache: Arc::new(OnceCell::new()),
+            term_resolution_cache: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::clone(&self.keyword_aliases),
+        }
+    }
+
     /// Returns a reference to the given `term` definition, if any.
     pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<'_, T, B>>
     where

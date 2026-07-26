@@ -10,6 +10,7 @@ use jsonld::{
     NoLoader,
     RemoteDocument,
     context_processing::{Process, ProcessedOwned},
+    rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut},
     syntax::{Parse, TryFromJson, Value, context::Context as SyntaxContext},
 };
 
@@ -26,6 +27,31 @@ fn scenario(name: &'static str, doc: String, context: String) -> Scenario {
 pub fn parse_remote_doc(doc: &str) -> RemoteDocument {
     let value = Value::parse_str(doc).expect("doc parse").0;
     RemoteDocument::new(Some(iri!("https://bench.example.com/doc.jsonld").into()), None, value)
+}
+
+/// Creates an empty interning vocabulary seeded with the benchmark document
+/// URL, so that the [`IriIndex`] held by a [`parse_remote_doc_indexed`]
+/// document remains valid.
+///
+/// Seeding is what lets a benchmark reuse one parsed document across
+/// iterations while handing each iteration a fresh vocabulary: the URL is
+/// always the first IRI interned, so it always lands on the same index.
+pub fn fresh_indexed_vocabulary() -> IndexVocabulary {
+    let mut vocabulary = IndexVocabulary::new();
+    let _ = vocabulary.insert(iri!("https://bench.example.com/doc.jsonld"));
+    vocabulary
+}
+
+/// Parses `doc` into a remote document whose URL is interned in `vocabulary`.
+///
+/// The `IriBuf` document produced by [`parse_remote_doc`] expands against
+/// `NoVocabulary`, where nothing is interned at all. Only this variant
+/// exercises the configuration the `parallel` feature targets, in which every
+/// IRI the expansion sees becomes an index in a shared table.
+pub fn parse_remote_doc_indexed(doc: &str, vocabulary: &mut IndexVocabulary) -> RemoteDocument<IriIndex> {
+    let value = Value::parse_str(doc).expect("doc parse").0;
+    let url = vocabulary.insert(iri!("https://bench.example.com/doc.jsonld"));
+    RemoteDocument::new(Some(url), None, value)
 }
 
 pub fn parse_syntax_context(ctx: &str) -> SyntaxContext {
@@ -88,6 +114,55 @@ pub fn corpus() -> Vec<Scenario> {
         nested_with_repeated_terms(20, 25),
         ngsi_ld_entity_collection(200),
     ]
+}
+
+/// Corpus for the interning-vocabulary benchmarks.
+///
+/// Every scenario here has its widest array inside the `PAR_LO..=PAR_HI`
+/// (32..=512) window that gates the `parallel` branch of
+/// `jsonld_expansion::array::expand_array`. The general [`corpus`] does not
+/// serve this purpose: its widest array, `wide_array_values_1000`, is above
+/// `PAR_HI` and so never reaches the branch at all.
+///
+/// `array_of_value_objects_500` is included deliberately as a control — it is
+/// in-window but its items are `@value` objects, which the branch's
+/// `array_has_heavy_items` probe rejects, so it stays sequential whether or not
+/// the feature is on.
+pub fn vocabulary_corpus() -> Vec<Scenario> {
+    vec![
+        heavy_node_array(256),
+        ngsi_ld_entity_collection(200),
+        index_map_large(200),
+        blank_nodes_many(100),
+        array_of_value_objects(500),
+    ]
+}
+
+/// Array of `n` node objects, sized inside the `parallel` window and heavy
+/// enough to pass the `array_has_heavy_items` probe.
+///
+/// Each item contributes several distinct IRIs and a nested node, so expanding
+/// this against an [`IndexVocabulary`] makes per-task interning cost visible —
+/// and, once the vocabulary forks per task, the merge and remap cost too.
+fn heavy_node_array(n: usize) -> Scenario {
+    let context = r#"{"@vocab":"https://ex.org/vocab/","author":{"@id":"https://ex.org/vocab/author","@type":"@id"},"cites":{"@id":"https://ex.org/vocab/cites","@type":"@id"},"about":{"@id":"https://ex.org/vocab/about","@type":"@id"},"license":{"@id":"https://ex.org/vocab/license","@type":"@id"}}"#;
+    let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);
+    for i in 0..n {
+        if i > 0 {
+            doc.push(',');
+        }
+        doc.push_str(&format!(
+            r#"{{"@id":"https://ex.org/doc/{i}","@type":"https://ex.org/type/T{ty}","title":"Document {i}","revision":{i},"author":"https://ex.org/person/{au}","about":"https://ex.org/topic/{tp}","cites":["https://ex.org/doc/{c1}","https://ex.org/doc/{c2}"],"meta":{{"@id":"https://ex.org/meta/{i}","license":"https://ex.org/license/{li}","checksum":"sha256-{i}"}}}}"#,
+            ty = i % 16,
+            au = i % 64,
+            tp = i % 32,
+            c1 = (i + 1) % n,
+            c2 = (i + 7) % n,
+            li = i % 4,
+        ));
+    }
+    doc.push_str("]}");
+    scenario("heavy_node_array_256", doc, context.to_string())
 }
 
 fn simple_flat() -> Scenario {

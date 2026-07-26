@@ -10,7 +10,6 @@ use jsonld_core::{
     IndexSet,
     Indexed,
     Loader,
-    ParallelSafeVocabulary,
     ProcessingMode,
     Term,
     Value,
@@ -153,7 +152,7 @@ pub trait CompactFragment<I, B> {
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader;
@@ -167,7 +166,7 @@ pub trait CompactFragment<I, B> {
         loader: &'a mut L,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -222,7 +221,7 @@ pub trait CompactIndexedFragment<I, B> {
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader;
@@ -245,7 +244,7 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -277,7 +276,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -453,7 +452,7 @@ async fn compact_collection_with<'a, N, L, O, T>(
     options: Options,
 ) -> CompactFragmentResult<L::Error>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     T: 'a + CompactFragment<N::Iri, N::BlankId>,
@@ -504,7 +503,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -524,7 +523,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
@@ -544,7 +543,7 @@ impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T]
         options: Options,
     ) -> CompactFragmentResult<L::Error>
     where
-        N: VocabularyMut<Iri = I, BlankId = B> + ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
