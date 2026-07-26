@@ -21,7 +21,6 @@ fast-hash = ["iri-rs/fast-hash"]
 serde = [
     "dep:serde",
     "iri-rs/serde",
-    "locspan/serde",
     "jstrict/serde",
     "indexmap/serde",
 ]
@@ -40,7 +39,6 @@ iri-rs = "3.3.7"
 jstrict = "0.13.0"
 langtag = "1.1.0"
 lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more", "ahasher"] }
-locspan = "0.8.2"
 rdfx = "0.23.2"
 serde = { version = "1.0.229", features = ["derive"], optional = true }
 smallvec = "1.15.2"

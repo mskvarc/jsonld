@@ -539,7 +539,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// use locspan::Meta;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -581,7 +580,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-    /// use locspan::Meta;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -620,7 +618,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// ```
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
-    /// use locspan::Meta;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -1707,7 +1704,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::GeneralizedQuad;
-    /// use locspan::{Location, Span};
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -1775,7 +1771,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::GeneralizedQuad;
-    /// use locspan::{Location, Span};
     ///
     /// # #[tokio::main]
     /// # async fn main() {

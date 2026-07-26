@@ -83,10 +83,6 @@ impl<T, S> Multiset<T, S> {
     pub fn as_slice(&self) -> &[T] {
         &self.data
     }
-
-    // pub fn into_stripped(self) -> Multiset<locspan::Stripped<T>, S> {
-    // 	Multiset { data: unsafe { core::mem::transmute(self.data) }, hasher: self.hasher }
-    // }
 }
 
 impl<T: Hash, S: BuildHasher> Multiset<T, S> {

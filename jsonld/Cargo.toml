@@ -58,7 +58,6 @@ thiserror = "2.0.19"
 criterion = "0.8.2"
 iri-rs = { version = "3.3.7", features = ["static"] }
 jsonld-testing.workspace = true
-locspan = "0.8.2"
 log = "0.4.33"
 mimalloc = { version = "0.1.52", default-features = false }
 n-quads = "0.20.0"
@@ -88,9 +87,9 @@ path = "examples/profile.rs"
 all-features = true
 
 [package.metadata.cargo-machete]
-# `criterion` is used by the `benches/*` targets and `locspan` by the doc tests
-# in `src/processor/mod.rs`; cargo-machete parses neither.
-ignored = ["criterion", "locspan"]
+# `criterion` is used by the `benches/*` targets, which cargo-machete does not
+# parse.
+ignored = ["criterion"]
 
 [lints]
 workspace = true
