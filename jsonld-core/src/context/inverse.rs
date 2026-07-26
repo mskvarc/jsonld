@@ -236,6 +236,7 @@ pub struct InverseContext<T, B> {
 }
 
 /// Criterion used to pick a term out of the inverse context.
+#[derive(PartialEq)]
 pub enum Selection<'a, T> {
     /// Accept any term.
     Any,

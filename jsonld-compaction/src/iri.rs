@@ -44,6 +44,49 @@ fn candidate_beats(key: &str, suffix: &str, candidate_len: usize, current: &str)
     }
 }
 
+/// One-entry memo over a run of values compacted against the same term.
+///
+/// The container list and the type/language selection are the only things
+/// [`compact_iri_full`] derives from its `value` argument; everything after
+/// them — the inverse-context search and the compact-IRI fallback — reads the
+/// value only through whether it is present at all. So two values producing the
+/// same pair produce the same term, and consecutive values of one property
+/// almost always do: an array of value objects, an array of node references.
+///
+/// Both halves of the key are handed over by move once the algorithm is done
+/// with them, so a miss costs a comparison and no allocation.
+///
+/// The key covers the value **only**: a memo is valid while `vocabulary`,
+/// `active_context`, `var`, `vocab`, `reverse` and `options` are held fixed.
+/// Build one immediately before such a loop and drop it after.
+pub(crate) struct CompactIriMemo<'a, T> {
+    key: Option<MemoKey<'a, T>>,
+    result: Option<Arc<str>>,
+}
+
+struct MemoKey<'a, T> {
+    containers: SmallVec<[Container; 8]>,
+    selection: Selection<'a, T>,
+}
+
+impl<'a, T> CompactIriMemo<'a, T> {
+    pub fn new() -> Self {
+        Self { key: None, result: None }
+    }
+}
+
+impl<'a, T: PartialEq> CompactIriMemo<'a, T> {
+    fn get(&self, containers: &[Container], selection: &Selection<'a, T>) -> Option<Option<Arc<str>>> {
+        let key = self.key.as_ref()?;
+        (key.containers.as_slice() == containers && key.selection == *selection).then(|| self.result.clone())
+    }
+
+    fn store(&mut self, containers: SmallVec<[Container; 8]>, selection: Selection<'a, T>, result: Option<Arc<str>>) {
+        self.key = Some(MemoKey { containers, selection });
+        self.result = result;
+    }
+}
+
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`. Memoized per active
@@ -70,7 +113,7 @@ where
         }
     }
 
-    let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options)?;
+    let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options, None)?;
 
     cache.lock().insert((var.clone(), vocab, reverse), result.clone());
     Ok(result)
@@ -118,20 +161,43 @@ where
     N::BlankId: Clone + Hash + Eq,
     O: object::Any<N::Iri, N::BlankId>,
 {
-    compact_iri_full(vocabulary, active_context, var, Some(value), vocab, reverse, options)
+    compact_iri_full(vocabulary, active_context, var, Some(value), vocab, reverse, options, None)
+}
+
+/// Compact the given term considering the given value object, reusing `memo`.
+///
+/// See [`CompactIriMemo`] for what the memo may be shared across.
+pub(crate) fn compact_iri_with_memo<'a, N, O>(
+    vocabulary: &N,
+    active_context: &'a Context<N::Iri, N::BlankId>,
+    var: &Term<N::Iri, N::BlankId>,
+    value: &'a Indexed<O>,
+    vocab: bool,
+    reverse: bool,
+    options: Options,
+    memo: &mut CompactIriMemo<'a, N::Iri>,
+) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
+where
+    N: Vocabulary,
+    N::Iri: Clone + Hash + Eq,
+    N::BlankId: Clone + Hash + Eq,
+    O: object::Any<N::Iri, N::BlankId>,
+{
+    compact_iri_full(vocabulary, active_context, var, Some(value), vocab, reverse, options, Some(memo))
 }
 
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri_full<N, O>(
+pub(crate) fn compact_iri_full<'a, N, O>(
     vocabulary: &N,
-    active_context: &Context<N::Iri, N::BlankId>,
+    active_context: &'a Context<N::Iri, N::BlankId>,
     var: &Term<N::Iri, N::BlankId>,
-    value: Option<&Indexed<O>>,
+    value: Option<&'a Indexed<O>>,
     vocab: bool,
     reverse: bool,
     options: Options,
+    mut memo: Option<&mut CompactIriMemo<'a, N::Iri>>,
 ) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
 where
     N: Vocabulary,
@@ -381,11 +447,48 @@ where
                 }
             };
 
-            if let Some(term) = entry.select(&containers, &selection) {
-                return Ok(Some(Arc::from(term.as_str())));
+            if let Some(memo) = memo.as_deref_mut()
+                && let Some(hit) = memo.get(&containers, &selection)
+            {
+                return Ok(hit);
             }
-        }
 
+            let result = match entry.select(&containers, &selection) {
+                Some(term) => Some(Arc::from(term.as_str())),
+                // No term was selected. What follows does not read `value`
+                // beyond whether it is present, which the memo holds fixed.
+                None => compact_iri_fallback(vocabulary, active_context, var, value.is_none(), vocab)?,
+            };
+
+            if let Some(memo) = memo {
+                memo.store(containers, selection, result.clone());
+            }
+
+            return Ok(result);
+        }
+    }
+
+    compact_iri_fallback(vocabulary, active_context, var, value.is_none(), vocab)
+}
+
+/// Tail of [`compact_iri_full`], reached when no term could be selected from the
+/// inverse context: build a compact IRI, then fall back to `var` itself.
+///
+/// Split out because it reads the value only through `no_value`, which lets
+/// [`compact_iri_full`] memoize across it.
+fn compact_iri_fallback<N>(
+    vocabulary: &N,
+    active_context: &Context<N::Iri, N::BlankId>,
+    var: &Term<N::Iri, N::BlankId>,
+    no_value: bool,
+    vocab: bool,
+) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
+where
+    N: Vocabulary,
+    N::Iri: Clone + Hash + Eq,
+    N::BlankId: Clone + Hash + Eq,
+{
+    if vocab {
         // At this point, there is no simple term that var can be compacted to.
         // If vocab is true and active context has a vocabulary mapping:
         if let Some(vocab_mapping) = active_context.vocabulary() {
@@ -457,7 +560,7 @@ where
         let candidate_def = active_context.get(candidate_str);
         let definition_ok = match candidate_def {
             None => true,
-            Some(def) => def.value() == Some(var) && value.is_none(),
+            Some(def) => def.value() == Some(var) && no_value,
         };
         if definition_ok {
             compact_iri = Some(candidate_str.to_owned());

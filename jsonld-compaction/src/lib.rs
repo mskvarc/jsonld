@@ -187,6 +187,7 @@ pub trait CompactFragment<I, B> {
     }
 }
 
+#[derive(PartialEq)]
 enum TypeLangValue<'a, I> {
     Type(TypeSelection<I>),
     Lang(LangSelection<'a>),

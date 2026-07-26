@@ -7,7 +7,8 @@ use crate::{
     compact_collection_with,
     compact_iri,
     compact_iri_with,
-    iri::keyword_alias,
+    compact_iri_with_memo,
+    iri::{CompactIriMemo, keyword_alias},
     value_value,
 };
 
@@ -324,12 +325,28 @@ where
 {
     let mut is_empty = true;
 
+    // A property's values are near-always alike — an array of value objects, or
+    // of node references — and IRI compaction reads the value only through a
+    // handful of features. Remembering the last one lets a run of them share a
+    // single term selection. Valid only because every other argument below is
+    // fixed for this call.
+    let mut memo = CompactIriMemo::new();
+
     // For each item `expanded_item` in `expanded value`
     for expanded_item in expanded_value {
         is_empty = false;
         // Initialize `item_active_property` by IRI compacting `expanded_property`
         // using `expanded_item` for value and `inside_reverse` for `reverse`.
-        let item_active_property = compact_iri_with(vocabulary, active_context, &expanded_property, expanded_item, true, inside_reverse, options)?;
+        let item_active_property = compact_iri_with_memo(
+            vocabulary,
+            active_context,
+            &expanded_property,
+            expanded_item,
+            true,
+            inside_reverse,
+            options,
+            &mut memo,
+        )?;
 
         // If the term definition for `item_active_property` in the active context
         // has a nest value entry (nest term)
