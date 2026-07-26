@@ -59,14 +59,14 @@ struct InverseType<T> {
 }
 
 impl<T> InverseType<T> {
-    fn select(&self, selection: TypeSelection<T>) -> Option<&Key>
+    fn select(&self, selection: &TypeSelection<T>) -> Option<&Key>
     where
         T: Hash + Eq,
     {
         match selection {
             TypeSelection::Reverse => self.reverse.as_ref(),
             TypeSelection::Any => self.any.as_ref(),
-            TypeSelection::Type(ty) => self.map.get(&ty),
+            TypeSelection::Type(ty) => self.map.get(ty),
         }
     }
 
@@ -99,6 +99,39 @@ impl<T> InverseType<T> {
 
 type LangDir = Nullable<(Option<LenientLangTagBuf>, Option<Direction>)>;
 
+/// Borrowed view over a [`LangDir`], for lookups that would otherwise have to
+/// allocate a [`LenientLangTagBuf`] just to hash it.
+///
+/// Hashes identically to the owned key: `Nullable`'s derived `Hash` walks the
+/// same fields either way, and `LenientLangTagBuf` hashes by delegating to
+/// `LenientLangTag`.
+struct LangDirRef<'a>(Nullable<(Option<&'a LenientLangTag>, Option<Direction>)>);
+
+impl Hash for LangDirRef<'_> {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl hashbrown::Equivalent<LangDir> for LangDirRef<'_> {
+    #[inline]
+    fn equivalent(&self, key: &LangDir) -> bool {
+        match (&self.0, key) {
+            (Nullable::Null, Nullable::Null) => true,
+            (Nullable::Some((lang, dir)), Nullable::Some((key_lang, key_dir))) => {
+                dir == key_dir
+                    && match (lang, key_lang) {
+                        (None, None) => true,
+                        (Some(lang), Some(key_lang)) => *lang == &**key_lang,
+                        _ => false,
+                    }
+            }
+            _ => false,
+        }
+    }
+}
+
 struct InverseLang {
     any: Option<Key>,
     map: HashMap<LangDir, Key>,
@@ -117,10 +150,7 @@ impl InverseLang {
     fn select(&self, selection: LangSelection) -> Option<&Key> {
         match selection {
             LangSelection::Any => self.any.as_ref(),
-            LangSelection::Lang(lang_dir) => {
-                let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
-                self.map.get(&lang_dir)
-            }
+            LangSelection::Lang(lang_dir) => self.map.get(&LangDirRef(lang_dir)),
         }
     }
 
@@ -210,7 +240,7 @@ impl<T> InverseDefinition<T> {
                     Selection::Any => return Some(&type_lang_map.any.none),
                     Selection::Type(preferred_values) => {
                         for item in preferred_values {
-                            if let Some(term) = type_lang_map.typ.select(item.clone()) {
+                            if let Some(term) = type_lang_map.typ.select(item) {
                                 return Some(term);
                             }
                         }
@@ -396,5 +426,59 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::HashMap;
+
+    /// [`LangDirRef`] is only sound as a lookup key while it hashes exactly
+    /// like the owned [`LangDir`] it stands in for. Nothing in the type system
+    /// enforces that, and a divergence would not fail loudly — lookups would
+    /// simply stop finding their entries and compaction would quietly pick a
+    /// different term. So check it directly.
+    #[test]
+    fn lang_dir_ref_hashes_like_the_owned_key() {
+        let (owned_tag, _) = LenientLangTagBuf::new("en-GB".to_string());
+        let (borrowed_tag, _) = LenientLangTag::new("en-GB");
+
+        let cases: Vec<(LangDir, LangDirRef)> = vec![
+            (Nullable::Null, LangDirRef(Nullable::Null)),
+            (Nullable::Some((None, None)), LangDirRef(Nullable::Some((None, None)))),
+            (
+                Nullable::Some((None, Some(Direction::Rtl))),
+                LangDirRef(Nullable::Some((None, Some(Direction::Rtl)))),
+            ),
+            (
+                Nullable::Some((Some(owned_tag.clone()), None)),
+                LangDirRef(Nullable::Some((Some(borrowed_tag), None))),
+            ),
+            (
+                Nullable::Some((Some(owned_tag), Some(Direction::Ltr))),
+                LangDirRef(Nullable::Some((Some(borrowed_tag), Some(Direction::Ltr)))),
+            ),
+        ];
+
+        for (owned, borrowed) in cases {
+            let mut map: HashMap<LangDir, u32> = HashMap::default();
+            map.insert(owned.clone(), 42);
+            assert_eq!(map.get(&borrowed), Some(&42), "borrowed lookup missed {owned:?}");
+        }
+    }
+
+    /// A key that differs must still miss — the check above would also pass if
+    /// `equivalent` said yes to everything.
+    #[test]
+    fn lang_dir_ref_still_distinguishes_keys() {
+        let (owned_tag, _) = LenientLangTagBuf::new("en".to_string());
+        let (other_tag, _) = LenientLangTag::new("fr");
+
+        let mut map: HashMap<LangDir, u32> = HashMap::default();
+        map.insert(Nullable::Some((Some(owned_tag), None)), 42);
+
+        assert_eq!(map.get(&LangDirRef(Nullable::Some((Some(other_tag), None)))), None);
+        assert_eq!(map.get(&LangDirRef(Nullable::Null)), None);
     }
 }

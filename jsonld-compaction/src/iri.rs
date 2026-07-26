@@ -515,17 +515,10 @@ where
     // winner is the only allocation paid per accept.
     let mut buf: SmallVec<[u8; 64]> = SmallVec::new();
 
-    // Iterate only term definitions whose `prefix` flag is true (cached on the
-    // active context).
-    for key in active_context.prefix_term_keys() {
-        let definition = match active_context.get_normal(key) {
-            Some(d) => d,
-            None => continue,
-        };
-        let Some(iri_mapping) = definition.value() else {
-            continue;
-        };
-        let Some(suffix) = var_str.strip_prefix(iri_mapping.with(vocabulary).as_str()) else {
+    // Iterate only term definitions whose `prefix` flag is true, with their IRI
+    // mappings (cached on the active context).
+    for (key, iri_mapping) in active_context.prefix_terms() {
+        let Some(suffix) = var_str.strip_prefix((**iri_mapping).with(vocabulary).as_str()) else {
             continue;
         };
         if suffix.is_empty() {

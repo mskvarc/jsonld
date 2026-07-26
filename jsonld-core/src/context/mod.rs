@@ -228,7 +228,7 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
     // `Arc` with a fresh one, so other holders of the original `Arc`
     // keep their (still-valid) cached entries.
     inverse: Arc<OnceCell<InverseContext<T, B>>>,
-    prefix_terms: Arc<OnceCell<Vec<Key>>>,
+    prefix_terms: Arc<OnceCell<Vec<(Key, Arc<Term<T, B>>)>>>,
     compact_iri_cache: Arc<OnceCell<CompactIriCache<T, B>>>,
     term_resolution_cache: Arc<OnceCell<TermResolutionCache<T, B>>>,
     keyword_aliases: Arc<OnceCell<KeywordAliases>>,
@@ -452,16 +452,22 @@ impl<T, B> Context<T, B> {
         self.inverse.get_or_init(|| self.into())
     }
 
-    /// Returns the keys of the term definitions whose `prefix` flag is `true`.
+    /// Returns the term definitions whose `prefix` flag is `true`, each paired
+    /// with its IRI mapping.
+    ///
+    /// The mapping is carried alongside the key so that compaction's
+    /// candidate loop does not have to look the definition back up — which
+    /// would re-hash the very key this list just handed it. Definitions with no
+    /// IRI mapping cannot form a compact IRI and are left out.
     ///
     /// Lazily computed and cached; invalidated whenever a definition is added,
     /// removed, or replaced.
-    pub fn prefix_term_keys(&self) -> &[Key] {
+    pub fn prefix_terms(&self) -> &[(Key, Arc<Term<T, B>>)] {
         self.prefix_terms.get_or_init(|| {
             self.definitions
                 .iter()
                 .filter_map(|binding| match binding {
-                    BindingRef::Normal(key, def) if def.prefix => Some(*key),
+                    BindingRef::Normal(key, def) if def.prefix => def.value_arc().map(|value| (*key, value.clone())),
                     _ => None,
                 })
                 .collect()
