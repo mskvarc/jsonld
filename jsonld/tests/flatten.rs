@@ -88,11 +88,6 @@ impl flatten::Test {
             return;
         }
 
-        if self.options.spec_version == Some("json-ld-1.0") {
-            log::warn!("ignoring test `{}` (unsupported spec version)", self.name);
-            return;
-        }
-
         for comment in self.comments {
             println!("{}", comment)
         }
@@ -102,6 +97,9 @@ impl flatten::Test {
         loader.mount(iri!("https://w3c.github.io/json-ld-api").into(), "tests/json-ld-api");
 
         let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
+        if self.options.spec_version == Some("json-ld-1.0") {
+            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0
+        }
         if let Some(p) = self.options.processing_mode {
             options.processing_mode = p
         }
@@ -119,32 +117,26 @@ impl flatten::Test {
             flatten::Description::Positive { expect } => {
                 let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 
-                // Note: try it 10 times to reduce the chances of false negative
-                // with flatten_tin03. TODO proper fix.
-                for i in 0..10 {
-                    let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
-                    let flattened = json_ld
-                        .flatten_full(&mut vocabulary, &mut generator, context.clone(), &loader, options.clone(), ())
-                        .await
-                        .unwrap();
-                    let flattened = RemoteDocument::new(Some(input), None, flattened);
+                let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+                let flattened = json_ld
+                    .flatten_full(&mut vocabulary, &mut generator, context.clone(), &loader, options.clone(), ())
+                    .await
+                    .unwrap();
+                let flattened = RemoteDocument::new(Some(input), None, flattened);
 
-                    let expect = vocabulary.insert(expect);
-                    let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
-                    expect.set_url(Some(input));
+                let expect = vocabulary.insert(expect);
+                let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
+                expect.set_url(Some(input));
 
-                    let expand_options: jsonld::Options<IriIndex> = jsonld::Options::default();
-                    let success = flattened.compare_full(&expect, &mut vocabulary, &loader, expand_options, ()).await.unwrap();
+                let expand_options: jsonld::Options<IriIndex> = jsonld::Options::default();
+                let success = flattened.compare_full(&expect, &mut vocabulary, &loader, expand_options, ()).await.unwrap();
 
-                    if success {
-                        break;
-                    } else if i == 9 {
-                        eprintln!("test failed");
-                        eprintln!("output=\n{}", flattened.with(&vocabulary).document().pretty_print());
-                        eprintln!("expected=\n{}", expect.document().with(&vocabulary).pretty_print());
+                if !success {
+                    eprintln!("test failed");
+                    eprintln!("output=\n{}", flattened.with(&vocabulary).document().pretty_print());
+                    eprintln!("expected=\n{}", expect.document().with(&vocabulary).pretty_print());
 
-                        assert!(success)
-                    }
+                    assert!(success)
                 }
             }
             flatten::Description::Negative { expected_error_code } => {

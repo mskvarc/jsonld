@@ -273,14 +273,18 @@ where
                         // identifier, an invalid IRI mapping error has been detected and
                         // processing is aborted.
                         match expand_iri_with(
-                            env,
+                            Environment {
+                                vocabulary: env.vocabulary,
+                                loader: env.loader,
+                                warnings: env.warnings,
+                            },
                             active_context,
                             Nullable::Some(reverse_value.as_str().into()),
                             false,
                             Some(options.vocab),
                             local_context,
                             defined,
-                            remote_contexts,
+                            remote_contexts.clone(),
                             options,
                         )
                         .await?
@@ -311,89 +315,42 @@ where
 
                         // Set the `reverse_property` flag of `definition` to `true`.
                         definition.reverse_property = true;
-
-                        // Set the term definition of `term` in `active_context` to
-                        // `definition` and the value associated with `defined`'s entry `term`
-                        // to `true` and return.
-                        active_context.set_normal(key.to_owned(), Some(definition));
-                        defined.end(&term);
-                        return Ok(());
                     }
 
-                    match value.id {
-                        // If `value` contains the entry `@id` and its value does not equal `term`:
-                        Some(id_value) if id_value.cast::<KeyOrKeywordRef>() != Nullable::Some(key.into()) => {
-                            match id_value {
-                                // If the `@id` entry of value is `null`, the term is not used for IRI
-                                // expansion, but is retained to be able to detect future redefinitions
-                                // of this term.
-                                Nullable::Null => (),
-                                Nullable::Some(id_value) => {
-                                    // Otherwise:
-                                    // If the value associated with the `@id` entry is not a
-                                    // keyword, but has the form of a keyword, return;
-                                    // processors SHOULD generate a warning.
-                                    if id_value.is_keyword_like() && !id_value.is_keyword() {
-                                        debug_assert!(Keyword::try_from(id_value.as_str()).is_err());
-                                        env.warnings.handle(env.vocabulary, Warning::KeywordLikeValue(id_value.to_string()));
-                                        return Ok(());
-                                    }
-
-                                    // Otherwise, set the IRI mapping of `definition` to the result
-                                    // of IRI expanding the value associated with the `@id` entry,
-                                    // using `local_context`, and `defined`.
-                                    definition.value = match expand_iri_with(
-                                        Environment {
-                                            vocabulary: env.vocabulary,
-                                            loader: env.loader,
-                                            warnings: env.warnings,
-                                        },
-                                        active_context,
-                                        Nullable::Some(id_value.into()),
-                                        false,
-                                        Some(options.vocab),
-                                        local_context,
-                                        defined,
-                                        remote_contexts.clone(),
-                                        options,
-                                    )
-                                    .await?
-                                    {
-                                        Some(arc) if arc.as_ref() == &Term::Keyword(Keyword::Context) => {
-                                            // if it equals `@context`, an invalid keyword alias error has
-                                            // been detected and processing is aborted.
-                                            return Err(Error::InvalidKeywordAlias);
+                    // Step 14 onwards is skipped for reverse properties: the amended
+                    // algorithm falls through from `@reverse` but takes the "Otherwise"
+                    // branch (w3c/json-ld-api#565).
+                    if !definition.reverse_property {
+                        match value.id {
+                            // If `value` contains the entry `@id` and its value does not equal `term`:
+                            Some(id_value) if id_value.cast::<KeyOrKeywordRef>() != Nullable::Some(key.into()) => {
+                                match id_value {
+                                    // If the `@id` entry of value is `null`, the term is not used for IRI
+                                    // expansion, but is retained to be able to detect future redefinitions
+                                    // of this term.
+                                    Nullable::Null => (),
+                                    Nullable::Some(id_value) => {
+                                        // Otherwise:
+                                        // If the value associated with the `@id` entry is not a
+                                        // keyword, but has the form of a keyword, return;
+                                        // processors SHOULD generate a warning.
+                                        if id_value.is_keyword_like() && !id_value.is_keyword() {
+                                            debug_assert!(Keyword::try_from(id_value.as_str()).is_err());
+                                            env.warnings.handle(env.vocabulary, Warning::KeywordLikeValue(id_value.to_string()));
+                                            return Ok(());
                                         }
-                                        Some(arc) if matches!(arc.as_ref(), Term::Id(p) if !p.is_valid()) => {
-                                            // If the resulting IRI mapping is neither a keyword,
-                                            // nor an IRI, nor a blank node identifier, an
-                                            // invalid IRI mapping error has been detected and processing
-                                            // is aborted;
-                                            return Err(Error::InvalidIriMapping);
-                                        }
-                                        value => value,
-                                    };
 
-                                    // If `term` contains a colon (:) anywhere but as the first or
-                                    // last character of `term`, or if it contains a slash (/)
-                                    // anywhere:
-                                    if contains_between_boundaries(key.as_str(), ':') || key.as_str().contains('/') {
-                                        // Set the value associated with `defined`'s `term` entry
-                                        // to `true`.
-                                        defined.end(&term);
-
-                                        // If the result of IRI expanding `term` using
-                                        // `local_context`, and `defined`, is not the same as the
-                                        // IRI mapping of definition, an invalid IRI mapping error
-                                        // has been detected and processing is aborted.
-                                        let expanded_term = expand_iri_with(
+                                        // Otherwise, set the IRI mapping of `definition` to the result
+                                        // of IRI expanding the value associated with the `@id` entry,
+                                        // using `local_context`, and `defined`.
+                                        definition.value = match expand_iri_with(
                                             Environment {
                                                 vocabulary: env.vocabulary,
                                                 loader: env.loader,
                                                 warnings: env.warnings,
                                             },
                                             active_context,
-                                            Nullable::Some((&term).into()),
+                                            Nullable::Some(id_value.into()),
                                             false,
                                             Some(options.vocab),
                                             local_context,
@@ -401,135 +358,186 @@ where
                                             remote_contexts.clone(),
                                             options,
                                         )
-                                        .await?;
-                                        if definition.value.as_deref() != expanded_term.as_deref() {
-                                            return Err(Error::InvalidIriMapping);
-                                        }
-                                    }
+                                        .await?
+                                        {
+                                            Some(arc) if arc.as_ref() == &Term::Keyword(Keyword::Context) => {
+                                                // if it equals `@context`, an invalid keyword alias error has
+                                                // been detected and processing is aborted.
+                                                return Err(Error::InvalidKeywordAlias);
+                                            }
+                                            Some(arc) if matches!(arc.as_ref(), Term::Id(p) if !p.is_valid()) => {
+                                                // If the resulting IRI mapping is neither a keyword,
+                                                // nor an IRI, nor a blank node identifier, an
+                                                // invalid IRI mapping error has been detected and processing
+                                                // is aborted;
+                                                return Err(Error::InvalidIriMapping);
+                                            }
+                                            value => value,
+                                        };
 
-                                    // If `term` contains neither a colon (:) nor a slash (/),
-                                    // simple term is true, and if the IRI mapping of definition
-                                    // is either an IRI ending with a gen-delim character,
-                                    // or a blank node identifier, set the `prefix` flag in
-                                    // `definition` to true.
-                                    if !key.as_str().contains(':')
-                                        && !key.as_str().contains('/')
-                                        && simple_term
-                                        && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
-                                    {
-                                        definition.prefix = true;
+                                        // If `term` contains a colon (:) anywhere but as the first or
+                                        // last character of `term`, or if it contains a slash (/)
+                                        // anywhere:
+                                        //
+                                        // This round-trip check was introduced in JSON-LD 1.1; 1.0 let
+                                        // a term that looks like a compact IRI expand to something else
+                                        // (`expand#t0026`, `expand#t0071`).
+                                        if options.processing_mode != ProcessingMode::JsonLd1_0
+                                            && (contains_between_boundaries(key.as_str(), ':') || key.as_str().contains('/'))
+                                        {
+                                            // Set the value associated with `defined`'s `term` entry
+                                            // to `true`.
+                                            defined.end(&term);
+
+                                            // If the result of IRI expanding `term` using
+                                            // `local_context`, and `defined`, is not the same as the
+                                            // IRI mapping of definition, an invalid IRI mapping error
+                                            // has been detected and processing is aborted.
+                                            let expanded_term = expand_iri_with(
+                                                Environment {
+                                                    vocabulary: env.vocabulary,
+                                                    loader: env.loader,
+                                                    warnings: env.warnings,
+                                                },
+                                                active_context,
+                                                Nullable::Some((&term).into()),
+                                                false,
+                                                Some(options.vocab),
+                                                local_context,
+                                                defined,
+                                                remote_contexts.clone(),
+                                                options,
+                                            )
+                                            .await?;
+                                            if definition.value.as_deref() != expanded_term.as_deref() {
+                                                return Err(Error::InvalidIriMapping);
+                                            }
+                                        }
+
+                                        // If `term` contains neither a colon (:) nor a slash (/),
+                                        // simple term is true, and if the IRI mapping of definition
+                                        // is either an IRI ending with a gen-delim character,
+                                        // or a blank node identifier, set the `prefix` flag in
+                                        // `definition` to true.
+                                        if !key.as_str().contains(':')
+                                            && !key.as_str().contains('/')
+                                            && simple_term
+                                            && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
+                                        {
+                                            definition.prefix = true;
+                                        }
                                     }
                                 }
                             }
-                        }
-                        Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => {
-                            // Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
-                            // `@type`.
-                            definition.value = Some(Arc::new(Term::Keyword(Keyword::Type)))
-                        }
-                        _ => {
-                            // Otherwise if the `term` contains a colon (:) anywhere after the first
-                            // character.
-                            if let KeyOrKeyword::Key(term) = &term {
-                                if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
-                                    // If `term` is a compact IRI with a prefix that is an entry in local
-                                    // context a dependency has been found.
-                                    // Use this algorithm recursively passing `active_context`,
-                                    // `local_context`, the prefix as term, and `defined`.
-                                    Box::pin(define(
-                                        Environment {
-                                            vocabulary: env.vocabulary,
-                                            loader: env.loader,
-                                            warnings: env.warnings,
-                                        },
-                                        active_context,
-                                        local_context,
-                                        KeyOrKeywordRef::Key(compact_iri.prefix().into()),
-                                        defined,
-                                        remote_contexts.clone(),
-                                        None,
-                                        false,
-                                        options.with_no_override(),
-                                    ))
-                                    .await?;
+                            Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => {
+                                // Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
+                                // `@type`.
+                                definition.value = Some(Arc::new(Term::Keyword(Keyword::Type)))
+                            }
+                            _ => {
+                                // Otherwise if the `term` contains a colon (:) anywhere after the first
+                                // character.
+                                if let KeyOrKeyword::Key(term) = &term {
+                                    if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
+                                        // If `term` is a compact IRI with a prefix that is an entry in local
+                                        // context a dependency has been found.
+                                        // Use this algorithm recursively passing `active_context`,
+                                        // `local_context`, the prefix as term, and `defined`.
+                                        Box::pin(define(
+                                            Environment {
+                                                vocabulary: env.vocabulary,
+                                                loader: env.loader,
+                                                warnings: env.warnings,
+                                            },
+                                            active_context,
+                                            local_context,
+                                            KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                                            defined,
+                                            remote_contexts.clone(),
+                                            None,
+                                            false,
+                                            options.with_no_override(),
+                                        ))
+                                        .await?;
 
-                                    // If `term`'s prefix has a term definition in `active_context`, set the
-                                    // IRI mapping of `definition` to the result of concatenating the value
-                                    // associated with the prefix's IRI mapping and the term's suffix.
-                                    if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
-                                        let mut result = String::new();
+                                        // If `term`'s prefix has a term definition in `active_context`, set the
+                                        // IRI mapping of `definition` to the result of concatenating the value
+                                        // associated with the prefix's IRI mapping and the term's suffix.
+                                        if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
+                                            let mut result = String::new();
 
-                                        if let Some(prefix_key) = prefix_definition.value()
-                                            && let Some(prefix_iri) = prefix_key.as_iri()
-                                            && let Some(iri) = env.vocabulary.iri(prefix_iri)
-                                        {
-                                            result = iri.to_string()
-                                        }
+                                            if let Some(prefix_key) = prefix_definition.value()
+                                                && let Some(prefix_iri) = prefix_key.as_iri()
+                                                && let Some(iri) = env.vocabulary.iri(prefix_iri)
+                                            {
+                                                result = iri.to_string()
+                                            }
 
-                                        result.push_str(compact_iri.suffix());
+                                            result.push_str(compact_iri.suffix());
 
-                                        if let Ok(iri) = Iri::parse(result.as_str()) {
-                                            definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
-                                        } else {
-                                            return Err(Error::InvalidIriMapping);
+                                            if let Ok(iri) = Iri::parse(result.as_str()) {
+                                                definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
+                                            } else {
+                                                return Err(Error::InvalidIriMapping);
+                                            }
                                         }
                                     }
-                                }
 
-                                // not a compact IRI
-                                if definition.value.is_none() {
-                                    if let Ok(blank_id) = BlankId::new(term.as_str()) {
-                                        definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
-                                    } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
-                                        match Iri::try_from(iri_ref) {
-                                            Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
-                                            Err(_) => {
-                                                if iri_ref.as_str().contains('/') {
-                                                    // Term is a relative IRI reference.
-                                                    // Set the IRI mapping of definition to the result of IRI expanding
-                                                    // term.
-                                                    match expand_iri_simple(
-                                                        &mut env,
-                                                        active_context,
-                                                        Nullable::Some(ExpandableRef::String(iri_ref.as_str())),
-                                                        false,
-                                                        Some(options.vocab),
-                                                    )? {
-                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
-                                                            definition.value = Some(arc)
+                                    // not a compact IRI
+                                    if definition.value.is_none() {
+                                        if let Ok(blank_id) = BlankId::new(term.as_str()) {
+                                            definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
+                                        } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
+                                            match Iri::try_from(iri_ref) {
+                                                Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
+                                                Err(_) => {
+                                                    if iri_ref.as_str().contains('/') {
+                                                        // Term is a relative IRI reference.
+                                                        // Set the IRI mapping of definition to the result of IRI expanding
+                                                        // term.
+                                                        match expand_iri_simple(
+                                                            &mut env,
+                                                            active_context,
+                                                            Nullable::Some(ExpandableRef::String(iri_ref.as_str())),
+                                                            false,
+                                                            Some(options.vocab),
+                                                        )? {
+                                                            Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
+                                                                definition.value = Some(arc)
+                                                            }
+                                                            // If the resulting IRI mapping is not an IRI, an invalid IRI mapping
+                                                            // error has been detected and processing is aborted.
+                                                            _ => return Err(Error::InvalidIriMapping),
                                                         }
-                                                        // If the resulting IRI mapping is not an IRI, an invalid IRI mapping
-                                                        // error has been detected and processing is aborted.
-                                                        _ => return Err(Error::InvalidIriMapping),
                                                     }
                                                 }
                                             }
                                         }
-                                    }
 
-                                    // not a compact IRI, IRI, IRI reference or blank node id.
-                                    if definition.value.is_none() {
-                                        if let Some(context_vocabulary) = active_context.vocabulary() {
-                                            // Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
-                                            // of `definition` is set to the result of concatenating the value
-                                            // associated with the vocabulary mapping and `term`.
-                                            // If it does not have a vocabulary mapping, an invalid IRI mapping error
-                                            // been detected and processing is aborted.
-                                            if let Some(vocabulary_iri) = context_vocabulary.as_iri() {
-                                                let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
-                                                result.push_str(key.as_str());
-                                                if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                    definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
+                                        // not a compact IRI, IRI, IRI reference or blank node id.
+                                        if definition.value.is_none() {
+                                            if let Some(context_vocabulary) = active_context.vocabulary() {
+                                                // Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
+                                                // of `definition` is set to the result of concatenating the value
+                                                // associated with the vocabulary mapping and `term`.
+                                                // If it does not have a vocabulary mapping, an invalid IRI mapping error
+                                                // been detected and processing is aborted.
+                                                if let Some(vocabulary_iri) = context_vocabulary.as_iri() {
+                                                    let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
+                                                    result.push_str(key.as_str());
+                                                    if let Ok(iri) = Iri::parse(result.as_str()) {
+                                                        definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
+                                                    } else {
+                                                        return Err(Error::InvalidIriMapping);
+                                                    }
                                                 } else {
                                                     return Err(Error::InvalidIriMapping);
                                                 }
                                             } else {
+                                                // If it does not have a vocabulary mapping, an invalid IRI mapping error
+                                                // been detected and processing is aborted.
                                                 return Err(Error::InvalidIriMapping);
                                             }
-                                        } else {
-                                            // If it does not have a vocabulary mapping, an invalid IRI mapping error
-                                            // been detected and processing is aborted.
-                                            return Err(Error::InvalidIriMapping);
                                         }
                                     }
                                 }

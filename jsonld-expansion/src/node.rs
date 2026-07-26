@@ -898,6 +898,12 @@ where
                 // setting it to a map containing the key-value pair
                 // @list-expanded value.
                 if container_mapping.contains(ContainerKind::List) && !expanded_value.is_list() {
+                    // JSON-LD 1.0 forbids wrapping list objects in another list;
+                    // 1.1 lifted the restriction (`expand#ter24`).
+                    if options.processing_mode == ProcessingMode::JsonLd1_0 && expanded_value.iter().any(|item| item.is_list()) {
+                        return Err(Error::ListOfLists);
+                    }
+
                     expanded_value = Expanded::Object(Object::List(object::List::new(expanded_value.into_iter().collect())).into());
                 }
 

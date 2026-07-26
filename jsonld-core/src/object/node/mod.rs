@@ -655,9 +655,30 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
             }
         }
 
-        for (_, objects) in self.properties_mut() {
-            for object in objects {
-                object.relabel_with(vocabulary, generator, relabeling)?;
+        // "If property is a blank node identifier, replace it with a newly
+        // generated blank node identifier": property keys are relabeled from
+        // the same map as node identifiers (`toRdf#t0118`). Keys are rewritten
+        // in place, in insertion order, so the generator sees each blank node
+        // in document order.
+        if !self.properties.is_empty() {
+            let properties = std::mem::take(&mut self.properties);
+            for (property, mut objects) in properties {
+                let property = match property {
+                    Id::Valid(ValidId::Blank(b)) => {
+                        let value = match relabeling.entry(b) {
+                            hashbrown::hash_map::Entry::Occupied(o) => o.get().clone(),
+                            hashbrown::hash_map::Entry::Vacant(v) => v.insert(crate::id::generator_next_id(vocabulary, generator)?).clone(),
+                        };
+                        value.into()
+                    }
+                    property => property,
+                };
+
+                for object in objects.iter_mut() {
+                    object.relabel_with(vocabulary, generator, relabeling)?;
+                }
+
+                self.properties.set(property, objects);
             }
         }
 
@@ -675,10 +696,13 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
 
 impl<T: Eq + Hash, B: Eq + Hash> PartialEq for Node<T, B> {
     fn eq(&self, other: &Self) -> bool {
+        // `@graph` and `@included` are sets of node objects: their order is not
+        // significant (only `@list` is ordered). This matches `Hash`, which
+        // already hashes both with `hash_set_opt`.
         self.id.eq(&other.id)
             && multiset::compare_unordered_opt(self.types.as_deref(), other.types.as_deref())
-            && self.graph.as_ref() == other.graph.as_ref()
-            && self.included.as_ref() == other.included.as_ref()
+            && multiset::compare_unordered_opt(self.graph.as_deref(), other.graph.as_deref())
+            && multiset::compare_unordered_opt(self.included.as_deref(), other.included.as_deref())
             && self.properties.eq(&other.properties)
             && self.reverse_properties.eq(&other.reverse_properties)
     }

@@ -134,6 +134,13 @@ pub enum Error<E = std::convert::Infallible> {
     /// Unable to extract JSON-LD context: the given value.
     ContextExtractionFailed(ExtractContextError),
 
+    #[error("Recursive context inclusion")]
+    /// A remote context includes itself, directly or indirectly.
+    ///
+    /// JSON-LD 1.0 only: 1.1 permits a context to be reloaded (scoped contexts
+    /// rely on it) and reports [`ErrorCode::ContextOverflow`] instead.
+    RecursiveContextInclusion,
+
     #[error("Use of forbidden `@vocab`")]
     /// Use of forbidden `@vocab`.
     ForbiddenVocab,
@@ -170,6 +177,7 @@ impl<E> Error<E> {
             Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
             Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
             Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
+            Self::RecursiveContextInclusion => ErrorCode::RecursiveContextInclusion,
             Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
         }
     }

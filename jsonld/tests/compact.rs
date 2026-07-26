@@ -12,6 +12,14 @@ use tokio::runtime::Builder as RuntimeBuilder;
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 #[ignore_test("#tp004", see = "https://github.com/w3c/json-ld-api/issues/517")]
+// `#t0038` is the pre-`@prefix`-flag variant of "Index map round-tripping": it
+// expects `title:/value`, i.e. a compact IRI built from a term whose definition
+// is expanded and therefore has no prefix flag. The working group replaced that
+// rule and shipped `#ta038` as the JSON-LD 1.1 twin — same input and context,
+// expecting `site-cd:node/article/title/value`, which this crate produces and
+// `#ta038` asserts. Honouring `#t0038` would also break `#tp001`, which requires
+// the prefix flag in JSON-LD 1.0 processing mode; no single rule satisfies both.
+#[ignore_test("#t0038", see = "https://github.com/w3c/json-ld-api/commit/c482f4578627443d6c316812e4cd79961b40fdd3")]
 mod compact {
     use iri_rs::Iri;
 
@@ -89,11 +97,6 @@ impl compact::Test {
             return;
         }
 
-        if self.options.spec_version == Some("json-ld-1.0") {
-            log::warn!("ignoring test `{}` (unsupported spec version)", self.name);
-            return;
-        }
-
         for comment in self.comments {
             println!("{}", comment)
         }
@@ -103,6 +106,9 @@ impl compact::Test {
         loader.mount(iri!("https://w3c.github.io/json-ld-api").into(), "tests/json-ld-api");
 
         let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
+        if self.options.spec_version == Some("json-ld-1.0") {
+            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0
+        }
         if let Some(p) = self.options.processing_mode {
             options.processing_mode = p
         }

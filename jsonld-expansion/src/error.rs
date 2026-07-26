@@ -83,6 +83,12 @@ pub enum Error<E = std::convert::Infallible> {
     #[error("Empty expansion result")]
     /// Empty expansion result.
     EmptyExpansion,
+
+    #[error("List of lists")]
+    /// A list object was found among the items of another list object.
+    ///
+    /// JSON-LD 1.0 only: 1.1 allows lists of lists.
+    ListOfLists,
 }
 
 impl<E> From<RejectVocab> for Error<E> {
@@ -115,6 +121,7 @@ impl<E> Error<E> {
             Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
             Self::IdExpansionEmpty => ErrorCode::InvalidIdValue,
             Self::EmptyExpansion => ErrorCode::InvalidIdValue,
+            Self::ListOfLists => ErrorCode::ListOfLists,
         }
     }
 }

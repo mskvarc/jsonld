@@ -162,11 +162,6 @@ impl to_rdf::Test {
             return;
         }
 
-        if self.options.spec_version == Some("json-ld-1.0") {
-            log::warn!("ignoring test `{}` (unsupported spec version)", self.name);
-            return;
-        }
-
         for comment in self.comments {
             println!("{}", comment)
         }
@@ -176,6 +171,9 @@ impl to_rdf::Test {
         loader.mount(iri!("https://w3c.github.io/json-ld-api").into(), "tests/json-ld-api");
 
         let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
+        if self.options.spec_version == Some("json-ld-1.0") {
+            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0
+        }
         if let Some(p) = self.options.processing_mode {
             options.processing_mode = p
         }

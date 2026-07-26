@@ -14,7 +14,7 @@ use crate::{
     expand_value,
 };
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
-use jsonld_core::{Context, Environment, Id, Indexed, Object, Term, ValidId, object};
+use jsonld_core::{Context, Environment, Id, Indexed, Object, ProcessingMode, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};
 use jstrict::{Value, object::Entry};
 use mown::Mown;
@@ -400,6 +400,12 @@ where
                     ))
                     .await?;
                     result.extend(e)
+                }
+
+                // JSON-LD 1.0 forbids a list object among the items of another
+                // list object; 1.1 lifted the restriction (`expand#ter32`).
+                if options.processing_mode == ProcessingMode::JsonLd1_0 && result.iter().any(|item| item.is_list()) {
+                    return Err(Error::ListOfLists);
                 }
 
                 Ok(Expanded::Object(Indexed::new(Object::List(object::List::new(result)), index)))

@@ -3,7 +3,7 @@ mod definition;
 /// Inverse context, used to pick terms during compaction.
 pub mod inverse;
 
-use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term, ValidId as Id};
+use crate::{Direction, LenientLangTag, LenientLangTagBuf, ProcessingMode, Term, ValidId as Id};
 use contextual::WithContext;
 use iri_rs::IriBuf;
 use jsonld_syntax::{Keyword, KeywordType, Nullable};
@@ -158,6 +158,13 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
     default_base_direction: Option<Direction>,
     previous_context: Option<Arc<Self>>,
     definitions: Arc<Definitions<T, B>>,
+    /// Mode this context was processed under.
+    ///
+    /// A handful of algorithm steps behave differently in JSON-LD 1.0 — most
+    /// notably that any term definition may serve as a compact-IRI prefix
+    /// during IRI expansion, the `@prefix` flag being a 1.1 addition. Carrying
+    /// the mode here keeps those checks out of every IRI-expansion signature.
+    processing_mode: ProcessingMode,
     // Caches are wrapped in `Arc` so that `Clone` shares them across
     // copies of a processed context. This is critical for the
     // `ProcessingCache` hit path, which clones a stored `Arc<Context>`
@@ -185,6 +192,7 @@ impl<T, B> Default for Context<T, B> {
             default_base_direction: None,
             previous_context: None,
             definitions: Arc::new(Definitions::default()),
+            processing_mode: ProcessingMode::default(),
             inverse: Arc::new(OnceCell::new()),
             prefix_terms: Arc::new(OnceCell::new()),
             compact_iri_cache: Arc::new(OnceCell::new()),
@@ -211,6 +219,7 @@ impl<T, B> Context<T, B> {
             default_base_direction: None,
             previous_context: None,
             definitions: Arc::new(Definitions::default()),
+            processing_mode: ProcessingMode::default(),
             inverse: Arc::new(OnceCell::new()),
             prefix_terms: Arc::new(OnceCell::new()),
             compact_iri_cache: Arc::new(OnceCell::new()),
@@ -250,12 +259,25 @@ impl<T, B> Context<T, B> {
             // caches have to be private too.
             previous_context: self.previous_context.as_ref().map(|previous| Arc::new(previous.with_private_caches())),
             definitions: Arc::clone(&self.definitions),
+            processing_mode: self.processing_mode,
             inverse: Arc::clone(&self.inverse),
             prefix_terms: Arc::clone(&self.prefix_terms),
             compact_iri_cache: Arc::new(OnceCell::new()),
             term_resolution_cache: Arc::new(OnceCell::new()),
             keyword_aliases: Arc::clone(&self.keyword_aliases),
         }
+    }
+
+    /// Returns the processing mode this context was processed under.
+    #[inline(always)]
+    pub fn processing_mode(&self) -> ProcessingMode {
+        self.processing_mode
+    }
+
+    /// Sets the processing mode of this context.
+    #[inline(always)]
+    pub fn set_processing_mode(&mut self, mode: ProcessingMode) {
+        self.processing_mode = mode
     }
 
     /// Returns a reference to the given `term` definition, if any.
@@ -568,6 +590,7 @@ impl<T, B> Context<T, B> {
             default_base_direction: self.default_base_direction,
             previous_context: self.previous_context.map(|c| Arc::new(Arc::unwrap_or_clone(c).map_ids_with(map_iri, map_id))),
             definitions: Arc::new(Arc::unwrap_or_clone(self.definitions).map_ids(map_iri, map_id)),
+            processing_mode: self.processing_mode,
             inverse: Arc::new(OnceCell::new()),
             prefix_terms: Arc::new(OnceCell::new()),
             compact_iri_cache: Arc::new(OnceCell::new()),
@@ -612,6 +635,7 @@ impl<T: Clone, B: Clone> Clone for Context<T, B> {
             default_base_direction: self.default_base_direction,
             previous_context: self.previous_context.clone(),
             definitions: Arc::clone(&self.definitions),
+            processing_mode: self.processing_mode,
             inverse: Arc::clone(&self.inverse),
             prefix_terms: Arc::clone(&self.prefix_terms),
             compact_iri_cache: Arc::clone(&self.compact_iri_cache),

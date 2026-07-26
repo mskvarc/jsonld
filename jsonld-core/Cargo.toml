@@ -19,7 +19,7 @@ all-features = true
 default = ["fast-hash"]
 fast-hash = ["iri-rs/fast-hash", "jsonld-syntax/fast-hash"]
 reqwest = ["dep:reqwest", "utf8-decode", "reqwest-middleware"]
-serde = ["dep:serde", "jstrict/serde"]
+serde = ["dep:serde", "jstrict/serde", "jsonld-syntax/serde"]
 serde-json = [
     "dep:serde_json",
     "jstrict/serde_json",

@@ -4,7 +4,7 @@ use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iri_rs::{Iri, IriRef};
-use jsonld_core::{Context, Id, Loader, Term, warning};
+use jsonld_core::{Context, Id, Loader, ProcessingMode, Term, warning};
 use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key};
 use rdfx::{
     BlankId,
@@ -127,9 +127,13 @@ where
                     // If active context contains a term definition for prefix having a non-null IRI
                     // mapping and the prefix flag of the term definition is true, return the result
                     // of concatenating the IRI mapping associated with prefix and suffix.
+                    // The `prefix` flag is a JSON-LD 1.1 addition: in 1.0 any term
+                    // definition with an IRI mapping expands a compact IRI
+                    // (`flatten#t0014`). Compaction keeps the 1.1 rule, which is why
+                    // this is relaxed here and not on the flag itself (`compact#tp001`).
                     let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key)
-                        && term_definition.prefix
+                        && (term_definition.prefix || active_context.processing_mode() == ProcessingMode::JsonLd1_0)
                         && let Some(mapping) = term_definition.value()
                     {
                         let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
@@ -317,9 +321,13 @@ where
                     // If active context contains a term definition for prefix having a non-null IRI
                     // mapping and the prefix flag of the term definition is true, return the result
                     // of concatenating the IRI mapping associated with prefix and suffix.
+                    // The `prefix` flag is a JSON-LD 1.1 addition: in 1.0 any term
+                    // definition with an IRI mapping expands a compact IRI
+                    // (`flatten#t0014`). Compaction keeps the 1.1 rule, which is why
+                    // this is relaxed here and not on the flag itself (`compact#tp001`).
                     let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key)
-                        && term_definition.prefix
+                        && (term_definition.prefix || active_context.processing_mode() == ProcessingMode::JsonLd1_0)
                         && let Some(mapping) = term_definition.value()
                     {
                         let mut result = mapping.with(&*env.vocabulary).as_str().to_string();

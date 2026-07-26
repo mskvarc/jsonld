@@ -1,11 +1,11 @@
 use super::Environment;
-use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, object};
+use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, hash::IndexMap, object};
 use educe::Educe;
 use rdfx::{
     LocalGenerator,
     vocabulary::{BlankIdVocabulary, IriVocabulary, VocabularyMut},
 };
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 /// Conflicting indexes error.
 ///
@@ -34,13 +34,22 @@ pub enum NodeMapError<T, B> {
 }
 
 /// Default graph of a node map, paired with its named graphs.
-pub type Parts<T, B> = (NodeMapGraph<T, B>, HashMap<Id<T, B>, NodeMapGraph<T, B>>);
+///
+/// Named graphs are yielded in the order they were first declared, which is
+/// document traversal order.
+pub type Parts<T, B> = (NodeMapGraph<T, B>, IndexMap<Id<T, B>, NodeMapGraph<T, B>>);
 
 /// Node identifier to node definition map.
+///
+/// Graphs are stored in declaration order so that flattening is deterministic:
+/// [§4.9 of the JSON-LD API][spec] assigns blank node identifiers in document
+/// traversal order.
+///
+/// [spec]: https://www.w3.org/TR/json-ld11-api/#node-map-generation
 #[derive(Educe)]
 #[educe(Default)]
 pub struct NodeMap<T, B> {
-    graphs: HashMap<Id<T, B>, NodeMapGraph<T, B>>,
+    graphs: IndexMap<Id<T, B>, NodeMapGraph<T, B>>,
     default_graph: NodeMapGraph<T, B>,
 }
 
@@ -48,7 +57,7 @@ impl<T, B> NodeMap<T, B> {
     /// Creates a new `NodeMap`.
     pub fn new() -> Self {
         Self {
-            graphs: HashMap::default(),
+            graphs: IndexMap::default(),
             default_graph: NodeMapGraph::new(),
         }
     }
@@ -66,8 +75,8 @@ impl<T, B> NodeMap<T, B> {
         }
     }
 
-    /// Returns the iter named of this `NodeMap`.
-    pub fn iter_named(&self) -> std::collections::hash_map::Iter<'_, Id<T, B>, NodeMapGraph<T, B>> {
+    /// Returns the iter named of this `NodeMap`, in graph declaration order.
+    pub fn iter_named(&self) -> indexmap::map::Iter<'_, Id<T, B>, NodeMapGraph<T, B>> {
         self.graphs.iter()
     }
 }
@@ -91,14 +100,14 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
 
     /// Declares a named graph, leaving it untouched if it already exists.
     pub fn declare_graph(&mut self, id: Id<T, B>) {
-        if let std::collections::hash_map::Entry::Vacant(entry) = self.graphs.entry(id) {
+        if let indexmap::map::Entry::Vacant(entry) = self.graphs.entry(id) {
             entry.insert(NodeMapGraph::new());
         }
     }
 
     /// Merge all the graphs into a single `NodeMapGraph`.
     ///
-    /// The order in which graphs are merged is not defined.
+    /// Graphs are merged into the default graph in declaration order.
     pub fn merge(self) -> NodeMapGraph<T, B>
     where
         T: Clone,
@@ -115,9 +124,11 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
 }
 
 /// Iterator over the graphs of a node map.
+///
+/// The default graph comes first, then the named graphs in declaration order.
 pub struct Iter<'a, T, B> {
     default_graph: Option<&'a NodeMapGraph<T, B>>,
-    graphs: std::collections::hash_map::Iter<'a, Id<T, B>, NodeMapGraph<T, B>>,
+    graphs: indexmap::map::Iter<'a, Id<T, B>, NodeMapGraph<T, B>>,
 }
 
 impl<'a, T, B> Iterator for Iter<'a, T, B> {
@@ -141,9 +152,11 @@ impl<'a, T, B> IntoIterator for &'a NodeMap<T, B> {
 }
 
 /// Owning iterator over the graphs of a node map.
+///
+/// The default graph comes first, then the named graphs in declaration order.
 pub struct IntoIter<T, B> {
     default_graph: Option<NodeMapGraph<T, B>>,
-    graphs: std::collections::hash_map::IntoIter<Id<T, B>, NodeMapGraph<T, B>>,
+    graphs: indexmap::map::IntoIter<Id<T, B>, NodeMapGraph<T, B>>,
 }
 
 impl<T, B> Iterator for IntoIter<T, B> {
@@ -172,14 +185,16 @@ impl<T, B> IntoIterator for NodeMap<T, B> {
 #[derive(Educe)]
 #[educe(Default)]
 /// Nodes of a single graph within a node map.
+///
+/// Nodes are stored in declaration order; see [`NodeMap`].
 pub struct NodeMapGraph<T, B> {
-    nodes: HashMap<Id<T, B>, IndexedNode<T, B>>,
+    nodes: IndexMap<Id<T, B>, IndexedNode<T, B>>,
 }
 
 impl<T, B> NodeMapGraph<T, B> {
     /// Creates a new `NodeMapGraph`.
     pub fn new() -> Self {
-        Self { nodes: HashMap::default() }
+        Self { nodes: IndexMap::default() }
     }
 }
 
@@ -295,14 +310,14 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
     }
 }
 
-/// Iterator over the nodes of a graph.
-pub type NodeMapGraphNodes<'a, T, B> = std::collections::hash_map::Values<'a, Id<T, B>, IndexedNode<T, B>>;
-/// Owning iterator over the nodes of a graph.
-pub type IntoNodeMapGraphNodes<T, B> = std::collections::hash_map::IntoValues<Id<T, B>, IndexedNode<T, B>>;
+/// Iterator over the nodes of a graph, in declaration order.
+pub type NodeMapGraphNodes<'a, T, B> = indexmap::map::Values<'a, Id<T, B>, IndexedNode<T, B>>;
+/// Owning iterator over the nodes of a graph, in declaration order.
+pub type IntoNodeMapGraphNodes<T, B> = indexmap::map::IntoValues<Id<T, B>, IndexedNode<T, B>>;
 
 impl<T, B> IntoIterator for NodeMapGraph<T, B> {
     type Item = (Id<T, B>, IndexedNode<T, B>);
-    type IntoIter = std::collections::hash_map::IntoIter<Id<T, B>, IndexedNode<T, B>>;
+    type IntoIter = indexmap::map::IntoIter<Id<T, B>, IndexedNode<T, B>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.nodes.into_iter()
@@ -311,7 +326,7 @@ impl<T, B> IntoIterator for NodeMapGraph<T, B> {
 
 impl<'a, T, B> IntoIterator for &'a NodeMapGraph<T, B> {
     type Item = (&'a Id<T, B>, &'a IndexedNode<T, B>);
-    type IntoIter = std::collections::hash_map::Iter<'a, Id<T, B>, IndexedNode<T, B>>;
+    type IntoIter = indexmap::map::Iter<'a, Id<T, B>, IndexedNode<T, B>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.nodes.iter()
@@ -424,6 +439,11 @@ where
     }
 
     for (property, objects) in node.properties() {
+        // "If property is a blank node identifier, replace it with a newly
+        // generated blank node identifier" — properties share the relabeling
+        // map with node identifiers (`flatten#t0038`).
+        let property = env.assign_node_id(Some(property))?;
+
         let mut flat_objects = Vec::new();
         for object in objects {
             let flat_object = extend_node_map(env, node_map, object, active_graph)?;
@@ -432,7 +452,7 @@ where
         // SAFETY: `id` was declared in this graph above.
         unsafe { node_map.graph_mut(active_graph).unwrap_unchecked().get_mut(&id).unwrap_unchecked() }
             .properties_mut()
-            .insert_all_unique(property.clone(), flat_objects)
+            .insert_all_unique(property, flat_objects)
     }
 
     if let Some(reverse_properties) = node.reverse_properties_entry() {

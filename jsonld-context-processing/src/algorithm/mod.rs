@@ -17,6 +17,15 @@ pub use merged::*;
 use sync::{process_context_sync, requires_loader};
 use syntax::context::definition::KeyOrKeywordRef;
 
+/// Checks an `@vocab` value against the JSON-LD 1.0 rule.
+///
+/// 1.0 required the value to be an absolute IRI or a blank node identifier;
+/// document-relative resolution only arrived in 1.1. A bare `_:` prefix counts,
+/// as it is what makes `@vocab` map properties to blank nodes.
+pub(crate) fn is_legacy_vocab(value: &syntax::context::definition::Vocab) -> bool {
+    value.as_str().starts_with("_:") || Iri::new(value.as_str()).is_ok()
+}
+
 impl Process for syntax::context::Context {
     async fn process_full<N, L, W>(
         &self,
@@ -166,6 +175,7 @@ where
 {
     // 1) Initialize result to the result of cloning active context.
     let mut result = active_context.clone();
+    result.set_processing_mode(options.processing_mode);
 
     // 2) If `local_context` is an object containing the member @propagate,
     // its value MUST be boolean true or false, set `propagate` to that value.
@@ -206,6 +216,7 @@ where
                     // `base_iri` and `original_base_url` to the value of `original_base_url` in
                     // active context, ...
                     result = Context::new(active_context.original_base_url().cloned());
+                    result.set_processing_mode(options.processing_mode);
 
                     // ... and, if `propagate` is `false`, `previous_context` in `result` to the
                     // previous value of `result`.
@@ -242,7 +253,17 @@ where
                 // If the document has no top-level map with an @context entry, an invalid remote
                 // context has been detected and processing is aborted.
                 // Set loaded context to the value of that entry.
-                if remote_contexts.push(context_iri.clone()) {
+                // In JSON-LD 1.1 a context already in `remote_contexts` is simply
+                // not processed again — scoped contexts legitimately reload
+                // contexts, and only the entry limit (context overflow) applies.
+                // JSON-LD 1.0 had no such allowance: a repeat is a recursive
+                // context inclusion error.
+                let fresh = remote_contexts.push(context_iri.clone());
+                if !fresh && options.processing_mode == ProcessingMode::JsonLd1_0 {
+                    return Err(Error::RecursiveContextInclusion);
+                }
+
+                if fresh {
                     let loaded_context = env
                         .loader
                         .load_with(env.vocabulary, context_iri.clone())
@@ -377,7 +398,17 @@ where
                             // error has been detected and processing is aborted.
                             // NOTE: The use of blank node identifiers to value for @vocab is
                             // obsolete, and may be removed in a future version of JSON-LD.
-                            match expand_iri_simple(&mut env, &result, Nullable::Some(value.into()), true, Some(options.vocab))? {
+                            //
+                            // Document-relative expansion of `@vocab` is a JSON-LD 1.1 addition:
+                            // 1.0 required an absolute IRI or blank node identifier, and rejects
+                            // `""` and `/relative` (`expand#t0115`, `expand#t0116`). A bare `_:`
+                            // prefix stays valid in 1.0 (`expand#t0075`).
+                            let legacy = options.processing_mode == ProcessingMode::JsonLd1_0;
+                            if legacy && !is_legacy_vocab(value) {
+                                return Err(Error::InvalidVocabMapping);
+                            }
+
+                            match expand_iri_simple(&mut env, &result, Nullable::Some(value.into()), !legacy, Some(options.vocab))? {
                                 Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
                                     let term = std::sync::Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone());
                                     result.set_vocabulary(Some(term));

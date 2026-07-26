@@ -30,7 +30,7 @@ The entry point is the `JsonLdProcessor` trait, which carries every transformati
 
 ## Why this fork
 
-Fork of [`json-ld`](https://crates.io/crates/json-ld) by [Timothée Haudebourg](https://github.com/timothee-haudebourg/json-ld). The algorithms and their spec conformance are upstream's — the W3C JSON-LD API test suite still governs this repo. The fork changes three things: the dependency stack, the performance profile, and what you can do with your own Rust types.
+Fork of [`json-ld`](https://crates.io/crates/json-ld) by [Timothée Haudebourg](https://github.com/timothee-haudebourg/json-ld). The algorithms and their spec conformance are upstream's — the W3C JSON-LD API test suite still governs this repo, across the four manifests whose algorithms are implemented (expansion, compaction, flattening, and RDF serialization); see [Conformance](#conformance). The fork changes three things: the dependency stack, the performance profile, and what you can do with your own Rust types.
 
 ### A different dependency stack
 
@@ -148,6 +148,29 @@ The W3C JSON-LD API test suite is a git submodule. A fresh clone needs it before
 git submodule update --init
 cargo test -p jsonld
 ```
+
+The submodule is pinned to [`92f0770`](https://github.com/w3c/json-ld-api/commit/92f07705a0c0ac27aa9bc6fe1322dcc9fad0114d)
+(2026-07-01), so a fresh clone reproduces the same corpus.
+
+Four of the seven manifests are in scope, and every test in them passes:
+
+| Manifest | In manifest | Run | Ignored |
+| --- | --: | --: | --- |
+| `expand` | 385 | 385 | — |
+| `compact` | 246 | 244 | `#tp004`, `#t0038` |
+| `flatten` | 58 | 58 | — |
+| `toRdf` | 467 | 465 | `#te122`, `#tli12` |
+
+Ignored tests are declared with `#[ignore_test(..., see = ...)]` in
+`jsonld/tests/`, each linking the upstream discussion that justifies it.
+
+Tests carrying `specVersion: json-ld-1.0` run in `ProcessingMode::JsonLd1_0`
+rather than being skipped, so the 1.0 code path is covered too.
+
+The remaining three manifests have no suite here, because the algorithms they
+exercise are not implemented: `fromRdf` (54 tests — RDF-to-JSON-LD
+deserialization), `remote-doc` (18 — HTTP content negotiation), and `html`
+(50 — HTML `script` extraction).
 
 ## MSRV
 

@@ -1,6 +1,6 @@
 use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler, expand_element};
 use jsonld_context_processing::ProcessingCache;
-use jsonld_core::{Context, Environment, Object, context::TermDefinitionRef, object};
+use jsonld_core::{Context, Environment, Object, ProcessingMode, context::TermDefinitionRef, object};
 use jsonld_syntax::ContainerKind;
 use jstrict::Array;
 use rdfx::vocabulary::VocabularyMut;
@@ -59,6 +59,12 @@ where
     }
 
     if is_list {
+        // JSON-LD 1.0 forbids wrapping list objects in another list; 1.1 lifted
+        // the restriction (`expand#ter24`).
+        if options.processing_mode == ProcessingMode::JsonLd1_0 && result.iter().any(|item| item.is_list()) {
+            return Err(Error::ListOfLists);
+        }
+
         return Ok(Expanded::Object(Object::List(object::List::new(result)).into()));
     }
 

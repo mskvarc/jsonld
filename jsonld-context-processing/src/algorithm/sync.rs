@@ -14,7 +14,7 @@
 //! should never fire in practice — it exists as a defence against pre-scan
 //! drift from the algorithm body.
 
-use super::{DefinedTerms, Environment, Merged, expand_iri_simple, resolve_iri};
+use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_legacy_vocab, resolve_iri};
 use crate::{
     Error,
     Options,
@@ -206,9 +206,10 @@ where
                         options.with_no_override(),
                     )?;
 
+                    // The `prefix` flag is JSON-LD 1.1 only; see `iri.rs`.
                     let prefix_key = Key::from(compact_iri.prefix());
                     if let Some(term_definition) = active_context.get_normal(&prefix_key)
-                        && term_definition.prefix
+                        && (term_definition.prefix || active_context.processing_mode() == ProcessingMode::JsonLd1_0)
                         && let Some(mapping) = term_definition.value()
                     {
                         let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
@@ -388,14 +389,18 @@ where
                         }
 
                         match expand_iri_with_sync(
-                            env,
+                            Environment {
+                                vocabulary: env.vocabulary,
+                                loader: env.loader,
+                                warnings: env.warnings,
+                            },
                             active_context,
                             Nullable::Some(reverse_value.as_str().into()),
                             false,
                             Some(options.vocab),
                             local_context,
                             defined,
-                            remote_contexts,
+                            remote_contexts.clone(),
                             options,
                         )? {
                             Some(arc) if matches!(arc.as_ref(), Term::Id(m) if m.is_valid()) => definition.value = Some(arc),
@@ -418,158 +423,161 @@ where
                         }
 
                         definition.reverse_property = true;
-
-                        active_context.set_normal(key.to_owned(), Some(definition));
-                        defined.end(&term);
-                        return Ok(());
                     }
 
-                    match value.id {
-                        Some(id_value) if id_value.cast::<KeyOrKeywordRef>() != Nullable::Some(key.into()) => match id_value {
-                            Nullable::Null => (),
-                            Nullable::Some(id_value) => {
-                                if id_value.is_keyword_like() && !id_value.is_keyword() {
-                                    debug_assert!(Keyword::try_from(id_value.as_str()).is_err());
-                                    env.warnings.handle(env.vocabulary, Warning::KeywordLikeValue(id_value.to_string()));
-                                    return Ok(());
-                                }
-
-                                definition.value = match expand_iri_with_sync(
-                                    Environment {
-                                        vocabulary: env.vocabulary,
-                                        loader: env.loader,
-                                        warnings: env.warnings,
-                                    },
-                                    active_context,
-                                    Nullable::Some(id_value.into()),
-                                    false,
-                                    Some(options.vocab),
-                                    local_context,
-                                    defined,
-                                    remote_contexts.clone(),
-                                    options,
-                                )? {
-                                    Some(arc) if arc.as_ref() == &Term::Keyword(Keyword::Context) => {
-                                        return Err(Error::InvalidKeywordAlias);
+                    // Reverse properties skip the `@id` branch; see `define.rs`.
+                    if !definition.reverse_property {
+                        match value.id {
+                            Some(id_value) if id_value.cast::<KeyOrKeywordRef>() != Nullable::Some(key.into()) => match id_value {
+                                Nullable::Null => (),
+                                Nullable::Some(id_value) => {
+                                    if id_value.is_keyword_like() && !id_value.is_keyword() {
+                                        debug_assert!(Keyword::try_from(id_value.as_str()).is_err());
+                                        env.warnings.handle(env.vocabulary, Warning::KeywordLikeValue(id_value.to_string()));
+                                        return Ok(());
                                     }
-                                    Some(arc) if matches!(arc.as_ref(), Term::Id(p) if !p.is_valid()) => {
-                                        return Err(Error::InvalidIriMapping);
-                                    }
-                                    value => value,
-                                };
 
-                                if contains_between_boundaries(key.as_str(), ':') || key.as_str().contains('/') {
-                                    defined.end(&term);
-
-                                    let expanded_term = expand_iri_with_sync(
+                                    definition.value = match expand_iri_with_sync(
                                         Environment {
                                             vocabulary: env.vocabulary,
                                             loader: env.loader,
                                             warnings: env.warnings,
                                         },
                                         active_context,
-                                        Nullable::Some((&term).into()),
+                                        Nullable::Some(id_value.into()),
                                         false,
                                         Some(options.vocab),
                                         local_context,
                                         defined,
                                         remote_contexts.clone(),
                                         options,
-                                    )?;
-                                    if definition.value.as_deref() != expanded_term.as_deref() {
-                                        return Err(Error::InvalidIriMapping);
-                                    }
-                                }
-
-                                if !key.as_str().contains(':')
-                                    && !key.as_str().contains('/')
-                                    && simple_term
-                                    && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
-                                {
-                                    definition.prefix = true;
-                                }
-                            }
-                        },
-                        Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => definition.value = Some(Arc::new(Term::Keyword(Keyword::Type))),
-                        _ => {
-                            if let KeyOrKeyword::Key(term) = &term {
-                                if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
-                                    define_sync(
-                                        Environment {
-                                            vocabulary: env.vocabulary,
-                                            loader: env.loader,
-                                            warnings: env.warnings,
-                                        },
-                                        active_context,
-                                        local_context,
-                                        KeyOrKeywordRef::Key(compact_iri.prefix().into()),
-                                        defined,
-                                        remote_contexts.clone(),
-                                        None,
-                                        false,
-                                        options.with_no_override(),
-                                    )?;
-
-                                    if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
-                                        let mut result = String::new();
-
-                                        if let Some(prefix_key) = prefix_definition.value()
-                                            && let Some(prefix_iri) = prefix_key.as_iri()
-                                            && let Some(iri) = env.vocabulary.iri(prefix_iri)
-                                        {
-                                            result = iri.to_string()
+                                    )? {
+                                        Some(arc) if arc.as_ref() == &Term::Keyword(Keyword::Context) => {
+                                            return Err(Error::InvalidKeywordAlias);
                                         }
+                                        Some(arc) if matches!(arc.as_ref(), Term::Id(p) if !p.is_valid()) => {
+                                            return Err(Error::InvalidIriMapping);
+                                        }
+                                        value => value,
+                                    };
 
-                                        result.push_str(compact_iri.suffix());
+                                    // The round-trip check below was introduced in JSON-LD 1.1; see the
+                                    // matching comment in `define.rs`.
+                                    if options.processing_mode != ProcessingMode::JsonLd1_0
+                                        && (contains_between_boundaries(key.as_str(), ':') || key.as_str().contains('/'))
+                                    {
+                                        defined.end(&term);
 
-                                        if let Ok(iri) = Iri::parse(result.as_str()) {
-                                            definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
-                                        } else {
+                                        let expanded_term = expand_iri_with_sync(
+                                            Environment {
+                                                vocabulary: env.vocabulary,
+                                                loader: env.loader,
+                                                warnings: env.warnings,
+                                            },
+                                            active_context,
+                                            Nullable::Some((&term).into()),
+                                            false,
+                                            Some(options.vocab),
+                                            local_context,
+                                            defined,
+                                            remote_contexts.clone(),
+                                            options,
+                                        )?;
+                                        if definition.value.as_deref() != expanded_term.as_deref() {
                                             return Err(Error::InvalidIriMapping);
                                         }
                                     }
-                                }
 
-                                if definition.value.is_none() {
-                                    if let Ok(blank_id) = BlankId::new(term.as_str()) {
-                                        definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
-                                    } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
-                                        match Iri::try_from(iri_ref) {
-                                            Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
-                                            Err(_) => {
-                                                if iri_ref.as_str().contains('/') {
-                                                    match expand_iri_simple(
-                                                        &mut env,
-                                                        active_context,
-                                                        Nullable::Some(ExpandableRef::String(iri_ref.as_str())),
-                                                        false,
-                                                        Some(options.vocab),
-                                                    )? {
-                                                        Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
-                                                            definition.value = Some(arc)
-                                                        }
-                                                        _ => return Err(Error::InvalidIriMapping),
-                                                    }
-                                                }
+                                    if !key.as_str().contains(':')
+                                        && !key.as_str().contains('/')
+                                        && simple_term
+                                        && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
+                                    {
+                                        definition.prefix = true;
+                                    }
+                                }
+                            },
+                            Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => definition.value = Some(Arc::new(Term::Keyword(Keyword::Type))),
+                            _ => {
+                                if let KeyOrKeyword::Key(term) = &term {
+                                    if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
+                                        define_sync(
+                                            Environment {
+                                                vocabulary: env.vocabulary,
+                                                loader: env.loader,
+                                                warnings: env.warnings,
+                                            },
+                                            active_context,
+                                            local_context,
+                                            KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                                            defined,
+                                            remote_contexts.clone(),
+                                            None,
+                                            false,
+                                            options.with_no_override(),
+                                        )?;
+
+                                        if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
+                                            let mut result = String::new();
+
+                                            if let Some(prefix_key) = prefix_definition.value()
+                                                && let Some(prefix_iri) = prefix_key.as_iri()
+                                                && let Some(iri) = env.vocabulary.iri(prefix_iri)
+                                            {
+                                                result = iri.to_string()
+                                            }
+
+                                            result.push_str(compact_iri.suffix());
+
+                                            if let Ok(iri) = Iri::parse(result.as_str()) {
+                                                definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
+                                            } else {
+                                                return Err(Error::InvalidIriMapping);
                                             }
                                         }
                                     }
 
                                     if definition.value.is_none() {
-                                        if let Some(context_vocabulary) = active_context.vocabulary() {
-                                            if let Some(vocabulary_iri) = context_vocabulary.as_iri() {
-                                                let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
-                                                result.push_str(key.as_str());
-                                                if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                    definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
+                                        if let Ok(blank_id) = BlankId::new(term.as_str()) {
+                                            definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
+                                        } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
+                                            match Iri::try_from(iri_ref) {
+                                                Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
+                                                Err(_) => {
+                                                    if iri_ref.as_str().contains('/') {
+                                                        match expand_iri_simple(
+                                                            &mut env,
+                                                            active_context,
+                                                            Nullable::Some(ExpandableRef::String(iri_ref.as_str())),
+                                                            false,
+                                                            Some(options.vocab),
+                                                        )? {
+                                                            Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
+                                                                definition.value = Some(arc)
+                                                            }
+                                                            _ => return Err(Error::InvalidIriMapping),
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if definition.value.is_none() {
+                                            if let Some(context_vocabulary) = active_context.vocabulary() {
+                                                if let Some(vocabulary_iri) = context_vocabulary.as_iri() {
+                                                    let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
+                                                    result.push_str(key.as_str());
+                                                    if let Ok(iri) = Iri::parse(result.as_str()) {
+                                                        definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
+                                                    } else {
+                                                        return Err(Error::InvalidIriMapping);
+                                                    }
                                                 } else {
                                                     return Err(Error::InvalidIriMapping);
                                                 }
                                             } else {
                                                 return Err(Error::InvalidIriMapping);
                                             }
-                                        } else {
-                                            return Err(Error::InvalidIriMapping);
                                         }
                                     }
                                 }
@@ -716,6 +724,7 @@ where
     W: WarningHandler<N>,
 {
     let mut result = active_context.clone();
+    result.set_processing_mode(options.processing_mode);
 
     if let syntax::context::Context::One(syntax::ContextEntry::Definition(def)) = local_context
         && let Some(propagate) = def.propagate
@@ -740,6 +749,7 @@ where
                     let previous_result = result;
 
                     result = Context::new(active_context.original_base_url().cloned());
+                    result.set_processing_mode(options.processing_mode);
 
                     if !options.propagate {
                         result.set_previous_context(previous_result);
@@ -787,13 +797,26 @@ where
                         syntax::Nullable::Null => {
                             result.set_vocabulary(None);
                         }
-                        syntax::Nullable::Some(value) => match expand_iri_simple(&mut env, &result, Nullable::Some(value.into()), true, Some(options.vocab))? {
-                            Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
-                                let term = Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone());
-                                result.set_vocabulary(Some(term));
+                        // Document-relative `@vocab` is a JSON-LD 1.1 addition; see `mod.rs`.
+                        syntax::Nullable::Some(value) => {
+                            if options.processing_mode == ProcessingMode::JsonLd1_0 && !is_legacy_vocab(value) {
+                                return Err(Error::InvalidVocabMapping);
                             }
-                            _ => return Err(Error::InvalidVocabMapping),
-                        },
+
+                            match expand_iri_simple(
+                                &mut env,
+                                &result,
+                                Nullable::Some(value.into()),
+                                options.processing_mode != ProcessingMode::JsonLd1_0,
+                                Some(options.vocab),
+                            )? {
+                                Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
+                                    let term = Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone());
+                                    result.set_vocabulary(Some(term));
+                                }
+                                _ => return Err(Error::InvalidVocabMapping),
+                            }
+                        }
                     }
                 }
 

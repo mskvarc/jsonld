@@ -168,6 +168,17 @@ pub enum ErrorCode {
     /// An attempt was made to redefine a protected term.
     ProtectedTermRedefinition,
 
+    /// A cycle in remote context inclusions has been detected.
+    ///
+    /// JSON-LD 1.0 only: 1.1 replaced this with [`Self::ContextOverflow`] so
+    /// that scoped contexts may legally reload a context.
+    RecursiveContextInclusion,
+
+    /// A list of lists was detected.
+    ///
+    /// JSON-LD 1.0 only: 1.1 allows lists of lists.
+    ListOfLists,
+
     /// Duplicate key in JSON object.
     DuplicateKey,
 }
@@ -228,6 +239,8 @@ impl ErrorCode {
             MultipleContextLinkHeaders => "multiple context link headers",
             ProcessingModeConflict => "processing mode conflict",
             ProtectedTermRedefinition => "protected term redefinition",
+            RecursiveContextInclusion => "recursive context inclusion",
+            ListOfLists => "list of lists",
             DuplicateKey => "duplicate key",
         }
     }
@@ -289,6 +302,8 @@ impl<'a> TryFrom<&'a str> for ErrorCode {
             "multiple context link headers" => Ok(MultipleContextLinkHeaders),
             "processing mode conflict" => Ok(ProcessingModeConflict),
             "protected term redefinition" => Ok(ProtectedTermRedefinition),
+            "recursive context inclusion" => Ok(RecursiveContextInclusion),
+            "list of lists" => Ok(ListOfLists),
             _ => Err(()),
         }
     }
