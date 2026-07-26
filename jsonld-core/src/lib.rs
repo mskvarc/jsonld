@@ -28,7 +28,7 @@ pub mod utils;
 pub mod warning;
 
 pub use container::{Container, ContainerKind};
-pub use context::Context;
+pub use context::{Context, ContextRef};
 pub use document::*;
 pub use flattening::Flatten;
 pub use hash::{DefaultBuildHasher, HashMap, HashSet, IndexMap, IndexSet};

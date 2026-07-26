@@ -1,9 +1,8 @@
 use crate::{Error, Options, add_value, compact_iri, compact_property, iri::keyword_alias};
 use contextual::WithContext;
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
-use jsonld_core::{Container, ContainerKind, Context, Id, Loader, Node, Term, Type};
+use jsonld_core::{Container, ContainerKind, Context, ContextRef, Id, Loader, Node, Term, Type};
 use jsonld_syntax::Keyword;
-use mown::Mown;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
@@ -42,12 +41,12 @@ where
     // If the term definition for active property in active context has a local context:
     // FIXME https://github.com/w3c/json-ld-api/issues/502
     //       Seems that the term definition should be looked up in `type_scoped_context`.
-    let mut active_context = Mown::Borrowed(active_context);
+    let mut active_context = ContextRef::Borrowed(active_context);
     if let Some(active_property) = active_property
         && let Some(active_property_definition) = type_scoped_context.get(active_property)
         && let Some(local_context) = active_property_definition.context()
     {
-        active_context = Mown::Owned(
+        active_context = ContextRef::owned(
             local_context
                 .process_with(
                     vocabulary,
@@ -82,7 +81,7 @@ where
                 && let Some(local_context) = term_definition.context()
             {
                 let processing_options = ProcessingOptions::from(options).without_propagation();
-                active_context = Mown::Owned(
+                active_context = ContextRef::owned(
                     local_context
                         .process_with(
                             vocabulary,
@@ -181,7 +180,7 @@ where
         if let Some(active_property_definition) = active_context.get(active_property)
             && let Some(local_context) = active_property_definition.context()
         {
-            active_context = Mown::Owned(
+            active_context = ContextRef::owned(
                 local_context
                     .process_with(
                         vocabulary,

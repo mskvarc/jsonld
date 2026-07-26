@@ -30,7 +30,6 @@ jsonld-core.workspace = true
 jsonld-expansion.workspace = true
 jsonld-syntax.workspace = true
 jstrict = "0.14.0"
-mown = "1.0.0"
 rdfx = "0.24.0"
 smallvec = "1.15.2"
 thiserror = "2.0.19"

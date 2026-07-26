@@ -7,6 +7,7 @@
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
     Context,
+    ContextRef,
     IndexSet,
     Indexed,
     Loader,
@@ -17,7 +18,6 @@ use jsonld_core::{
     object::Any,
 };
 use jsonld_syntax::{ContainerKind, ErrorCode, Keyword};
-use mown::Mown;
 use rdfx::vocabulary::{self, VocabularyMut};
 use std::hash::Hash;
 
@@ -268,13 +268,13 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                 // If the term definition for active property in active context has a local context:
                 // FIXME https://github.com/w3c/json-ld-api/issues/502
                 //       Seems that the term definition should be looked up in `type_scoped_context`.
-                let mut active_context = Mown::Borrowed(active_context);
+                let mut active_context = ContextRef::Borrowed(active_context);
                 let mut list_container = false;
                 if let Some(active_property) = active_property
                     && let Some(active_property_definition) = type_scoped_context.get(active_property)
                 {
                     if let Some(local_context) = active_property_definition.context() {
-                        active_context = Mown::Owned(
+                        active_context = ContextRef::owned(
                             local_context
                                 .process_with(
                                     vocabulary,

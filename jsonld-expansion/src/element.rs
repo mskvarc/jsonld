@@ -14,10 +14,9 @@ use crate::{
     expand_value,
 };
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
-use jsonld_core::{Context, Environment, Id, Indexed, Object, ProcessingMode, Term, ValidId, object};
+use jsonld_core::{Context, ContextRef, Environment, Id, Indexed, Object, ProcessingMode, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};
 use jstrict::{Value, object::Entry};
-use mown::Mown;
 use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
 use std::{borrow::Cow, hash::Hash, sync::Arc};
@@ -136,7 +135,7 @@ where
             // Otherwise element is a map.
             // If `active_context` has a `previous_context`, the active context is not
             // propagated. Compute has_value_entry / has_id_entry only when needed.
-            let mut active_context = Mown::Borrowed(active_context);
+            let mut active_context = ContextRef::Borrowed(active_context);
             if !from_map && active_context.previous_context().is_some() {
                 let mut has_value_entry = false;
                 let mut has_id_entry = false;
@@ -160,7 +159,7 @@ where
                 if !(has_value_entry || element.len() == 1 && has_id_entry)
                     && let Some(previous_context) = active_context.previous_context()
                 {
-                    active_context = Mown::Owned(previous_context.clone());
+                    active_context = ContextRef::owned(previous_context.clone());
                 }
             }
 
@@ -193,7 +192,7 @@ where
                     .await?
                     .into_processed(),
                 };
-                active_context = Mown::Owned(processed);
+                active_context = ContextRef::owned(processed);
             }
 
             // If `element` contains the entry `@context`, set `active_context` to the result
@@ -219,7 +218,7 @@ where
                         .await?
                         .into_processed(),
                 };
-                active_context = Mown::Owned(processed);
+                active_context = ContextRef::owned(processed);
             }
 
             let entries: Cow<[Entry]> = if options.ordered {
@@ -256,7 +255,7 @@ where
 
             // Initialize `type_scoped_context` to `active_context`.
             let type_scoped_context = active_context.as_ref();
-            let mut active_context = Mown::Borrowed(active_context.as_ref());
+            let mut active_context = ContextRef::Borrowed(active_context.as_ref());
 
             // For each entry whose key IRI-expands to `@type`, sorted lexicographically
             // by key, walk the @type values in lex order and apply any associated
@@ -298,7 +297,7 @@ where
                             .await?
                             .into_processed(),
                         };
-                        active_context = Mown::Owned(processed);
+                        active_context = ContextRef::owned(processed);
                     }
                 }
             }
@@ -507,9 +506,9 @@ where
                         .await?
                         .into_processed(),
                 };
-                Mown::Owned(result)
+                ContextRef::owned(result)
             } else {
-                Mown::Borrowed(active_context)
+                ContextRef::Borrowed(active_context)
             };
 
             // Return the result of the Value Expansion algorithm, passing the `active_context`,

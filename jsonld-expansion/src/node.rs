@@ -18,6 +18,7 @@ use jsonld_context_processing::{Options as ProcessingOptions, Process, Processin
 use jsonld_core::{
     Container,
     Context,
+    ContextRef,
     Environment,
     Id,
     Indexed,
@@ -35,7 +36,6 @@ use jsonld_core::{
 };
 use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
 use jstrict::object::Entry;
-use mown::Mown;
 use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
 use std::{hash::Hash, sync::Arc};
@@ -453,9 +453,9 @@ where
                                         .await?
                                         .into_processed(),
                                     };
-                                    Mown::Owned(processed)
+                                    ContextRef::owned(processed)
                                 }
-                                None => Mown::Borrowed(active_context),
+                                None => ContextRef::Borrowed(active_context),
                             };
 
                             // Steps 13 and 14 again.
@@ -682,11 +682,11 @@ where
                                 // initialize `map_context` to the `previous_context`
                                 // from `active_context` if it exists, otherwise, set
                                 // `map_context` to `active_context`.
-                                let mut map_context = Mown::Borrowed(active_context);
+                                let mut map_context = ContextRef::Borrowed(active_context);
                                 if (container_mapping.contains(ContainerKind::Type) || container_mapping.contains(ContainerKind::Id))
                                     && let Some(previous_context) = active_context.previous_context()
                                 {
-                                    map_context = Mown::Borrowed(previous_context)
+                                    map_context = ContextRef::Borrowed(previous_context)
                                 }
 
                                 // If container mapping includes @type and
@@ -719,7 +719,7 @@ where
                                                 .into_processed()
                                         }
                                     };
-                                    map_context = Mown::Owned(processed)
+                                    map_context = ContextRef::owned(processed)
                                 }
 
                                 // Otherwise, set map context to active context.

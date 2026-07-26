@@ -20,6 +20,58 @@ pub use jsonld_syntax::context::{
 pub use definition::*;
 pub use inverse::InverseContext;
 
+/// Either a borrowed context or an owned one held behind a box.
+///
+/// Expansion and compaction repeatedly rebind an active context that may or may
+/// not have been replaced by a processed one. A `Cow`-like type is the natural
+/// fit, but [`Context`] is over 250 bytes and storing it inline makes every
+/// async state machine holding one that much larger — the value is memmoved on
+/// every recursion. Boxing the owned arm keeps this two words wide however
+/// [`Context`] grows, at the cost of one allocation on a path that has just
+/// built a whole context anyway.
+pub enum ContextRef<'a, T = IriBuf, B = BlankIdBuf> {
+    /// Borrowed from the caller.
+    Borrowed(&'a Context<T, B>),
+
+    /// Owned by this value.
+    Owned(Box<Context<T, B>>),
+}
+
+impl<'a, T, B> ContextRef<'a, T, B> {
+    /// Takes ownership of `context`, boxing it.
+    #[inline(always)]
+    pub fn owned(context: Context<T, B>) -> Self {
+        Self::Owned(Box::new(context))
+    }
+
+    /// Borrows the context, whichever arm holds it.
+    #[inline(always)]
+    pub fn as_ref(&self) -> &Context<T, B> {
+        match self {
+            Self::Borrowed(context) => context,
+            Self::Owned(context) => context,
+        }
+    }
+
+    /// Returns `true` if the context is owned.
+    ///
+    /// Expansion uses this to detect that scoped-context processing replaced
+    /// the active context, and that cached key expansions must be recomputed.
+    #[inline(always)]
+    pub fn is_owned(&self) -> bool {
+        matches!(self, Self::Owned(_))
+    }
+}
+
+impl<'a, T, B> std::ops::Deref for ContextRef<'a, T, B> {
+    type Target = Context<T, B>;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
 /// Error returned when a context vocabulary is set to an invalid value.
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum InvalidVocab {
