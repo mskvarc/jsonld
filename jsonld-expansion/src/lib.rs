@@ -64,7 +64,7 @@ impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where H: jsonld_core::warn
 /// use iri_rs::iri;
 /// use jsonld::{syntax::Parse, RemoteDocument, Expand};
 ///
-/// # #[async_std::test]
+/// # #[tokio::test]
 /// # async fn example() {
 /// // Parse the input JSON(-LD) document.
 /// let (json, _) = jsonld::syntax::Value::parse_str(

@@ -3,6 +3,7 @@ use contextual::WithContext;
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
 use rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
+use tokio::runtime::Builder as RuntimeBuilder;
 
 #[jsonld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/compact-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
@@ -75,7 +76,9 @@ mod compact {
 
 impl compact::Test {
     fn run(self) {
-        let child = std::thread::Builder::new().spawn(|| async_std::task::block_on(self.async_run())).unwrap();
+        let child = std::thread::Builder::new()
+            .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(self.async_run()))
+            .unwrap();
 
         child.join().unwrap()
     }

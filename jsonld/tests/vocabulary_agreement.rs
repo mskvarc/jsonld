@@ -106,7 +106,7 @@ async fn expand_with_vocabulary(doc: &str) -> ExpandedDocument<IriBuf, BlankIdBu
     )
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn every_identifier_in_a_wide_array_resolves_in_the_parent_vocabulary() {
     let doc = heavy_graph();
     // Resolution happens inside `expand_with_vocabulary`, which panics with the
@@ -115,7 +115,7 @@ async fn every_identifier_in_a_wide_array_resolves_in_the_parent_vocabulary() {
     assert_eq!(expanded.len(), ITEMS, "every node of the graph should survive expansion");
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn wide_array_expansion_agrees_with_and_without_an_interning_vocabulary() {
     let doc = heavy_graph();
     let without = expand_without_vocabulary(&doc).await;
@@ -123,7 +123,7 @@ async fn wide_array_expansion_agrees_with_and_without_an_interning_vocabulary() 
     assert_eq!(with, without, "interning must not change what expansion produces");
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn distinct_terms_in_a_wide_array_keep_distinct_identifiers() {
     let doc = heavy_graph();
     let mut vocabulary: IndexVocabulary = IndexVocabulary::new();

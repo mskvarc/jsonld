@@ -3,6 +3,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use jsonld::{JsonLdProcessor, NoLoader};
+use tokio::runtime::{Builder, Runtime};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -10,6 +11,15 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 mod common;
 
 use common::{Scenario, base_relative_corpus, corpus, fresh_indexed_vocabulary, parse_remote_doc, parse_remote_doc_indexed, vocabulary_corpus};
+
+/// A current-thread runtime with no I/O or time driver, built once per bench
+/// group so that runtime construction never lands inside a timed iteration.
+///
+/// Every future in these benchmarks runs against [`NoLoader`] and therefore
+/// completes on its first poll; no driver is ever reached.
+fn bench_runtime() -> Runtime {
+    Builder::new_current_thread().build().expect("runtime")
+}
 
 fn run_expansion(c: &mut Criterion) {
     let scenarios: Vec<(Scenario, _)> = corpus()
@@ -19,6 +29,7 @@ fn run_expansion(c: &mut Criterion) {
             (s, remote)
         })
         .collect();
+    let runtime = bench_runtime();
 
     let mut group = c.benchmark_group("expand");
     group.sample_size(20);
@@ -29,7 +40,7 @@ fn run_expansion(c: &mut Criterion) {
         // estimates.json directly from `target/criterion/expand/<scenario>/new/`).
         group.bench_function(scenario.name, |b| {
             b.iter(|| {
-                async_std::task::block_on(async {
+                runtime.block_on(async {
                     let loader = NoLoader;
                     let expanded = remote.expand(&loader).await.expect("expand");
                     black_box(expanded);
@@ -55,6 +66,7 @@ fn run_expansion_with_vocabulary(c: &mut Criterion) {
             (s, remote)
         })
         .collect();
+    let runtime = bench_runtime();
 
     let mut group = c.benchmark_group("expand_vocabulary");
     group.sample_size(20);
@@ -63,7 +75,7 @@ fn run_expansion_with_vocabulary(c: &mut Criterion) {
             b.iter_batched(
                 fresh_indexed_vocabulary,
                 |mut vocabulary| {
-                    async_std::task::block_on(async {
+                    runtime.block_on(async {
                         let loader = NoLoader;
                         let expanded = remote.expand_with(&mut vocabulary, &loader).await.expect("expand");
                         black_box(expanded);
@@ -88,13 +100,14 @@ fn run_expansion_base_relative(c: &mut Criterion) {
             (s, remote)
         })
         .collect();
+    let runtime = bench_runtime();
 
     let mut group = c.benchmark_group("expand_base_relative");
     group.sample_size(20);
     for (scenario, remote) in &scenarios {
         group.bench_function(scenario.name, |b| {
             b.iter(|| {
-                async_std::task::block_on(async {
+                runtime.block_on(async {
                     let loader = NoLoader;
                     let expanded = remote.expand(&loader).await.expect("expand");
                     black_box(expanded);

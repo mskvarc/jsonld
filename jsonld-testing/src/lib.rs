@@ -1,6 +1,5 @@
 //! This library provides the `test_suite` derive macro
 //! that can generate Rust test suites from a JSON-LD document.
-use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use iri_rs::{Iri, IriBuf, IriRefBuf};
 use jsonld::{Expand, FsLoader, LoadError};
@@ -14,6 +13,7 @@ use rdfx::{
 };
 use std::{collections::HashMap, fmt, path::PathBuf};
 use syn::{parse::ParseStream, spanned::Spanned};
+use tokio::runtime::Builder;
 
 mod vocab;
 use vocab::{BlankIdIndex, IndexQuad, IndexTerm, IriIndex, Vocab};
@@ -178,7 +178,14 @@ pub fn test_suite(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
     let mut input = syn::parse_macro_input!(input as syn::ItemMod);
     let mut vocabulary = IndexVocabulary::new();
 
-    match task::block_on(derive_test_suite(&mut vocabulary, &mut input, args)) {
+    // The manifest loader is synchronous, so a current-thread runtime with no
+    // I/O or time driver is all the expansion futures need to make progress.
+    let runtime = match Builder::new_current_thread().build() {
+        Ok(runtime) => runtime,
+        Err(e) => proc_macro_error::abort_call_site!("could not start the async runtime: {}", e),
+    };
+
+    match runtime.block_on(derive_test_suite(&mut vocabulary, &mut input, args)) {
         Ok(tokens) => quote! { #input #tokens }.into(),
         Err(e) => {
             proc_macro_error::abort_call_site!("test suite generation failed: {}", (*e).with(&vocabulary))

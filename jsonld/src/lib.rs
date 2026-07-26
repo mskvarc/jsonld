@@ -45,7 +45,7 @@
 //! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
 //!
-//! # #[async_std::main]
+//! # #[tokio::main]
 //! # async fn main() {
 //! // Create a "remote" document by parsing a file manually.
 //! let input = RemoteDocument::new(
@@ -94,7 +94,7 @@
 //! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
 //!
-//! # #[async_std::main]
+//! # #[tokio::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 //!
@@ -120,7 +120,7 @@
 //! use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
 //! use jsonld::Id;
 //! use contextual::WithContext;
-//! # #[async_std::main]
+//! # #[tokio::main]
 //! # async fn main() {
 //! // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
 //! // to an actual `IriBuf`.
@@ -182,7 +182,7 @@
 //! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
 //!
-//! # #[async_std::main]
+//! # #[tokio::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 //!
@@ -239,7 +239,7 @@
 //! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
 //!
-//! # #[async_std::main]
+//! # #[tokio::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 //!
@@ -288,7 +288,8 @@
 //! use iri_rs::{iri, IriBuf};
 //! use jsonld::{JsonLdProcessor, RemoteDocument};
 //!
-//! # async_std::task::block_on(async {
+//! # use tokio::runtime::Runtime;
+//! # Runtime::new().unwrap().block_on(async {
 //! let value = serde_json::json!({
 //!     "@context": {"name": "http://xmlns.com/foaf/0.1/name"},
 //!     "@id": "https://www.rust-lang.org",

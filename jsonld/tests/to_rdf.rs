@@ -21,6 +21,7 @@ use rdfx::{
         LiteralVocabularyMut,
     },
 };
+use tokio::runtime::Builder as RuntimeBuilder;
 
 /// Uniform resource type holding any RDF term that can flow through quads.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -148,7 +149,9 @@ mod to_rdf {
 
 impl to_rdf::Test {
     fn run(self) {
-        let child = std::thread::Builder::new().spawn(|| async_std::task::block_on(self.async_run())).unwrap();
+        let child = std::thread::Builder::new()
+            .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(self.async_run()))
+            .unwrap();
 
         child.join().unwrap()
     }

@@ -2,6 +2,7 @@
 use std::{env, hint::black_box, process::ExitCode, time::Instant};
 
 use jsonld::{JsonLdProcessor, NoLoader, compaction::Compact};
+use tokio::runtime::Builder;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -127,7 +128,17 @@ fn main() -> ExitCode {
         None => DEFAULT_ITERS,
     };
 
-    async_std::task::block_on(async {
+    // Current-thread runtime with no I/O or time driver: the profiled work runs
+    // against `NoLoader` and never reaches a suspension point.
+    let runtime = match Builder::new_current_thread().build() {
+        Ok(runtime) => runtime,
+        Err(e) => {
+            eprintln!("could not start the async runtime: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    runtime.block_on(async {
         let prepared = prepare(scenarios).await;
         let start = Instant::now();
         for p in &prepared {

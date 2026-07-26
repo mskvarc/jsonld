@@ -20,7 +20,7 @@ fn foaf_name() -> &'static str {
     "http://xmlns.com/foaf/0.1/name"
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn expand_serde_json_input() {
     let url = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     let doc = RemoteDocument::from_serde_json(Some(url), Some(LD_JSON_MEDIA_TYPE.into()), input_value());
@@ -36,7 +36,7 @@ async fn expand_serde_json_input() {
     let _ = foaf_name();
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn expand_via_from_value_with_serde_json() {
     let doc: RemoteDocument<IriBuf> = RemoteDocument::from_value(None, None, input_value());
     let expanded = doc.expand(&jsonld::NoLoader).await.expect("expansion failed");
@@ -45,7 +45,7 @@ async fn expand_via_from_value_with_serde_json() {
     assert_eq!(id.as_iri().unwrap().as_str(), expected_id());
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn compact_output_into_serde_json() {
     let doc: RemoteDocument<IriBuf> = RemoteDocument::from_value(None, None, input_value());
     let context = RemoteContextReference::Loaded(RemoteDocument::new(None, None, jsonld_syntax::context::Context::default()));
@@ -56,7 +56,7 @@ async fn compact_output_into_serde_json() {
     assert!(jsonld_syntax::Compare::compare(&compact, &round_trip));
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn flatten_output_into_serde_json() {
     let doc: RemoteDocument<IriBuf> = RemoteDocument::from_value(None, None, input_value());
     let mut generator = rdfx::generator::Blank::new();

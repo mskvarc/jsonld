@@ -422,7 +422,7 @@ pub enum JsonLdError<E = std::convert::Infallible> {
 /// use iri_rs::{iri, IriBuf};
 /// use jsonld::{JsonLdProcessor, RemoteDocumentReference};
 ///
-/// # #[async_std::main]
+/// # #[tokio::main]
 /// # async fn main() {
 /// let input = RemoteDocumentReference::iri(IriBuf::from(iri!("https://example.com/sample.jsonld")));
 ///
@@ -447,7 +447,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -496,7 +496,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -541,7 +541,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     /// use locspan::Meta;
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
     ///
@@ -583,7 +583,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
     /// use locspan::Meta;
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input1 = RemoteDocumentReference::iri(iri.clone());
@@ -622,7 +622,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference};
     /// use locspan::Meta;
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input1 = RemoteDocumentReference::iri(iri.clone());
@@ -659,7 +659,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -710,7 +710,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -757,7 +757,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -802,7 +802,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri);
@@ -842,7 +842,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri);
@@ -931,7 +931,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -986,7 +986,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1044,7 +1044,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1094,7 +1094,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri);
@@ -1138,7 +1138,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri);
@@ -1191,7 +1191,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1256,7 +1256,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1322,7 +1322,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::vocabulary::{IriVocabularyMut, IndexVocabulary};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1384,7 +1384,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri);
@@ -1440,7 +1440,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use iri_rs::{iri, IriBuf};
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri);
@@ -1494,7 +1494,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1575,7 +1575,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1643,7 +1643,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use jsonld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
     /// use rdfx::{GeneralizedQuad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
     /// // to an actual `IriBuf`.
@@ -1709,7 +1709,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use rdfx::GeneralizedQuad;
     /// use locspan::{Location, Span};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri_index = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri_index);
@@ -1777,7 +1777,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
     /// use rdfx::GeneralizedQuad;
     /// use locspan::{Location, Span};
     ///
-    /// # #[async_std::main]
+    /// # #[tokio::main]
     /// # async fn main() {
     /// let iri_index = IriBuf::from(iri!("https://example.com/sample.jsonld"));
     /// let input = RemoteDocumentReference::iri(iri_index);
@@ -1977,7 +1977,7 @@ mod tests {
         f.await
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn to_rdf_is_send() {
         let generator = generator::Blank::new();
         let document = RemoteDocument::new(None, None, Value::Null);

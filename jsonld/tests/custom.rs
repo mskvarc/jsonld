@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use iri_rs::iri;
 use jsonld::{JsonLdProcessor, RemoteDocument, syntax::Parse};
+use tokio::runtime::Builder as RuntimeBuilder;
 
 async fn custom_01() {
     let mut loader = jsonld::FsLoader::new();
@@ -19,7 +20,7 @@ async fn custom_01() {
 }
 
 // This may fail depending on the default stack size.
-// #[async_std::test]
+// #[tokio::test]
 // async fn custom_01_default_memory() {
 // 	custom_01().await
 // }
@@ -29,7 +30,7 @@ async fn custom_01() {
 // fn custom_01_low_memory() {
 // 	let child = std::thread::Builder::new()
 // 		.stack_size(512 * 1024)
-// 		.spawn(|| async_std::task::block_on(custom_01()))
+// 		.spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(custom_01()))
 // 		.unwrap();
 
 // 	child.join().unwrap()
@@ -39,7 +40,7 @@ async fn custom_01() {
 fn custom_01_high_memory() {
     let child = std::thread::Builder::new()
         .stack_size(3 * 512 * 1024)
-        .spawn(|| async_std::task::block_on(custom_01()))
+        .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(custom_01()))
         .unwrap();
 
     child.join().unwrap()
