@@ -46,8 +46,8 @@ pub fn fresh_indexed_vocabulary() -> IndexVocabulary {
 ///
 /// The `IriBuf` document produced by [`parse_remote_doc`] expands against
 /// `NoVocabulary`, where nothing is interned at all. Only this variant
-/// exercises the configuration the `parallel` feature targets, in which every
-/// IRI the expansion sees becomes an index in a shared table.
+/// exercises the configuration real consumers use, in which every IRI the
+/// expansion sees becomes an index in a shared table.
 pub fn parse_remote_doc_indexed(doc: &str, vocabulary: &mut IndexVocabulary) -> RemoteDocument<IriIndex> {
     let value = Value::parse_str(doc).expect("doc parse").0;
     let url = vocabulary.insert(iri!("https://bench.example.com/doc.jsonld"));
@@ -212,16 +212,11 @@ fn base_relative_network_path(n: usize) -> Scenario {
 
 /// Corpus for the interning-vocabulary benchmarks.
 ///
-/// Every scenario here has its widest array inside the `PAR_LO..=PAR_HI`
-/// (32..=512) window that gates the `parallel` branch of
-/// `jsonld_expansion::array::expand_array`. The general [`corpus`] does not
-/// serve this purpose: its widest array, `wide_array_values_1000`, is above
-/// `PAR_HI` and so never reaches the branch at all.
-///
-/// `array_of_value_objects_500` is included deliberately as a control — it is
-/// in-window but its items are `@value` objects, which the branch's
-/// `array_has_heavy_items` probe rejects, so it stays sequential whether or not
-/// the feature is on.
+/// The general [`corpus`] runs everything against `NoVocabulary`, where nothing
+/// is interned, so it says nothing about the cost of interning. These scenarios
+/// are wide arrays of node objects — the shape where per-item interning cost
+/// accumulates — and are the corpus against which any future concurrent or
+/// batching design has to be judged.
 pub fn vocabulary_corpus() -> Vec<Scenario> {
     vec![
         heavy_node_array(256),
@@ -232,12 +227,11 @@ pub fn vocabulary_corpus() -> Vec<Scenario> {
     ]
 }
 
-/// Array of `n` node objects, sized inside the `parallel` window and heavy
-/// enough to pass the `array_has_heavy_items` probe.
+/// Array of `n` node objects, each heavy enough that per-item expansion work
+/// dominates per-item bookkeeping.
 ///
 /// Each item contributes several distinct IRIs and a nested node, so expanding
-/// this against an [`IndexVocabulary`] makes per-task interning cost visible —
-/// and, once the vocabulary forks per task, the merge and remap cost too.
+/// this against an [`IndexVocabulary`] makes per-item interning cost visible.
 fn heavy_node_array(n: usize) -> Scenario {
     let context = r#"{"@vocab":"https://ex.org/vocab/","author":{"@id":"https://ex.org/vocab/author","@type":"@id"},"cites":{"@id":"https://ex.org/vocab/cites","@type":"@id"},"about":{"@id":"https://ex.org/vocab/about","@type":"@id"},"license":{"@id":"https://ex.org/vocab/license","@type":"@id"}}"#;
     let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);

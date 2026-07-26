@@ -14,7 +14,7 @@ use crate::{
     expand_value,
 };
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
-use jsonld_core::{Context, Environment, Id, Indexed, Object, ParallelSafeVocabulary, Term, ValidId, object};
+use jsonld_core::{Context, Environment, Id, Indexed, Object, Term, ValidId, object};
 use jsonld_syntax::{Keyword, Nullable};
 use jstrict::{Value, object::Entry};
 use mown::Mown;
@@ -88,7 +88,7 @@ pub(crate) async fn expand_element<'a, N, L, W>(
     cache: Option<&'a ProcessingCache<N::Iri, N::BlankId>>,
 ) -> ElementExpansionResult<N::Iri, N::BlankId, L::Error>
 where
-    N: VocabularyMut + ParallelSafeVocabulary,
+    N: VocabularyMut,
     N::Iri: Clone + Eq + Hash,
     N::BlankId: Clone + Eq + Hash,
     L: Loader,

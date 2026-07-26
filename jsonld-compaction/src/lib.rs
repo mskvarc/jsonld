@@ -132,15 +132,6 @@ impl Default for Options {
 
 /// Document fragments that can be compacted against an active context.
 pub trait CompactFragment<I, B> {
-    /// Heuristic used by the parallel branch in `compact_collection_with`.
-    /// Returns `true` for items whose compaction is dominated by FuturesOrdered
-    /// scheduling overhead rather than useful work — those should stay on the
-    /// sequential path. Default is `false` (treat as heavy, parallel-eligible).
-    #[inline]
-    fn is_trivial_for_par(&self) -> bool {
-        false
-    }
-
     /// Compacts this fragment, taking every parameter explicitly.
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
@@ -203,12 +194,6 @@ enum TypeLangValue<'a, I> {
 
 /// Type that can be compacted with an index.
 pub trait CompactIndexedFragment<I, B> {
-    /// Same heuristic as [`CompactFragment::is_trivial_for_par`].
-    #[inline]
-    fn is_trivial_for_par(&self) -> bool {
-        false
-    }
-
     /// Compacts this fragment, keeping the `@index` it was reached through.
     async fn compact_indexed_fragment<'a, N, L>(
         &'a self,
@@ -228,12 +213,6 @@ pub trait CompactIndexedFragment<I, B> {
 }
 
 impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T> {
-    #[inline]
-    fn is_trivial_for_par(&self) -> bool {
-        // Delegate to the inner type — `Indexed` itself is just a wrapper.
-        self.inner().is_trivial_for_par()
-    }
-
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -256,15 +235,6 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
 }
 
 impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
-    #[inline]
-    fn is_trivial_for_par(&self) -> bool {
-        // Value objects compact down to a flat literal — per-item work is
-        // dominated by FuturesOrdered overhead. Node + List items recurse
-        // and have enough work to amortize per-task scheduling cost.
-        use jsonld_core::object::Ref;
-        matches!(self.as_ref(), Ref::Value(_))
-    }
-
     async fn compact_indexed_fragment<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -461,13 +431,6 @@ where
 {
     let mut result = Vec::new();
 
-    // Compaction has no parallel branch: the corpus shows no scenario where
-    // `FuturesOrdered`-style sibling concurrency wins. Per-item compaction
-    // work for typical shapes (~500ns/node, less for value objects) is too
-    // close to the per-task overhead floor. Expansion sees real wins because
-    // its per-item work is heavier; compaction does not. The
-    // [`CompactFragment::is_trivial_for_par`] hook is left in place for
-    // future use should a viable parallel strategy emerge.
     for item in items {
         let compacted_item = Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
 

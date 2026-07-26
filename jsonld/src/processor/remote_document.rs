@@ -35,7 +35,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompareResult<L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -57,7 +57,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> ExpandResult<I, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -123,7 +123,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> IntoDocumentResult<I, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -141,7 +141,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompactResult<L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -163,7 +163,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
         mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> FlattenResult<I, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -193,7 +193,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompareResult<L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -211,7 +211,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> ExpandResult<I, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -228,7 +228,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> IntoDocumentResult<I, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -246,7 +246,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> CompactResult<L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -265,7 +265,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, jstrict::Value> {
         warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
     ) -> FlattenResult<I, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = I> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,

@@ -23,12 +23,10 @@ fast-hash = [
     "jsonld-syntax/fast-hash",
     "jsonld-context-processing/fast-hash",
 ]
-parallel = ["jsonld-core/parallel"]
 
 [dependencies]
 contextual = "0.1.6"
 educe = "0.6.0"
-futures = "0.3.32"
 indexmap = "2.14.0"
 iri-rs = "3.3.6"
 jsonld-context-processing.workspace = true

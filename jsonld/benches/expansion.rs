@@ -40,13 +40,13 @@ fn run_expansion(c: &mut Criterion) {
     group.finish();
 }
 
-/// Expansion against an interning [`IndexVocabulary`], the configuration the
-/// `parallel` feature targets and the one [`run_expansion`] never covers.
+/// Expansion against an interning [`IndexVocabulary`], the configuration
+/// [`run_expansion`] never covers.
 ///
 /// The vocabulary is rebuilt per iteration in the (untimed) setup closure so
 /// that interning cost is measured every time rather than only on the first
-/// iteration. Compare feature combinations by saving separate baselines, e.g.
-/// `--save-baseline vocab_seq` against `--save-baseline vocab_par`.
+/// iteration. Compare variants by saving separate baselines with
+/// `--save-baseline <name>`.
 fn run_expansion_with_vocabulary(c: &mut Criterion) {
     let scenarios: Vec<(Scenario, _)> = vocabulary_corpus()
         .into_iter()

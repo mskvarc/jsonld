@@ -24,8 +24,6 @@ mod serialization;
 mod term;
 mod ty;
 pub mod utils;
-/// Forking a vocabulary for concurrent work, and merging it back.
-pub mod vocabulary;
 /// Warnings raised by the algorithms.
 pub mod warning;
 
@@ -45,7 +43,6 @@ pub use quad::LdQuads;
 pub use rdf::RdfQuads;
 pub use term::*;
 pub use ty::*;
-pub use vocabulary::{ForkableVocabulary, ParallelSafeVocabulary, VocabularyRemap};
 
 /// Vocabulary, loader and warning handler an algorithm runs against.
 pub struct Environment<'a, N, L, W> {

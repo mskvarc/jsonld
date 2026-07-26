@@ -25,20 +25,6 @@ mod options;
 mod value;
 mod warning;
 
-/// Sibling-count window for the `parallel` parallel branch in
-/// [`array::expand_array`].
-///
-/// Below `PAR_LO` the per-task overhead of `FuturesOrdered` dominates the
-/// useful work, so the sequential branch wins. Above `PAR_HI` cumulative
-/// overhead (Box::pin allocations, queue maintenance, cache pressure)
-/// outweighs the (apparent) parallel benefit observed for moderate widths.
-/// Window tuned empirically against the bench corpus — see PR / bench
-/// notes for the data.
-#[cfg(feature = "parallel")]
-pub(crate) const PAR_LO: usize = 32;
-#[cfg(feature = "parallel")]
-pub(crate) const PAR_HI: usize = 512;
-
 pub use error::*;
 pub use expanded::*;
 pub use options::*;
@@ -135,7 +121,7 @@ pub trait Expand<Iri> {
         warnings_handler: W,
     ) -> ExpansionResult<N::Iri, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = Iri>,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -150,7 +136,7 @@ pub trait Expand<Iri> {
     /// a base URL given by [`Expand::default_base_url`].
     async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = Iri>,
         Iri: 'a + Clone + Eq + Hash,
         N::BlankId: 'a + Clone + Eq + Hash,
         L: Loader,
@@ -198,7 +184,7 @@ impl<Iri> Expand<Iri> for Value {
         mut warnings_handler: W,
     ) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = Iri>,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,
@@ -238,7 +224,7 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
         warnings_handler: W,
     ) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
-        N: VocabularyMut<Iri = Iri> + jsonld_core::ParallelSafeVocabulary,
+        N: VocabularyMut<Iri = Iri>,
         Iri: Clone + Eq + Hash,
         N::BlankId: Clone + Eq + Hash,
         L: Loader,

@@ -31,11 +31,6 @@ serde = ["jsonld-syntax/serde", "jsonld-core/serde"]
 serde-json = ["jsonld-syntax/serde-json", "jsonld-core/serde-json"]
 ahash = ["jsonld-core/ahash"]
 gxhash = ["jsonld-core/gxhash"]
-parallel = [
-    "jsonld-core/parallel",
-    "jsonld-expansion/parallel",
-    "jsonld-compaction/parallel",
-]
 expandable = ["dep:jsonld-expandable", "dep:jsonld-expandable-core"]
 expandable-serde-json = ["expandable", "jsonld-expandable-core/serde-json"]
 expandable-sonic-rs = ["expandable", "jsonld-expandable-core/sonic-rs"]
@@ -45,7 +40,6 @@ vocab = ["dep:jsonld-vocab", "iri-rs/static"]
 
 [dependencies]
 contextual = "0.1.6"
-futures = "0.3.32"
 iri-rs = "3.3.6"
 jsonld-compaction.workspace = true
 jsonld-context-processing.workspace = true

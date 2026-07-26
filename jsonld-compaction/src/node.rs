@@ -195,17 +195,16 @@ where
             )
         }
 
-        // NOTE: Plan's two-phase parallel branch for the `@reverse` property loop is
-        // deferred. The merge step described in the plan (`add_value` per fragment
-        // entry) does not preserve byte-equal output across all W3C test cases —
-        // notably `@nest` sub-objects, `@index`/`@id`/`@type`/`@language` container
-        // maps, and graph fragments where the per-property output is itself an
-        // `Object` that must be deep-merged rather than appended. A correct merge
-        // would require either (a) restructuring `compact_property` to emit a flat
-        // operation log, or (b) inspecting the active_context per key to choose
-        // recurse-vs-`add_value` per top-level entry. Both exceed the prototype
-        // scope; sequential execution preserves correctness for the prototype
-        // baseline. Loops below intentionally retain the sequential implementation.
+        // NOTE: this loop resists being split into independent per-property
+        // units, which is worth recording for anyone who tries. Merging the
+        // per-property fragments with `add_value` does not preserve byte-equal
+        // output across all W3C test cases — notably `@nest` sub-objects,
+        // `@index`/`@id`/`@type`/`@language` container maps, and graph
+        // fragments where the per-property output is itself an `Object` that
+        // must be deep-merged rather than appended. A correct merge would
+        // require either (a) restructuring `compact_property` to emit a flat
+        // operation log, or (b) inspecting the active context per key to choose
+        // recurse-versus-`add_value` per top-level entry.
         let mut reverse_result = jstrict::Object::default();
         for (expanded_property, expanded_value) in reverse_properties.iter() {
             compact_property(

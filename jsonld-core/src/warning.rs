@@ -39,11 +39,11 @@ impl<N, W: DisplayWithContext<N>> Handler<N, W> for PrintWith {
     }
 }
 
-/// In-memory warning buffer used by parallel sibling tasks.
+/// Warning handler that collects warnings into a [`Vec`] rather than
+/// reporting them as they are raised.
 ///
-/// Each spawned task accumulates warnings into its own buffer; on join the
-/// parent drains them in iteration order so the observable warning order
-/// matches the sequential implementation.
+/// Use it when warnings need to be inspected, filtered or reordered after
+/// the algorithm has finished.
 pub struct WarningBuf<W>(pub Vec<W>);
 
 impl<W> Default for WarningBuf<W> {

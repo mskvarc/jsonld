@@ -1,20 +1,21 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
-//! Soundness of expansion against an interning vocabulary.
+//! Expansion against an interning vocabulary must agree with expansion against
+//! none.
 //!
-//! With the `parallel` feature enabled, an array of 32..=512 "heavy" items is
-//! expanded by handing each item its own vocabulary. Identifiers minted inside
-//! one of those tasks are indices into that task's own table, so unless the
-//! table is folded back into the parent and the task's output rewritten, the
-//! output carries indices that either denote nothing or — worse, because it is
-//! silent — denote some other task's IRI.
+//! Each test expands the same document twice — once against `NoVocabulary`,
+//! where an identifier *is* the IRI and interning cannot go wrong, and once
+//! against an `IndexVocabulary` — then resolves the second result back to IRIs
+//! and requires the two to match.
 //!
-//! These tests pin that down by expanding the same document twice, once
-//! against `NoVocabulary` (where an identifier *is* the IRI, so no interning
-//! can go wrong) and once against an `IndexVocabulary`, then resolving the
-//! second result back to IRIs and requiring the two to be equal.
-//!
-//! They are written to be meaningful in both feature configurations: without
-//! `parallel` they simply confirm the sequential path agrees with itself.
+//! These began as the regression tests for a removed `parallel` feature, which
+//! expanded wide arrays by handing each item its own forked vocabulary and
+//! corrupted the output when the forks were not merged back. That feature is
+//! gone, but the invariant it violated is the one any future concurrent or
+//! forking design must clear, and nothing else in the suite pins it: the W3C
+//! conformance tests never compare the two vocabulary types against each other.
+//! The document is deliberately built so that every item contributes IRIs and
+//! blank node identifiers no other item contributes, since shared terms would
+//! let colliding identifiers agree by luck.
 
 use iri_rs::{IriBuf, iri};
 use jsonld::{
@@ -29,12 +30,12 @@ use jsonld::{
     syntax::{Parse, Value},
 };
 
-/// Number of array items. Must sit inside the `PAR_LO..=PAR_HI` (32..=512)
-/// window that gates the parallel branch of `expand_array`, otherwise the code
-/// under test never runs.
+/// Number of array items. Kept above 32 because that was the lower bound of
+/// the removed feature's window, so the fixture still matches the shape any
+/// future batching design would target.
 const ITEMS: usize = 64;
 
-const DOC_URL: &str = "https://example.org/parallel-vocabulary.jsonld";
+const DOC_URL: &str = "https://example.org/vocabulary-agreement.jsonld";
 
 /// A `@graph` of `ITEMS` node objects, each contributing IRIs and blank node
 /// identifiers that no other item contributes.
@@ -76,7 +77,7 @@ async fn expand_without_vocabulary(doc: &str) -> ExpandedDocument<IriBuf, BlankI
 /// not present in the parent, so the lookup returns `None`.
 async fn expand_with_vocabulary(doc: &str) -> ExpandedDocument<IriBuf, BlankIdBuf> {
     let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-    let url = vocabulary.insert(iri!("https://example.org/parallel-vocabulary.jsonld"));
+    let url = vocabulary.insert(iri!("https://example.org/vocabulary-agreement.jsonld"));
     let remote = RemoteDocument::new(Some(url), None, parse(doc));
     let expanded = remote.expand_with(&mut vocabulary, &NoLoader).await.expect("expansion with a vocabulary");
 
@@ -126,7 +127,7 @@ async fn wide_array_expansion_agrees_with_and_without_an_interning_vocabulary() 
 async fn distinct_terms_in_a_wide_array_keep_distinct_identifiers() {
     let doc = heavy_graph();
     let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-    let url = vocabulary.insert(iri!("https://example.org/parallel-vocabulary.jsonld"));
+    let url = vocabulary.insert(iri!("https://example.org/vocabulary-agreement.jsonld"));
     let remote = RemoteDocument::new(Some(url), None, parse(&doc));
     let expanded = remote.expand_with(&mut vocabulary, &NoLoader).await.expect("expansion with a vocabulary");
 
