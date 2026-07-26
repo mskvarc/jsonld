@@ -20,7 +20,7 @@ proc-macro = true
 [dependencies]
 async-std = "1.13.2"
 contextual = "0.1.6"
-iri-rs = { version = "3.3.4", features = ["static", "enum"] }
+iri-rs = { version = "3.3.5", features = ["static", "enum"] }
 jsonld.workspace = true
 litrs = "1.0.0"
 proc-macro2 = "1.0.106"

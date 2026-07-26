@@ -39,7 +39,7 @@ futures = "0.3.32"
 gxhash = { version = "3", optional = true }
 hashbrown = "0.17.0"
 indexmap = "2.14.0"
-iri-rs = { version = "3.3.4", features = ["static"] }
+iri-rs = { version = "3.3.5", features = ["static"] }
 jsonld-syntax.workspace = true
 jstrict = { version = "0.13.0", features = ["contextual", "canonicalize"] }
 langtag = "1.1.0"
