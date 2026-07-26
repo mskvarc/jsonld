@@ -26,7 +26,7 @@ fast-hash = [
 [dependencies]
 contextual = "0.1.6"
 foldhash = "0.2.0"
-iri-rs = "3.3.6"
+iri-rs = "3.3.7"
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
 mown = "1.0.0"

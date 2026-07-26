@@ -40,7 +40,7 @@ vocab = ["dep:jsonld-vocab", "iri-rs/static"]
 
 [dependencies]
 contextual = "0.1.6"
-iri-rs = "3.3.6"
+iri-rs = "3.3.7"
 jsonld-compaction.workspace = true
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
@@ -57,7 +57,7 @@ thiserror = "2.0.19"
 
 [dev-dependencies]
 criterion = "0.8.2"
-iri-rs = { version = "3.3.6", features = ["static"] }
+iri-rs = { version = "3.3.7", features = ["static"] }
 jsonld-testing.workspace = true
 log = "0.4.33"
 mimalloc = { version = "0.1.52", default-features = false }

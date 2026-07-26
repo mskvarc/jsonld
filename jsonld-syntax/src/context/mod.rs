@@ -107,9 +107,15 @@ impl Context {
 }
 
 /// Owning iterator over the entries of a context.
+///
+/// The single-entry variant boxes its entry. A [`ContextEntry`] holding a
+/// [`Definition`] is large, and inline it would set the size of the whole
+/// iterator — paid by the [`Many`](Self::Many) variant too, whose own payload is
+/// a [`Vec`] iterator. [`Option<Box<_>>`] is null-pointer-optimised, so no
+/// allocation happens once the entry has been yielded.
 pub enum IntoIter {
     /// Exactly one value.
-    One(Option<ContextEntry>),
+    One(Option<Box<ContextEntry>>),
     /// Several values.
     Many(std::vec::IntoIter<ContextEntry>),
 }
@@ -119,7 +125,7 @@ impl Iterator for IntoIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::One(t) => t.take(),
+            Self::One(t) => t.take().map(|t| *t),
             Self::Many(t) => t.next(),
         }
     }
@@ -131,7 +137,7 @@ impl IntoIterator for Context {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Self::One(t) => IntoIter::One(Some(t)),
+            Self::One(t) => IntoIter::One(Some(Box::new(t))),
             Self::Many(t) => IntoIter::Many(t.into_iter()),
         }
     }
