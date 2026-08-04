@@ -6,11 +6,28 @@ use jsonld_syntax::Keyword;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
+/// Turns an optional string into a JSON string, or JSON `null` when absent.
+///
+/// IRI compaction returns `None` for a null term, which the specification
+/// requires to be written out as `null` rather than omitted.
 fn optional_string(s: Option<&str>) -> jstrict::Value {
     s.map(|s| jstrict::Value::String(s.into())).unwrap_or(jstrict::Value::Null)
 }
 
-/// Compact the given indexed node.
+/// Compacts a node object, following the [compaction algorithm][1]'s node
+/// object case.
+///
+/// Emits `@id`, `@type`, `@reverse`, `@index`, `@graph`, `@included` and every
+/// ordinary property into a single JSON object, keyed by whatever each expanded
+/// property compacts to. `index` is the `@index` the node was reached through,
+/// and is dropped when the active property's container mapping already turned it
+/// into a map key.
+///
+/// A node object consisting of nothing but an `@id` may compact to a bare
+/// string instead of an object, when the active property's type mapping is `@id`
+/// or `@vocab`.
+///
+/// [1]: https://www.w3.org/TR/json-ld-api/#compaction-algorithm
 pub async fn compact_indexed_node_with<N, L>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
@@ -39,8 +56,12 @@ where
     }
 
     // If the term definition for active property in active context has a local context:
-    // FIXME https://github.com/w3c/json-ld-api/issues/502
-    //       Seems that the term definition should be looked up in `type_scoped_context`.
+    //
+    // Known deviation from the specification text, which says to look the term
+    // definition up in the active context. This looks it up in
+    // `type_scoped_context` instead, which is what makes the W3C compaction test
+    // suite pass; the spec text is believed to be in error. See
+    // https://github.com/w3c/json-ld-api/issues/502.
     let mut active_context = ContextRef::Borrowed(active_context);
     if let Some(active_property) = active_property
         && let Some(active_property_definition) = type_scoped_context.get(active_property)
@@ -60,7 +81,6 @@ where
         )
     }
 
-    // let inside_reverse = active_property == Some("@reverse");
     let mut result = jstrict::Object::default();
 
     if !node.types().is_empty() {
@@ -118,13 +138,13 @@ where
         let id = id_entry.clone().into_term();
 
         if node.is_empty() {
-            // This captures step 7:
+            // This covers step 7 of the compaction algorithm:
             // If element has an @value or @id entry and the result of using the
             // Value Compaction algorithm, passing active context, active property,
             // and element as value is a scalar, or the term definition for active property
             // has a type mapping of @json, return that result.
             //
-            // in the Value Compaction Algorithm, step 7:
+            // together with step 7 of the value compaction algorithm:
             // If value has an @id entry and has no other entries other than @index:
             //
             // If the type mapping of active property is set to @id,
@@ -194,16 +214,17 @@ where
             )
         }
 
-        // NOTE: this loop resists being split into independent per-property
-        // units, which is worth recording for anyone who tries. Merging the
-        // per-property fragments with `add_value` does not preserve byte-equal
-        // output across all W3C test cases — notably `@nest` sub-objects,
-        // `@index`/`@id`/`@type`/`@language` container maps, and graph
-        // fragments where the per-property output is itself an `Object` that
-        // must be deep-merged rather than appended. A correct merge would
-        // require either (a) restructuring `compact_property` to emit a flat
-        // operation log, or (b) inspecting the active context per key to choose
-        // recurse-versus-`add_value` per top-level entry.
+        // Every property compacts into one shared object, deliberately. Giving
+        // each property its own object and merging afterwards — the obvious way
+        // to make these iterations independent of one another — does not
+        // reproduce the same output: `add_value` cannot merge the fragments
+        // that `compact_property` produces for `@nest` sub-objects, for
+        // `@index`/`@id`/`@type`/`@language` container maps, or for graph
+        // fragments, because those are objects that have to be merged key by
+        // key rather than appended. Doing it correctly would mean either
+        // restructuring `compact_property` to emit a flat log of insertions, or
+        // consulting the active context per key to decide between a recursive
+        // merge and `add_value`.
         let mut reverse_result = jstrict::Object::default();
         for (expanded_property, expanded_value) in reverse_properties.iter() {
             compact_property(
@@ -318,7 +339,13 @@ where
     Ok(result.into())
 }
 
-/// Compact the given list of types into the given `result` compacted object.
+/// Compacts a node object's `@type` values and inserts them into `result` under
+/// whatever `@type` itself compacts to.
+///
+/// Each type is compacted against `type_scoped_context`, as the specification
+/// requires, while the key for `@type` comes from `active_context`. A single type
+/// becomes a bare string unless the term for `@type` has an `@set` container (in
+/// JSON-LD 1.1) or `compact_arrays` is off.
 fn compact_types<N, E>(
     vocabulary: &mut N,
     result: &mut jstrict::Object,

@@ -5,11 +5,13 @@ use jstrict::Value;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
-/// Expand the given JSON-LD document.
+/// Expands a whole JSON-LD document: expands its root element, then applies
+/// the specification's post-processing of the top-level result.
 ///
-/// Note that you probably do not want to use this function directly,
-/// but instead use the [`Document::expand`](crate::Document::expand) method on
-/// a `Value` instance.
+/// This is the entry point behind the [`Expand`](crate::Expand) trait, whose
+/// [`expand`](crate::Expand::expand) and
+/// [`expand_with`](crate::Expand::expand_with) methods build the environment
+/// and the initial context for you.
 pub(crate) async fn expand<'a, N, L, W>(
     env: Environment<'a, N, L, W>,
     document: &'a Value,
@@ -26,8 +28,10 @@ where
 {
     let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
 
-    // A single expanded object gets its `@graph` unwrapped; anything else is
-    // filtered and collected as-is.
+    // When the expansion result is a single object that is an unnamed graph
+    // (a node object whose only entry is `@graph`), the document is the
+    // content of that graph. Otherwise the object stands alone, unless it is
+    // free-floating and gets dropped.
     fn single<T: Eq + Hash, B: Eq + Hash>(obj: IndexedObject<T, B>) -> ExpandedDocument<T, B> {
         match obj.into_unnamed_graph() {
             Ok(graph) => ExpandedDocument::from(graph),
@@ -51,7 +55,11 @@ where
     }
 }
 
+/// Checks whether an expanded object may stay at the top level of a document
+/// or of a `@graph` entry.
+///
+/// A value object in such a position describes no subject: the specification
+/// calls it free-floating and drops it.
 pub(crate) fn filter_top_level_item<T, B>(item: &IndexedObject<T, B>) -> bool {
-    // Remove dangling values.
     !matches!(item.inner(), Object::Value(_))
 }

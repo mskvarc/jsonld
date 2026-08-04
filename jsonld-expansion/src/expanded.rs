@@ -1,18 +1,22 @@
 use jsonld_core::{Id, IndexedObject};
 use std::hash::Hash;
 
-/// Result of expanding a fragment: nothing, one object, or many.
+/// Result of expanding a fragment of a JSON-LD document.
+///
+/// Expansion may leave nothing behind, produce a single object, or turn one
+/// element into several — which is why it is not simply an
+/// [`IndexedObject`].
 pub enum Expanded<T, B> {
-    /// The null value.
+    /// The fragment expanded to nothing, and is dropped.
     Null,
-    /// A JSON object.
+    /// The fragment expanded to a single object.
     Object(IndexedObject<T, B>),
-    /// A JSON array.
+    /// The fragment expanded to any number of objects.
     Array(Vec<IndexedObject<T, B>>),
 }
 
 impl<T, B> Expanded<T, B> {
-    /// Returns the number of entries of this `Expanded`.
+    /// Returns the number of objects the fragment expanded to.
     pub fn len(&self) -> usize {
         match self {
             Expanded::Null => 0,
@@ -21,17 +25,20 @@ impl<T, B> Expanded<T, B> {
         }
     }
 
-    /// Checks whether this `Expanded` is empty.
+    /// Checks whether the fragment expanded to no object at all, either
+    /// because it expanded to nothing or to an empty array.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Checks whether this `Expanded` is null.
+    /// Checks whether the fragment expanded to nothing, as opposed to an empty
+    /// array of objects.
     pub fn is_null(&self) -> bool {
         matches!(self, Expanded::Null)
     }
 
-    /// Checks whether this `Expanded` is list.
+    /// Checks whether the fragment expanded to a single list object (a `@list`
+    /// entry).
     pub fn is_list(&self) -> bool {
         match self {
             Expanded::Object(o) => o.is_list(),
@@ -39,7 +46,7 @@ impl<T, B> Expanded<T, B> {
         }
     }
 
-    /// Returns an iterator over the entries of this `Expanded`.
+    /// Returns an iterator over the expanded objects.
     pub fn iter(&self) -> Iter<'_, T, B> {
         match self {
             Expanded::Null => Iter::Null,
@@ -48,11 +55,13 @@ impl<T, B> Expanded<T, B> {
         }
     }
 
-    /// Maps the identifiers present in this expansion result (recursively).
+    /// Rewrites every IRI and identifier of this expansion result
+    /// (recursively) with the given functions.
     ///
-    /// Used to rewrite the output of a task that ran against a forked
-    /// vocabulary into the identifier space of the vocabulary the fork was
-    /// merged into.
+    /// `map_iri` translates the datatype IRI of the literal values, `map_id`
+    /// the node identifiers, node types and property identifiers. Use it to
+    /// move a result produced against one vocabulary into the identifier space
+    /// of another.
     pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> Expanded<U, C>
     where
         U: Eq + Hash,
@@ -95,11 +104,11 @@ impl<'a, T, B> IntoIterator for &'a Expanded<T, B> {
 
 /// Iterator over the objects of an expansion result.
 pub enum Iter<'a, T, B> {
-    /// The null value.
+    /// Iterator over an expansion result that produced nothing.
     Null,
-    /// A JSON object.
+    /// Iterator over a single expanded object, until it has been yielded.
     Object(Option<&'a IndexedObject<T, B>>),
-    /// A JSON array.
+    /// Iterator over the objects of an expanded array.
     Array(std::slice::Iter<'a, IndexedObject<T, B>>),
 }
 
@@ -121,11 +130,11 @@ impl<'a, T, B> Iterator for Iter<'a, T, B> {
 
 /// Owning iterator over the objects of an expansion result.
 pub enum IntoIter<T, B> {
-    /// The null value.
+    /// Iterator over an expansion result that produced nothing.
     Null,
-    /// A JSON object.
+    /// Iterator over a single expanded object, until it has been yielded.
     Object(Option<IndexedObject<T, B>>),
-    /// A JSON array.
+    /// Iterator over the objects of an expanded array.
     Array(std::vec::IntoIter<IndexedObject<T, B>>),
 }
 

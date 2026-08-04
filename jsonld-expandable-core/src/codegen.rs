@@ -472,14 +472,12 @@ fn item_shape_for_coerce(coerce: &Coerce, crate_path: &TokenStream, prefixes: &[
 }
 
 fn is_option_type(ty: &Type) -> bool {
-    if let Type::Path(p) = ty {
-        if let Some(seg) = p.path.segments.last() {
-            if seg.ident == "Option" {
-                if let PathArguments::AngleBracketed(args) = &seg.arguments {
-                    return args.args.iter().any(|a| matches!(a, GenericArgument::Type(_)));
-                }
-            }
-        }
+    if let Type::Path(p) = ty
+        && let Some(seg) = p.path.segments.last()
+        && seg.ident == "Option"
+        && let PathArguments::AngleBracketed(args) = &seg.arguments
+    {
+        return args.args.iter().any(|a| matches!(a, GenericArgument::Type(_)));
     }
     false
 }

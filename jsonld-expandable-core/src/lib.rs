@@ -30,6 +30,11 @@
 //! `impl`, which the derive cannot express yet. Deriving on a generic struct
 //! fails with unresolved trait-bound errors; use concrete field types.
 
+// On docs.rs, label every feature-gated item with the feature that unlocks it.
+// `doc(auto_cfg)` is still nightly-gated, and `docsrs` is set by docs.rs itself
+// (see `rustdoc-args` in Cargo.toml), so stable builds are unaffected.
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, doc(auto_cfg))]
 #[cfg(feature = "codegen")]
 #[doc(hidden)]
 pub mod attrs;

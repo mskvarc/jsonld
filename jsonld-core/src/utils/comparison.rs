@@ -1,6 +1,9 @@
 use jstrict::Value;
 
-/// Checks whether this value simple JSON LD eq.
+/// Compares two JSON values for JSON-LD equivalence: arrays are compared as
+/// multisets (any order, duplicates counted), except the value of an `@list`
+/// entry whose order is significant; objects must bind the same keys to
+/// equivalent values; everything else must be strictly equal.
 pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Array(a), Value::Array(b)) if a.len() == b.len() => {

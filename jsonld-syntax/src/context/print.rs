@@ -30,16 +30,6 @@ impl PrintWithSize for super::Context {
     }
 }
 
-// struct ForMeta<T, M>(T, PhantomData);
-
-// trait IntoForMeta: Sized {
-// 	fn for_meta(self) -> ForMeta<Self, M> {
-// 		ForMeta(self, PhantomData)
-// 	}
-// }
-
-// impl<T> IntoForMeta for T {}
-
 impl PrecomputeSize for ContextEntry {
     fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
         match self {

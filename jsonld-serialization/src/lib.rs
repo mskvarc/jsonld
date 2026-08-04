@@ -1,8 +1,13 @@
-//! This crate implements JSON-LD serialization (from RDF dataset to JSON-LD)
-//! through the [`linked_data`](https://github.com/spruceid/linked-data-rs)
-//! crate.
-//! The input value can be an RDF dataset, or any type implementing
-//! [`ld_core::LinkedData`].
+//! Serialization of RDF datasets into JSON-LD.
+//!
+//! Turns an RDF dataset — or any type implementing [`ld_core::LinkedData`],
+//! which includes types deriving it — into a [`jsonld_core::ExpandedDocument`].
+//! This is the inverse of the `to_rdf` direction implemented in
+//! `jsonld-core`.
+//!
+//! Blank nodes are resolved through the interpretation the dataset was built
+//! against, so the same resource seen twice yields one node object rather than
+//! two.
 use std::hash::Hash;
 
 use jsonld_core::{ExpandedDocument, Node, Object};

@@ -6,6 +6,10 @@ use jstrict::Array;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
+/// Expands a JSON array, concatenating the expansion of each of its items.
+///
+/// The result is a list object rather than an array when the active property
+/// has a `@list` container mapping.
 pub(crate) async fn expand_array<'a, N, L, W>(
     env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -25,12 +29,12 @@ where
     W: WarningHandler<N>,
 {
     // Initialize an empty array, result.
-    let mut is_list = false;
     let mut result = Vec::new();
 
-    // If the container mapping of `active_property` includes `@list`, and
-    // `expanded_item` is an array, set `expanded_item` to a new map containing
-    // the entry `@list` where the value is the original `expanded_item`.
+    // If the container mapping of `active_property` includes `@list`, the
+    // expanded items are wrapped in a single map with a `@list` entry once the
+    // loop below is done.
+    let mut is_list = false;
     if let Some(definition) = active_property_definition {
         is_list = definition.container().contains(ContainerKind::List);
     }

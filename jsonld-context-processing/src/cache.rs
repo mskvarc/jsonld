@@ -101,32 +101,38 @@ impl<T: PartialEq, B: PartialEq> CacheEntry<T, B> {
 
 /// Cache of processed contexts.
 ///
-/// Construct one per document (or per any unit where loader behaviour and
-/// context-processing options stay constant) and pass it to
+/// Pass one to
 /// [`Process::process_full_with_cache`][crate::Process::process_full_with_cache].
+/// Processing options and base URL are part of the key, so they may vary freely
+/// between calls; the [`Loader`][jsonld_core::Loader] is not, so a cache must not
+/// outlive the loader it was populated against. One cache per document is the
+/// natural unit.
+///
+/// Entries are never evicted, so the cache grows with the number of distinct
+/// contexts processed through it. [`Self::clear`] releases them.
 pub struct ProcessingCache<T, B> {
     entries: Mutex<HashMap<u64, CacheEntry<T, B>>>,
 }
 
 impl<T, B> ProcessingCache<T, B> {
-    /// Creates a new `ProcessingCache`.
+    /// Creates an empty cache.
     pub fn new() -> Self {
         Self {
             entries: Mutex::new(HashMap::default()),
         }
     }
 
-    /// Removes every entry from this `ProcessingCache`.
+    /// Discards every memoized context.
     pub fn clear(&self) {
         self.entries.lock().clear();
     }
 
-    /// Returns the number of entries of this `ProcessingCache`.
+    /// Returns the number of memoized contexts.
     pub fn len(&self) -> usize {
         self.entries.lock().len()
     }
 
-    /// Checks whether this `ProcessingCache` is empty.
+    /// Checks whether nothing has been memoized yet.
     pub fn is_empty(&self) -> bool {
         self.entries.lock().is_empty()
     }

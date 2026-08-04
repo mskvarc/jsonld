@@ -1,3 +1,36 @@
+//! # Two implementations, one algorithm: keep `sync.rs` in step
+//!
+//! This module, together with `define.rs` and `iri.rs`, holds the `async`
+//! implementation of the [context processing algorithm][1] — the one that can
+//! call the [`Loader`] to fetch remote contexts and `@import`ed documents.
+//! `sync.rs`, in this same directory, holds a second, hand-maintained
+//! implementation of the *same* algorithm with `async`, `.await` and `Box::pin`
+//! stripped out and recursion made direct. It is used as a fast path whenever
+//! `requires_loader` proves the input contains no remote `@context` IRI and no
+//! `@import`, which is the common case in real payloads.
+//!
+//! Which of the two runs is invisible to callers: for any input both must
+//! produce the same active context and the same error. **A change to the
+//! algorithm here therefore has to be mirrored in `sync.rs`, and a change there
+//! mirrored back here.** Nothing enforces this — the two are separate function
+//! bodies with no shared code, so a fix applied to only one silently makes the
+//! result depend on whether the input happened to reference a remote context.
+//! The mirrored pairs are:
+//!
+//! | this module | `sync.rs` |
+//! |---|---|
+//! | `process_context` (`mod.rs`) | `process_context_sync` |
+//! | `define` (`define.rs`) | `define_sync` |
+//! | `expand_iri_with` (`iri.rs`) | `expand_iri_with_sync` |
+//!
+//! `sync.rs` does guard the one class of divergence it can detect — reaching a
+//! code path that would need the loader — by returning
+//! [`Error::LoadingDocumentFailed`]. That protects against `requires_loader`
+//! drifting out of step with the algorithm body; it says nothing about the two
+//! implementations otherwise agreeing.
+//!
+//! [1]: https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm
+
 use std::{hash::Hash, sync::Arc};
 
 use crate::{Error, Options, Process, Processed, ProcessingCache, ProcessingResult, ProcessingStack, WarningHandler, cache::cache_key};
@@ -139,8 +172,10 @@ impl Process for syntax::context::Context {
     }
 }
 
-/// Resolve `iri_ref` against the given base IRI, then insert the result in
-/// the vocabulary.
+/// Resolves `iri_ref` against `base_iri` and interns the result in `vocabulary`.
+///
+/// With no base IRI, `iri_ref` must already be an absolute IRI. Returns `None`
+/// when the reference cannot be turned into one either way.
 fn resolve_iri<V, I>(vocabulary: &mut V, iri_ref: iri_rs::IriRef<&str>, base_iri: Option<&I>) -> Option<I>
 where
     V: rdfx::vocabulary::IriVocabularyMut<Iri = I>,
@@ -159,11 +194,21 @@ where
     }
 }
 
-// This function tries to follow the recommended context processing algorithm.
-// See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
-//
-// The recommended default value for `remote_contexts` is the empty set,
-// `false` for `override_protected`, and `true` for `propagate`.
+/// Runs the [context processing algorithm][1], layering `local_context` on top
+/// of `active_context`.
+///
+/// Recurses for each remote `@context` IRI, fetching it through the loader, and
+/// for each term definition's scoped `@context` via `define`. `remote_contexts`
+/// carries the chain of remote context URLs entered so far, which bounds that
+/// recursion; a top-level call starts from an empty [`ProcessingStack`].
+///
+/// Every mutation is applied to a clone of `active_context`, so the caller's
+/// context is left untouched.
+///
+/// This is the `async` half of a mirrored pair; see the module documentation
+/// before changing it.
+///
+/// [1]: https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm
 async fn process_context<'l: 'a, 'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,

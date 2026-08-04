@@ -138,7 +138,7 @@ impl<T, B> Definitions<T, B> {
         self.type_.as_ref()
     }
 
-    /// Checks whether this `Definitions` contains term.
+    /// Checks whether the given term is defined.
     pub fn contains_term<Q>(&self, term: &Q) -> bool
     where
         Q: ?Sized + Hash + Eq,
@@ -283,7 +283,9 @@ impl Default for TypeTermDefinition {
 }
 
 impl TypeTermDefinition {
-    /// Returns the modulo protected field of this `TypeTermDefinition`.
+    /// Wraps this definition so that comparisons ignore the `@protected`
+    /// flag, as required when checking whether a redefinition of a protected
+    /// term actually changes it.
     pub fn modulo_protected_field(&self) -> ModuloProtected<&Self> {
         ModuloProtected(self)
     }
@@ -316,12 +318,15 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the modulo protected field of this `TermDefinition`.
+    /// Wraps this definition so that comparisons ignore the `@protected`
+    /// flag, as required when checking whether a redefinition of a protected
+    /// term actually changes it.
     pub fn modulo_protected_field(&self) -> ModuloProtected<TermDefinitionRef<'_, T, B>> {
         ModuloProtected(self.as_ref())
     }
 
-    /// Returns the value of this `TermDefinition`.
+    /// Returns the term this definition maps to, if any (always `None` for
+    /// `@type` definitions).
     pub fn value(&self) -> Option<&Term<T, B>> {
         match self {
             Self::Type(_) => None,
@@ -329,7 +334,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Checks whether this `TermDefinition` prefix.
+    /// Checks whether the term may be used to expand compact IRIs.
     pub fn prefix(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -337,7 +342,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Checks whether this `TermDefinition` protected.
+    /// Checks whether the term is protected against redefinition.
     pub fn protected(&self) -> bool {
         match self {
             Self::Type(d) => d.protected,
@@ -345,7 +350,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Checks whether this `TermDefinition` reverse property.
+    /// Checks whether the term denotes a reverse property.
     pub fn reverse_property(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -353,7 +358,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the base URL of this `TermDefinition`.
+    /// Returns the base URL used to resolve relative IRIs of the term.
     pub fn base_url(&self) -> Option<&T> {
         match self {
             Self::Type(_) => None,
@@ -361,7 +366,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the context of this `TermDefinition`.
+    /// Returns the local context of the term (its `@context` entry), if any.
     pub fn context(&self) -> Option<&jsonld_syntax::context::Context> {
         match self {
             Self::Type(_) => None,
@@ -369,7 +374,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the container of this `TermDefinition`.
+    /// Returns the container mapping of the term.
     pub fn container(&self) -> Container {
         match self {
             Self::Type(d) => d.container.into(),
@@ -377,7 +382,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the direction of this `TermDefinition`.
+    /// Returns the base direction of the term's string values.
     pub fn direction(&self) -> Option<Nullable<Direction>> {
         match self {
             Self::Type(_) => None,
@@ -385,7 +390,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the index of this `TermDefinition`.
+    /// Returns the index mapping of the term.
     pub fn index(&self) -> Option<&Index> {
         match self {
             Self::Type(_) => None,
@@ -393,7 +398,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the language of this `TermDefinition`.
+    /// Returns the default language of the term's string values.
     pub fn language(&self) -> Option<Nullable<&LenientLangTagBuf>> {
         match self {
             Self::Type(_) => None,
@@ -401,7 +406,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the nest of this `TermDefinition`.
+    /// Returns the nesting term the property is gathered under.
     pub fn nest(&self) -> Option<&Nest> {
         match self {
             Self::Type(_) => None,
@@ -409,7 +414,7 @@ impl<T, B> TermDefinition<T, B> {
         }
     }
 
-    /// Returns the typ of this `TermDefinition`.
+    /// Returns the type mapping of the term.
     pub fn typ(&self) -> Option<&Type<T>> {
         match self {
             Self::Type(_) => None,
@@ -429,12 +434,15 @@ pub enum TermDefinitionRef<'a, T = IriBuf, B = BlankIdBuf> {
 }
 
 impl<'a, T, B> TermDefinitionRef<'a, T, B> {
-    /// Returns the modulo protected field of this `TermDefinitionRef`.
+    /// Wraps this definition so that comparisons ignore the `@protected`
+    /// flag, as required when checking whether a redefinition of a protected
+    /// term actually changes it.
     pub fn modulo_protected_field(&self) -> ModuloProtected<Self> {
         ModuloProtected(*self)
     }
 
-    /// Returns the value of this `TermDefinitionRef`.
+    /// Returns the term this definition maps to, if any (always `None` for
+    /// `@type` definitions).
     pub fn value(&self) -> Option<&'a Term<T, B>> {
         match self {
             Self::Type(_) => None,
@@ -451,7 +459,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Checks whether this `TermDefinitionRef` prefix.
+    /// Checks whether the term may be used to expand compact IRIs.
     pub fn prefix(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -459,7 +467,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Checks whether this `TermDefinitionRef` protected.
+    /// Checks whether the term is protected against redefinition.
     pub fn protected(&self) -> bool {
         match self {
             Self::Type(d) => d.protected,
@@ -467,7 +475,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Checks whether this `TermDefinitionRef` reverse property.
+    /// Checks whether the term denotes a reverse property.
     pub fn reverse_property(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -475,7 +483,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the base URL of this `TermDefinitionRef`.
+    /// Returns the base URL used to resolve relative IRIs of the term.
     pub fn base_url(&self) -> Option<&'a T> {
         match self {
             Self::Type(_) => None,
@@ -483,7 +491,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the context of this `TermDefinitionRef`.
+    /// Returns the local context of the term (its `@context` entry), if any.
     pub fn context(&self) -> Option<&'a jsonld_syntax::context::Context> {
         match self {
             Self::Type(_) => None,
@@ -491,7 +499,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the container of this `TermDefinitionRef`.
+    /// Returns the container mapping of the term.
     pub fn container(&self) -> Container {
         match self {
             Self::Type(d) => d.container.into(),
@@ -499,7 +507,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the direction of this `TermDefinitionRef`.
+    /// Returns the base direction of the term's string values.
     pub fn direction(&self) -> Option<Nullable<Direction>> {
         match self {
             Self::Type(_) => None,
@@ -507,7 +515,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the index of this `TermDefinitionRef`.
+    /// Returns the index mapping of the term.
     pub fn index(&self) -> Option<&'a Index> {
         match self {
             Self::Type(_) => None,
@@ -515,7 +523,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the language of this `TermDefinitionRef`.
+    /// Returns the default language of the term's string values.
     pub fn language(&self) -> Option<Nullable<&'a LenientLangTagBuf>> {
         match self {
             Self::Type(_) => None,
@@ -523,7 +531,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the nest of this `TermDefinitionRef`.
+    /// Returns the nesting term the property is gathered under.
     pub fn nest(&self) -> Option<&'a Nest> {
         match self {
             Self::Type(_) => None,
@@ -531,7 +539,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
         }
     }
 
-    /// Returns the typ of this `TermDefinitionRef`.
+    /// Returns the type mapping of the term.
     pub fn typ(&self) -> Option<&'a Type<T>> {
         match self {
             Self::Type(_) => None,
@@ -548,71 +556,60 @@ impl<'a, T, B> Clone for TermDefinitionRef<'a, T, B> {
 
 impl<'a, T, B> Copy for TermDefinitionRef<'a, T, B> {}
 
-// A term definition.
 #[derive(PartialEq, Eq, Clone)]
 /// Definition of an ordinary term, as processed from a context.
 pub struct NormalTermDefinition<T = IriBuf, B = BlankIdBuf> {
-    // IRI mapping.
-    //
-    // Wrapped in `Arc` so the per-element-per-property hot path in
-    // `expand_iri_simple` returns a refcount bump instead of deep-cloning the
-    // (potentially `IriBuf`-backed) term. External direct field access becomes
-    // a breaking change; use `value()` / `value_arc()` accessors.
     /// Term the definition maps to.
+    ///
+    /// Wrapped in `Arc` so the per-element-per-property hot path in
+    /// `expand_iri_simple` returns a refcount bump instead of deep-cloning the
+    /// (potentially `IriBuf`-backed) term. Prefer the `value()` /
+    /// `value_arc()` accessors over direct field access.
     pub value: Option<Arc<Term<T, B>>>,
 
-    // Prefix flag.
     /// Whether the term may expand compact IRIs.
     pub prefix: bool,
 
-    // Protected flag.
     /// Whether the term is protected against redefinition.
     pub protected: bool,
 
-    // Reverse property flag.
     /// Whether the term denotes a reverse property.
     pub reverse_property: bool,
 
-    // Optional base URL.
     /// Base URL used to resolve relative IRIs of the term.
     pub base_url: Option<T>,
 
-    // Optional context.
     /// Context local to the term.
     pub context: Option<Box<jsonld_syntax::context::Context>>,
 
-    // Container mapping.
     /// Container mapping of the term.
     pub container: Container,
 
-    // Optional direction mapping.
     /// Base direction of the term's string values.
     pub direction: Option<Nullable<Direction>>,
 
-    // Optional index mapping.
     /// Index mapping of the term.
     pub index: Option<Index>,
 
-    // Optional language mapping.
     /// Default language of the term's string values.
     pub language: Option<Nullable<LenientLangTagBuf>>,
 
-    // Optional nest value.
     /// Nesting term the property is gathered under.
     pub nest: Option<Nest>,
 
-    // Optional type mapping.
     /// Type mapping of the term.
     pub typ: Option<Type<T>>,
 }
 
 impl<T, B> NormalTermDefinition<T, B> {
-    /// Returns the modulo protected field of this `NormalTermDefinition`.
+    /// Wraps this definition so that comparisons ignore the `@protected`
+    /// flag, as required when checking whether a redefinition of a protected
+    /// term actually changes it.
     pub fn modulo_protected_field(&self) -> ModuloProtected<&Self> {
         ModuloProtected(self)
     }
 
-    /// Returns the base URL of this `NormalTermDefinition`.
+    /// Returns the base URL used to resolve relative IRIs of the term.
     pub fn base_url(&self) -> Option<&T> {
         self.base_url.as_ref()
     }

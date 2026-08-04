@@ -28,11 +28,16 @@ use jsonld_syntax::{
 use rdfx::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};
 
+/// Checks whether `c` is one of RFC 3986's generic delimiters.
 fn is_gen_delim(c: char) -> bool {
     matches!(c, ':' | '/' | '?' | '#' | '[' | ']' | '@')
 }
 
-// Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
+/// Checks whether `t` is a blank node identifier, or an IRI whose last character
+/// is a generic delimiter.
+///
+/// These are the IRI mappings a simple term may be used as a prefix for, since
+/// concatenating a suffix onto them yields a syntactically separate component.
 fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri = T, BlankId = B>, t: &Term<T, B>) -> bool {
     match t {
         Term::Id(Id::Valid(ValidId::Blank(_))) => true,
@@ -44,7 +49,11 @@ fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri = T, BlankId 
     }
 }
 
-/// Checks if the the given character is included in the given string anywhere but at the first or last position.
+/// Checks whether `c` occurs in `id`, but as neither its first nor its last
+/// character.
+///
+/// A term shaped like that (a colon somewhere in the middle) looks like a compact
+/// IRI, which is what makes the round-trip check in [`define`] apply to it.
 fn contains_between_boundaries(id: &str, c: char) -> bool {
     if let Some(i) = id.find(c) {
         // SAFETY: `find` matched, so `rfind` must also match.
@@ -56,18 +65,27 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 }
 
 #[derive(Default)]
-/// Terms already defined or being defined, used to detect cyclic
-/// definitions.
+/// Tracks which terms of one context definition are already defined and which
+/// are still being defined, so that cyclic definitions can be detected.
+///
+/// Defining a term can require defining others first — its prefix, or the term
+/// its `@id` names — so [`define`] recurses. A term that is reached again while
+/// its own definition is still in progress is a cycle.
 pub struct DefinedTerms(HashMap<KeyOrKeyword, DefinedTerm>);
 
 impl DefinedTerms {
-    /// Creates a new `DefinedTerms`.
+    /// Creates an empty tracker, with no term defined or in progress.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Marks a term as being defined, failing on a cyclic definition and
-    /// reporting whether the work still has to be done.
+    /// Marks `key` as being defined, and reports whether the caller should go on
+    /// to build its definition.
+    ///
+    /// Returns `Ok(true)` for a term seen for the first time, `Ok(false)` for one
+    /// already fully defined (the caller should do nothing), and
+    /// `Err(Error::CyclicIriMapping)` for one whose definition is still in
+    /// progress further up the recursion.
     pub fn begin<E>(&mut self, key: &KeyOrKeyword) -> Result<bool, Error<E>> {
         match self.0.get(key) {
             Some(d) => {
@@ -85,7 +103,8 @@ impl DefinedTerms {
         }
     }
 
-    /// Marks a term as fully defined.
+    /// Marks `key` as fully defined, so that reaching it again is no longer a
+    /// cycle.
     ///
     /// Does nothing if the term was never passed to [`Self::begin`].
     pub fn end(&mut self, key: &KeyOrKeyword) {
@@ -95,13 +114,28 @@ impl DefinedTerms {
     }
 }
 
-/// State of a term during context processing.
+/// A term's state within a [`DefinedTerms`] tracker: either fully defined, or
+/// still being defined further up the recursion.
 pub struct DefinedTerm {
     pending: bool,
 }
 
-/// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
-/// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
+/// Runs the [create term definition algorithm][1] for `term`, adding the
+/// resulting definition to `active_context`.
+///
+/// Reads `term`'s entry from `local_context`, resolves its `@id`, `@reverse`,
+/// `@type`, `@container`, `@index`, `@context`, `@language`, `@direction`,
+/// `@nest` and `@prefix`, and installs the definition. Recurses through
+/// `expand_iri_with` for terms this one depends on, using `defined` to detect
+/// cycles; a term already defined is a no-op.
+///
+/// `base_url` is what a scoped `@context` inside the definition resolves its own
+/// references against. `protected` is the context-wide `@protected` default,
+/// which an explicit `@protected` in the term definition overrides. Whether a
+/// previously protected definition may be replaced is governed by
+/// `options.override_protected`.
+///
+/// [1]: https://www.w3.org/TR/json-ld11-api/#create-term-definition
 pub async fn define<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -320,9 +354,10 @@ where
                         definition.reverse_property = true;
                     }
 
-                    // Step 14 onwards is skipped for reverse properties: the amended
-                    // algorithm falls through from `@reverse` but takes the "Otherwise"
-                    // branch (w3c/json-ld-api#565).
+                    // The specification's step 14 onwards is skipped for reverse
+                    // properties: as amended, the algorithm falls through from
+                    // `@reverse` but takes the "Otherwise" branch. See
+                    // https://github.com/w3c/json-ld-api/issues/565.
                     if !definition.reverse_property {
                         match value.id {
                             // If `value` contains the entry `@id` and its value does not equal `term`:
@@ -524,7 +559,7 @@ where
                                                 // of `definition` is set to the result of concatenating the value
                                                 // associated with the vocabulary mapping and `term`.
                                                 // If it does not have a vocabulary mapping, an invalid IRI mapping error
-                                                // been detected and processing is aborted.
+                                                // has been detected and processing is aborted.
                                                 if let Some(vocabulary_iri) = context_vocabulary.as_iri() {
                                                     let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
                                                     result.push_str(key.as_str());
@@ -538,7 +573,7 @@ where
                                                 }
                                             } else {
                                                 // If it does not have a vocabulary mapping, an invalid IRI mapping error
-                                                // been detected and processing is aborted.
+                                                // has been detected and processing is aborted.
                                                 return Err(Error::InvalidIriMapping);
                                             }
                                         }

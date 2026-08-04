@@ -25,8 +25,8 @@ pub enum Keyword {
     Context,
 
     /// `@direction`.
-    /// Used to set the base direction of a JSON-LD value, which are not typed values.
-    /// (e.g. strings, or language-tagged strings).
+    /// Used to set the base direction of those JSON-LD values that are not typed
+    /// values, that is strings and language-tagged strings.
     #[cfg_attr(feature = "serde", serde(rename = "@direction"))]
     Direction,
 
@@ -60,7 +60,7 @@ pub enum Keyword {
     Index,
 
     /// `@json`.
-    /// Used as the @type value of a JSON literal.
+    /// Used as the `@type` value of a JSON literal.
     #[cfg_attr(feature = "serde", serde(rename = "@json"))]
     Json,
 
@@ -136,13 +136,13 @@ pub enum Keyword {
     Version,
 
     /// `@vocab`.
-    /// Used to expand properties and values in @type with a common prefix IRI.
+    /// Used to expand properties and values in `@type` with a common prefix IRI.
     #[cfg_attr(feature = "serde", serde(rename = "@vocab"))]
     Vocab,
 }
 
 impl Keyword {
-    /// Consumes this `Keyword`, returning its str.
+    /// Returns the spelling of this keyword, including the leading `@`.
     pub fn into_str(self) -> &'static str {
         use Keyword::*;
         match self {
@@ -219,13 +219,7 @@ impl fmt::Display for Keyword {
     }
 }
 
-// impl<K: JsonBuild> utils::AsAnyJson<K> for Keyword {
-// 	fn as_json_with(&self, meta: K::MetaData) -> K {
-// 		self.into_str().as_json_with(meta)
-// 	}
-// }
-
-/// Checks whether this `Keyword` is keyword.
+/// Checks whether the given string is one of the JSON-LD keywords.
 pub fn is_keyword(str: &str) -> bool {
     Keyword::try_from(str).is_ok()
 }
@@ -235,7 +229,12 @@ fn is_alpha(c: char) -> bool {
     (0x41..=0x5a).contains(&c) || (0x61..=0x7a).contains(&c)
 }
 
-/// Checks whether this `Keyword` is keyword like.
+/// Checks whether the given string is *keyword-like*: an `@` followed by one
+/// or more ASCII letters.
+///
+/// Such strings are reserved for future revisions of JSON-LD. A keyword-like
+/// term that is not an actual keyword must be ignored during processing rather
+/// than treated as a term.
 pub fn is_keyword_like(s: &str) -> bool {
     if s.len() > 1 {
         for (i, c) in s.chars().enumerate() {
@@ -252,10 +251,14 @@ pub fn is_keyword_like(s: &str) -> bool {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 /// The `@type` keyword, as a type of its own.
+///
+/// Its [`Borrow<str>`](Borrow) implementation yields `"@type"`, which lets a
+/// term lookup that is generic over the key type match the `@type` entry of a
+/// context alongside ordinary terms.
 pub struct KeywordType;
 
 impl KeywordType {
-    /// Returns this value as a string slice.
+    /// Returns `"@type"`.
     pub fn as_str(&self) -> &'static str {
         "@type"
     }

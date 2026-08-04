@@ -33,7 +33,7 @@ pub enum Command {
     Expand {
         /// URL or file path of the document to expand.
         ///
-        /// Of none, the standard input is used.
+        /// If omitted, the document is read from the standard input.
         url_or_path: Option<IriOrPath>,
 
         /// Base URL to use when reading from the standard input or file system.
@@ -67,7 +67,7 @@ pub enum Command {
 
         /// URL or file path of the document to compact.
         ///
-        /// Of none, the standard input is used.
+        /// If omitted, the document is read from the standard input.
         url_or_path: Option<IriOrPath>,
 
         /// Base URL to use when reading from the standard input or file system.
@@ -79,7 +79,7 @@ pub enum Command {
     Flatten {
         /// URL or file path of the document to flatten.
         ///
-        /// Of none, the standard input is used.
+        /// If omitted, the document is read from the standard input.
         url_or_path: Option<IriOrPath>,
 
         /// Base URL to use when reading from the standard input or file system.

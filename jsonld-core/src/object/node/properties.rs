@@ -79,9 +79,10 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
         }
     }
 
-    /// Get one of the objects associated to the given property.
+    /// Returns one of the objects associated with the given property.
     ///
-    /// If multiple objects are found, there are no guaranties on which object will be returned.
+    /// If multiple objects are associated with it, there is no guarantee on
+    /// which one is returned.
     #[inline(always)]
     pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(&self, prop: &Q) -> Option<&IndexedObject<T, B>> {
         match self.0.get(prop) {

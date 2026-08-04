@@ -24,7 +24,8 @@ impl<T, B> Type<T, B> {
         }
     }
 
-    /// Consumes this `Type`, returning its reference.
+    /// Converts this type into a node identifier. Fails and returns itself
+    /// for the `@json` type, which names a literal rather than a node.
     pub fn into_reference(self) -> Result<Id<T, B>, Self> {
         match self {
             Type::Id(id) => Ok(Id::Valid(ValidId::Iri(id))),
@@ -36,7 +37,7 @@ impl<T, B> Type<T, B> {
 }
 
 impl<T, B> Type<T, B> {
-    /// Borrows this `Type` as IRI, if it is one.
+    /// Returns the IRI naming this type, if the type is an IRI.
     pub fn as_iri(&self) -> Option<&T> {
         match self {
             Self::Id(id) => Some(id),
@@ -126,7 +127,7 @@ impl<'a, T, B> TypeRef<'a, T, B> {
 }
 
 impl<'a, T, B> TypeRef<'a, T, B> {
-    /// Borrows this `TypeRef` as IRI, if it is one.
+    /// Returns the IRI naming this type, if the type is an IRI.
     pub fn as_iri(&self) -> Option<&'a T> {
         match self {
             Self::Id(id) => Some(id),

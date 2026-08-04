@@ -41,12 +41,12 @@ impl<I, B> ValidId<I, B> {
         }
     }
 
-    /// Checks whether this `ValidId` is blank.
+    /// Checks whether this identifier is a blank node identifier.
     pub fn is_blank(&self) -> bool {
         matches!(self, Self::Blank(_))
     }
 
-    /// Checks whether this `ValidId` is IRI.
+    /// Checks whether this identifier is an IRI.
     pub fn is_iri(&self) -> bool {
         matches!(self, Self::Iri(_))
     }
@@ -278,13 +278,15 @@ impl<I, B> Id<I, B> {
         }
     }
 
-    /// Checks if this is a valid reference.
+    /// Checks whether this identifier is a well-formed IRI or blank node
+    /// identifier, rather than a string that failed to parse as either.
     #[inline(always)]
     pub fn is_valid(&self) -> bool {
         !matches!(self, Self::Invalid(_))
     }
 
-    /// Consumes this `Id`, returning its blank.
+    /// Consumes the identifier, returning the blank node identifier if it is
+    /// one.
     pub fn into_blank(self) -> Option<B> {
         match self {
             Self::Valid(ValidId::Blank(b)) => Some(b),
@@ -293,13 +295,13 @@ impl<I, B> Id<I, B> {
     }
 
     #[inline(always)]
-    /// Checks whether this `Id` is blank.
+    /// Checks whether this identifier is a blank node identifier.
     pub fn is_blank(&self) -> bool {
         matches!(self, Id::Valid(ValidId::Blank(_)))
     }
 
     #[inline(always)]
-    /// Borrows this `Id` as blank, if it is one.
+    /// Returns the blank node identifier, if this identifier is one.
     pub fn as_blank(&self) -> Option<&B> {
         match self {
             Id::Valid(ValidId::Blank(k)) => Some(k),
@@ -308,13 +310,13 @@ impl<I, B> Id<I, B> {
     }
 
     #[inline(always)]
-    /// Checks whether this `Id` is IRI.
+    /// Checks whether this identifier is an IRI.
     pub fn is_iri(&self) -> bool {
         matches!(self, Id::Valid(ValidId::Iri(_)))
     }
 
     #[inline(always)]
-    /// Borrows this `Id` as IRI, if it is one.
+    /// Returns the IRI, if this identifier is one.
     pub fn as_iri(&self) -> Option<&I> {
         match self {
             Id::Valid(ValidId::Iri(k)) => Some(k),
@@ -323,7 +325,7 @@ impl<I, B> Id<I, B> {
     }
 
     #[inline(always)]
-    /// Consumes this `Id`, returning its term.
+    /// Converts this identifier into a term.
     pub fn into_term(self) -> Term<I, B> {
         Term::Id(self)
     }

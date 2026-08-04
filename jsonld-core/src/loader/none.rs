@@ -2,12 +2,10 @@ use super::Loader;
 use crate::{LoadError, loader::RemoteDocument};
 use iri_rs::{Iri, IriBuf};
 
-/// Dummy loader.
+/// Loader that never loads anything.
 ///
-/// A dummy loader that does not load anything.
-/// Can be useful when you know that you will never need to load remote resource.
-///
-/// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
+/// Useful when the documents being processed are known not to reference any
+/// remote context. Every load attempt fails with [`CannotLoad`].
 #[derive(Debug, Default)]
 pub struct NoLoader;
 

@@ -5,7 +5,18 @@ use jsonld_syntax::Keyword;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
-/// Compact the given indexed value.
+/// Compacts a value object, following the [value compaction algorithm][1].
+///
+/// Reduces the value object to a bare JSON scalar whenever the active property's
+/// type, language and direction mappings already say everything the value object
+/// spells out; otherwise rebuilds it as an object with `@value` and whichever of
+/// `@type`, `@language`, `@direction` and `@index` still carry information.
+///
+/// `index` is the `@index` the value was reached through. It is dropped when the
+/// active property's container mapping includes `@index`, because it has already
+/// become the enclosing map's key.
+///
+/// [1]: https://www.w3.org/TR/json-ld-api/#value-compaction
 pub async fn compact_indexed_value_with<N, L>(
     vocabulary: &mut N,
     value: &Value<N::Iri>,
@@ -54,10 +65,12 @@ where
     // If the active context has a null inverse context,
     // set inverse context in active context to the result of calling the
     // Inverse Context Creation algorithm using active context.
-    // NOTE never null here (FIXME is that true?)
-
+    //
     // Initialize inverse context to the value of inverse context in active context.
-    // DONE
+    //
+    // These two steps have no counterpart here: `Context::inverse` builds the
+    // inverse context on first access and caches it on the context, so it is
+    // never observably null and nothing has to bind it to a local.
 
     let active_property_definition = match active_property {
         Some(active_property) => active_context.get(active_property),
@@ -85,7 +98,10 @@ where
     };
 
     // If value has an @id entry and has no other entries other than @index:
-    // NOTE not possible here
+    //
+    // Unreachable here: this function only ever receives a value object, which
+    // by construction has an `@value` entry and no `@id`. The `@id`-only case is
+    // handled where node objects are compacted, in `node.rs`.
 
     // Otherwise, if value has an @type entry whose value matches the type mapping of
     // active property, set result to the value associated with the @value entry of value.
@@ -149,14 +165,13 @@ where
             }
         }
         Value::LangString(ls) => {
-            let ls_language = ls.language(); //.map(|l| Nullable::Some(l));
-            let ls_direction = ls.direction(); //.map(|d| Nullable::Some(d));
+            let ls_language = ls.language();
+            let ls_direction = ls.direction();
 
-            if remove_index
-			&& (ls_language.is_none() || language == ls_language) // || (ls.language().is_none() && language.is_none()))
-			&& (ls_direction.is_none() || direction == ls_direction)
-            {
-                // || (ls.direction().is_none() && direction.is_none())) {
+            // The string can be written bare only if the active property's
+            // language and direction mappings already imply the ones carried by
+            // the value.
+            if remove_index && (ls_language.is_none() || language == ls_language) && (ls_direction.is_none() || direction == ls_direction) {
                 return Ok(jstrict::Value::String(ls.as_str().into()));
             } else {
                 let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);

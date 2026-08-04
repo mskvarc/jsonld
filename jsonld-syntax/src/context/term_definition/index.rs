@@ -5,16 +5,17 @@ use std::{fmt, hash::Hash};
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-/// Value of the `@index` entry of a term definition.
+/// Value of the `@index` entry of a term definition: the property carrying the
+/// index of the values in an index map.
 pub struct Index(String);
 
 impl Index {
-    /// Borrows this `Index` as IRI, if it is one.
+    /// Parses this value as an IRI, returning `None` if it is not one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0.as_str()).ok()
     }
 
-    /// Borrows this `Index` as compact IRI, if it is one.
+    /// Parses this value as a compact IRI, returning `None` if it is not one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(&self.0).ok()
     }
@@ -24,7 +25,7 @@ impl Index {
         &self.0
     }
 
-    /// Consumes this `Index`, returning its string.
+    /// Unwraps the underlying string.
     pub fn into_string(self) -> String {
         self.0
     }
@@ -55,28 +56,3 @@ impl From<String> for Index {
         Self(s)
     }
 }
-
-// #[derive(Clone, Copy)]
-// pub struct IndexRef<'a>(&'a str);
-
-// impl<'a> IndexRef<'a> {
-// 	pub fn to_owned(self) -> Index {
-// 		Index(self.0.to_owned())
-// 	}
-
-// 	pub fn as_str(&self) -> &'a str {
-// 		self.0
-// 	}
-// }
-
-// impl<'a> From<&'a Index> for IndexRef<'a> {
-// 	fn from(i: &'a Index) -> Self {
-// 		Self(&i.0)
-// 	}
-// }
-
-// impl<'a> From<IndexRef<'a>> for super::EntryKeyRef<'a> {
-// 	fn from(i: IndexRef<'a>) -> Self {
-// 		i.0.into()
-// 	}
-// }

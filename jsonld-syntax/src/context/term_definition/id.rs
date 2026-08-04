@@ -8,14 +8,16 @@ use std::{fmt, hash::Hash};
 #[cfg_attr(feature = "serde", serde(untagged))]
 /// Value of the `@id` entry of a term definition.
 pub enum Id {
-    /// A JSON-LD keyword.
+    /// A JSON-LD keyword, which makes the term an alias of that keyword.
     Keyword(Keyword),
-    /// A term defined by the active context.
+    /// Anything else: an IRI, a compact IRI, a blank node identifier or another
+    /// term of the context. Kept unvalidated, as telling those apart requires
+    /// the processed context.
     Term(String),
 }
 
 impl Id {
-    /// Borrows this `Id` as IRI, if it is one.
+    /// Parses this value as an IRI, returning `None` if it is not one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         match self {
             Self::Term(t) => Iri::parse(t.as_str()).ok(),
@@ -23,7 +25,8 @@ impl Id {
         }
     }
 
-    /// Borrows this `Id` as blank id, if it is one.
+    /// Parses this value as a blank node identifier, returning `None` if it is
+    /// not one.
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         match self {
             Self::Term(t) => BlankId::new(t).ok(),
@@ -31,7 +34,7 @@ impl Id {
         }
     }
 
-    /// Borrows this `Id` as compact IRI, if it is one.
+    /// Parses this value as a compact IRI, returning `None` if it is not one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         match self {
             Self::Term(t) => CompactIri::new(t).ok(),
@@ -39,7 +42,7 @@ impl Id {
         }
     }
 
-    /// Borrows this `Id` as keyword, if it is one.
+    /// Returns the keyword, or `None` if this value is not one.
     pub fn as_keyword(&self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -47,7 +50,7 @@ impl Id {
         }
     }
 
-    /// Returns this value as a string slice.
+    /// Returns this value as it is spelled in the context.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t.as_str(),
@@ -55,7 +58,8 @@ impl Id {
         }
     }
 
-    /// Consumes this `Id`, returning its string.
+    /// Converts this value into an owned `String`, allocating if it is a
+    /// keyword.
     pub fn into_string(self) -> String {
         match self {
             Self::Term(t) => t,
@@ -63,17 +67,18 @@ impl Id {
         }
     }
 
-    /// Checks whether this `Id` is keyword.
+    /// Checks whether this value is a JSON-LD keyword.
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
 
-    /// Checks whether this `Id` is keyword like.
+    /// Checks whether this value is keyword-like: an `@` followed by ASCII
+    /// letters. See [`crate::is_keyword_like`].
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }
 
-    /// Borrows this `Id` as id ref, if it is one.
+    /// Returns a borrowed view of this value.
     pub fn as_id_ref(&self) -> IdRef<'_> {
         match self {
             Self::Term(t) => IdRef::Term(t),
@@ -130,14 +135,15 @@ impl fmt::Display for Id {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Borrowed value of the `@id` entry of a term definition.
 pub enum IdRef<'a> {
-    /// A term defined by the active context.
+    /// An IRI, a compact IRI, a blank node identifier or another term of the
+    /// context.
     Term(&'a str),
-    /// A JSON-LD keyword.
+    /// A JSON-LD keyword, which makes the term an alias of that keyword.
     Keyword(Keyword),
 }
 
 impl<'a> IdRef<'a> {
-    /// Returns this value as a string slice.
+    /// Returns this value as it is spelled in the context.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t,
@@ -145,12 +151,13 @@ impl<'a> IdRef<'a> {
         }
     }
 
-    /// Checks whether this `IdRef` is keyword.
+    /// Checks whether this value is a JSON-LD keyword.
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
 
-    /// Checks whether this `IdRef` is keyword like.
+    /// Checks whether this value is keyword-like: an `@` followed by ASCII
+    /// letters. See [`crate::is_keyword_like`].
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }

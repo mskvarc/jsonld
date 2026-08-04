@@ -1,6 +1,11 @@
 pub use jsonld_syntax::ContainerKind;
 use jsonld_syntax::{Nullable, context::definition::TypeContainer};
 
+/// Error raised when a set of `@container` values cannot be combined.
+///
+/// Only certain combinations are allowed by the JSON-LD grammar — `@set` pairs
+/// with most other values, but `@list` and `@language` do not pair with
+/// `@index`, for instance.
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 #[error("invalid container")]
 pub struct InvalidContainer;
@@ -9,23 +14,24 @@ pub struct InvalidContainer;
 /// Container mapping of a term: the combination of `@container` values it
 /// was defined with.
 pub enum Container {
-    // Empty container
-    /// No value.
+    /// Empty container: no `@container` value.
     None,
 
-    /// The `@graph` entry, holding the node objects of a named graph.
+    /// `@graph`: the values of the term are graph objects.
     Graph,
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// `@id`: the values of the term form an id map, keyed by node identifier.
     Id,
-    /// The `@index` entry, indexing the value within its container.
+    /// `@index`: the values of the term form an index map, keyed by an
+    /// arbitrary index string.
     Index,
-    /// The `@language` entry, tagging string values with a language.
+    /// `@language`: the values of the term form a language map, keyed by
+    /// language tag.
     Language,
-    /// The `@list` entry, marking the values as an ordered list.
+    /// `@list`: the values of the term are an ordered list.
     List,
-    /// The `@set` entry, marking the values as an unordered set.
+    /// `@set`: the values of the term are always represented as an array.
     Set,
-    /// The `@type` entry, giving the type of the node or the values.
+    /// `@type`: the values of the term form a type map, keyed by node type.
     Type,
 
     /// `@graph` and `@set`.
@@ -92,7 +98,7 @@ impl Container {
         Ok(container)
     }
 
-    /// Borrows this `Container` as slice, if it is one.
+    /// Returns the combined `@container` values as a slice.
     pub fn as_slice(&self) -> &[ContainerKind] {
         use Container::*;
         match self {
@@ -116,27 +122,28 @@ impl Container {
         }
     }
 
-    /// Returns an iterator over the entries of this `Container`.
+    /// Returns an iterator over the combined `@container` values.
     pub fn iter(&self) -> impl Iterator<Item = &ContainerKind> {
         self.as_slice().iter()
     }
 
-    /// Returns the number of entries of this `Container`.
+    /// Returns the number of combined `@container` values.
     pub fn len(&self) -> usize {
         self.as_slice().len()
     }
 
-    /// Checks whether this `Container` is empty.
+    /// Checks whether the container mapping is empty.
     pub fn is_empty(&self) -> bool {
         matches!(self, Container::None)
     }
 
-    /// Checks whether this `Container` contains.
+    /// Checks whether the mapping includes the given `@container` value.
     pub fn contains(&self, c: ContainerKind) -> bool {
         self.as_slice().contains(&c)
     }
 
-    /// Returns the with of this `Container`.
+    /// Returns this mapping extended with the given `@container` value, or
+    /// `None` if the combination is not allowed by the JSON-LD grammar.
     pub fn with(&self, c: ContainerKind) -> Option<Container> {
         let new_container = match (self, c) {
             (Container::None, c) => c.into(),
@@ -193,7 +200,9 @@ impl Container {
         Some(new_container)
     }
 
-    /// Checks whether this `Container` add.
+    /// Adds the given `@container` value to the mapping in place. Returns
+    /// `false` (leaving the mapping unchanged) if the combination is not
+    /// allowed by the JSON-LD grammar.
     pub fn add(&mut self, c: ContainerKind) -> bool {
         match self.with(c) {
             Some(container) => {
@@ -204,7 +213,9 @@ impl Container {
         }
     }
 
-    /// Consumes this `Container`, returning its syntax.
+    /// Converts the mapping into its syntactic form: a single `@container`
+    /// value when it combines exactly one, an array when it combines several,
+    /// and `None` when it is empty.
     pub fn into_syntax(self) -> Option<jsonld_syntax::Container> {
         let slice = self.as_slice();
 

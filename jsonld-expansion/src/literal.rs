@@ -5,12 +5,15 @@ use jsonld_syntax::{ErrorCode, LenientLangTag, Nullable};
 use jstrict::Number;
 use rdfx::vocabulary::VocabularyMut;
 
+/// Scalar taken as it appears in the input document.
 pub(crate) enum GivenLiteralValue<'a> {
     Boolean(bool),
     Number(&'a Number),
     String(&'a str),
 }
 
+/// Error raised when value expansion is asked to expand something that is not
+/// a JSON scalar, such as an array or an object.
 #[derive(Debug, thiserror::Error)]
 #[error("not a literal value")]
 pub struct NotALiteral;
@@ -33,8 +36,12 @@ impl<'a> GivenLiteralValue<'a> {
     }
 }
 
+/// Value handed to the Value Expansion algorithm.
 pub(crate) enum LiteralValue<'a> {
+    /// A scalar read from the input document.
     Given(GivenLiteralValue<'a>),
+    /// A string the algorithm produced itself, as when an index map key is
+    /// re-expanded as the value of the index property.
     Inferred(jsonld_syntax::String),
 }
 
@@ -49,22 +56,32 @@ impl<'a> LiteralValue<'a> {
 
 pub(crate) type ExpandedLiteral<T, B> = IndexedObject<T, B>;
 
+/// Error raised while expanding a scalar into a literal or a node reference.
 #[derive(Debug, thiserror::Error)]
 pub enum LiteralExpansionError {
+    /// The active property has a type mapping that is neither `@id`, `@vocab`,
+    /// `@none` nor an IRI, so it cannot be used as the datatype of the
+    /// literal.
     #[error("Invalid `@type` value")]
     InvalidTypeValue,
 
+    /// The value had to be expanded through the vocabulary mapping (`@vocab`),
+    /// which the [`Policy`](crate::Policy) in use forbids.
     #[error("Forbidden use of `@vocab`")]
     ForbiddenVocab,
 
+    /// The active property has an `@id` type mapping, but the value expanded
+    /// to nothing, leaving no identifier for the node reference.
     #[error("IRI expansion produced no result")]
     IdExpansionEmpty,
 
+    /// The value to expand is not a JSON scalar.
     #[error(transparent)]
     NotALiteral(#[from] NotALiteral),
 }
 
 impl LiteralExpansionError {
+    /// Returns the JSON-LD error code this error is reported under.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
@@ -83,8 +100,13 @@ impl From<RejectVocab> for LiteralExpansionError {
 
 pub(crate) type LiteralExpansionResult<T, B> = Result<ExpandedLiteral<T, B>, LiteralExpansionError>;
 
-/// Expand a literal value.
-/// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
+/// Expands a scalar into a value object, or into a node reference when the
+/// active property maps its values to identifiers.
+///
+/// Implements the [Value Expansion
+/// algorithm](https://www.w3.org/TR/json-ld11-api/#value-expansion): the type,
+/// language and direction mappings of the active property, or the defaults of
+/// the active context, decide what the scalar becomes.
 pub(crate) fn expand_literal<N, L, W>(
     mut env: Environment<N, L, W>,
     vocab_policy: Action,

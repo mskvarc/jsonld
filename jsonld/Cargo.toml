@@ -95,6 +95,9 @@ all-features = true
 # The `gxhash` feature hard-fails without AES intrinsics; docs.rs applies
 # rustc-args as extra RUSTFLAGS, so this reaches the gxhash dependency build.
 rustc-args = ["-C", "target-cpu=native"]
+# Enables the `doc_auto_cfg` attribute in lib.rs, which labels each
+# feature-gated item with the feature that unlocks it.
+rustdoc-args = ["--cfg", "docsrs"]
 
 [package.metadata.cargo-machete]
 # `criterion` is used by the `benches/*` targets, which cargo-machete does not

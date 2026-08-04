@@ -5,46 +5,49 @@ use crate::Keyword;
 /// A single `@container` value.
 pub enum ContainerKind {
     #[cfg_attr(feature = "serde", serde(rename = "@graph"))]
-    /// The `@graph` entry, holding the node objects of a named graph.
+    /// `@graph`: the values of the term are graph objects.
     Graph,
 
     #[cfg_attr(feature = "serde", serde(rename = "@id"))]
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// `@id`: the values of the term form an id map, keyed by node identifier.
     Id,
 
     #[cfg_attr(feature = "serde", serde(rename = "@index"))]
-    /// The `@index` entry, indexing the value within its container.
+    /// `@index`: the values of the term form an index map, keyed by an
+    /// arbitrary index string.
     Index,
 
     #[cfg_attr(feature = "serde", serde(rename = "@language"))]
-    /// The `@language` entry, tagging string values with a language.
+    /// `@language`: the values of the term form a language map, keyed by
+    /// language tag.
     Language,
 
     #[cfg_attr(feature = "serde", serde(rename = "@list"))]
-    /// The `@list` entry, marking the values as an ordered list.
+    /// `@list`: the values of the term are an ordered list.
     List,
 
     #[cfg_attr(feature = "serde", serde(rename = "@set"))]
-    /// The `@set` entry, marking the values as an unordered set.
+    /// `@set`: the values of the term are always represented as an array.
     Set,
 
     #[cfg_attr(feature = "serde", serde(rename = "@type"))]
-    /// The `@type` entry, giving the type of the node or the values.
+    /// `@type`: the values of the term form a type map, keyed by node type.
     Type,
 }
 
 impl ContainerKind {
-    /// Consumes this `ContainerKind`, returning its keyword.
+    /// Returns the keyword naming this container, taking `self` by value.
     pub fn into_keyword(self) -> Keyword {
         self.into()
     }
 
-    /// Returns the keyword of this `ContainerKind`.
+    /// Returns the keyword naming this container.
     pub fn keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
-    /// Returns this value as a string slice.
+    /// Returns the keyword naming this container as a string, such as
+    /// `"@set"`.
     pub fn as_str(&self) -> &'static str {
         self.into_keyword().into_str()
     }
@@ -111,19 +114,22 @@ impl From<ContainerKind> for Container {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
 /// The `@container` entry: one value, or an array of them.
 pub enum Container {
-    /// Exactly one value.
+    /// A single container, written as a string.
     One(ContainerKind),
-    /// Several values.
+    /// Several containers, written as an array of strings.
     Many(Vec<ContainerKind>),
 }
 
 impl Container {
-    /// Checks whether this `Container` is array.
+    /// Checks whether this entry is written as a JSON array.
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
-    /// Returns the sub fragments of this `Container`.
+    /// Returns an iterator over the array items of this entry.
+    ///
+    /// The iterator is empty for a single container, which is written as a
+    /// string and therefore has no items of its own.
     pub fn sub_fragments(&self) -> SubValues<'_> {
         match self {
             Self::One(_) => SubValues::None,
@@ -132,11 +138,11 @@ impl Container {
     }
 }
 
-/// Iterator over the values of a `@container` entry.
+/// Iterator over the array items of a `@container` entry.
 pub enum SubValues<'a> {
-    /// No value.
+    /// Nothing to iterate over: the entry held a single container.
     None,
-    /// Several values.
+    /// The items of an array-valued entry.
     Many(std::slice::Iter<'a, ContainerKind>),
 }
 

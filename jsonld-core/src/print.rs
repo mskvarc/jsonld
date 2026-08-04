@@ -389,14 +389,8 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> PrecomputeSizeWithContext<N>
         match *self {
             object::node::EntryValueRef::Id(v) => v.contextual_pre_compute_size(vocabulary, options, sizes),
             object::node::EntryValueRef::Type(v) => pre_compute_array_size(v.iter().map(|i| i.with(vocabulary)), options, sizes),
-            object::node::EntryValueRef::Graph(v) => {
-                pre_compute_array_size(v.iter().map(|i| i.with(vocabulary)), options, sizes)
-                // v.contextual_pre_compute_size(vocabulary, options, sizes)
-            }
-            object::node::EntryValueRef::Included(v) => {
-                pre_compute_array_size(v.iter().map(|i| i.with(vocabulary)), options, sizes)
-                // v.contextual_pre_compute_size(vocabulary, options, sizes)
-            }
+            object::node::EntryValueRef::Graph(v) => pre_compute_array_size(v.iter().map(|i| i.with(vocabulary)), options, sizes),
+            object::node::EntryValueRef::Included(v) => pre_compute_array_size(v.iter().map(|i| i.with(vocabulary)), options, sizes),
             object::node::EntryValueRef::Reverse(v) => v.contextual_pre_compute_size(vocabulary, options, sizes),
             object::node::EntryValueRef::Property(v) => pre_compute_array_size(v.iter().map(|i| i.with(vocabulary)), options, sizes),
         }
@@ -416,14 +410,8 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> PrintWithSizeAndContext<N> f
         match self {
             object::node::EntryValueRef::Id(v) => v.with(vocabulary).fmt_with(f, options, indent),
             object::node::EntryValueRef::Type(v) => print_array(v.iter().map(|i| i.with(vocabulary)), f, options, indent, sizes, index),
-            object::node::EntryValueRef::Graph(v) => {
-                // v.contextual_fmt_with_size(vocabulary, f, options, indent, sizes, index)
-                print_array(v.iter().map(|i| i.with(vocabulary)), f, options, indent, sizes, index)
-            }
-            object::node::EntryValueRef::Included(v) => {
-                // v.contextual_fmt_with_size(vocabulary, f, options, indent, sizes, index)
-                print_array(v.iter().map(|i| i.with(vocabulary)), f, options, indent, sizes, index)
-            }
+            object::node::EntryValueRef::Graph(v) => print_array(v.iter().map(|i| i.with(vocabulary)), f, options, indent, sizes, index),
+            object::node::EntryValueRef::Included(v) => print_array(v.iter().map(|i| i.with(vocabulary)), f, options, indent, sizes, index),
             object::node::EntryValueRef::Reverse(v) => v.contextual_fmt_with_size(vocabulary, f, options, indent, sizes, index),
             object::node::EntryValueRef::Property(v) => print_array(v.iter().map(|i| i.with(vocabulary)), f, options, indent, sizes, index),
         }

@@ -17,7 +17,10 @@ pub use type_::*;
 pub use version::*;
 pub use vocab::*;
 
-/// Context definition.
+/// Context definition: the object form of a context entry.
+///
+/// Holds the keyword entries a context may set (`@base`, `@vocab`, …) and the
+/// term definitions it binds.
 #[derive(PartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[educe(Default)]
@@ -52,11 +55,12 @@ pub struct Definition {
     pub propagate: Option<bool>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@protected", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@protected` entry, forbidding redefinition of the term.
+    /// The `@protected` entry, forbidding redefinition of the terms defined here.
     pub protected: Option<bool>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@type", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, setting how the node types of the described documents
+    /// are laid out and whether that setting is protected.
     pub type_: Option<Type>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@version", default, skip_serializing_if = "Option::is_none"))]
@@ -76,12 +80,15 @@ pub struct Definition {
 }
 
 impl Definition {
-    /// Creates a new `Definition`.
+    /// Creates an empty context definition, with no entry set.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns the value bound to the given key, if any.
+    /// Returns the value of the entry with the given key, if that entry is set.
+    ///
+    /// The key may name a keyword entry or a term binding. Keywords that a
+    /// context definition cannot hold, such as `@id`, always yield `None`.
     pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<'_>> {
         match key {
             KeyOrKeyword::Keyword(k) => match k {
@@ -100,20 +107,20 @@ impl Definition {
         }
     }
 
-    /// Returns the get binding of this `Definition`.
+    /// Returns the term definition bound to the given term, if any.
     pub fn get_binding(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
         self.bindings.get(key)
     }
 }
 
-/// Context bindings.
+/// Term definitions of a context, keyed by term and kept in insertion order.
 #[derive(PartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[educe(Default)]
 pub struct Bindings(IndexMap<Key, Nullable<TermDefinition>>);
 
-/// Iterator over the term definitions of a context.
+/// Iterator over the term definitions of a context, in insertion order.
 pub struct BindingsIter<'a>(indexmap::map::Iter<'a, Key, Nullable<TermDefinition>>);
 
 impl<'a> Iterator for BindingsIter<'a> {
@@ -137,44 +144,49 @@ impl<'a> DoubleEndedIterator for BindingsIter<'a> {
 impl<'a> ExactSizeIterator for BindingsIter<'a> {}
 
 impl Bindings {
-    /// Inserts an entry into this `BindingsIter`, returning the entry it replaced.
+    /// Binds `key` to `def`, returning the definition it replaced, if any.
     pub fn insert(&mut self, key: Key, def: Nullable<TermDefinition>) -> Option<Nullable<TermDefinition>> {
         self.0.insert(key, def)
     }
 }
 
 impl Bindings {
-    /// Creates a new `BindingsIter`.
+    /// Creates an empty set of bindings.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns the number of entries of this `BindingsIter`.
+    /// Returns the number of bound terms.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Checks whether this `BindingsIter` is empty.
+    /// Checks whether no term is bound.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    /// Returns the value bound to the given key, if any.
+    /// Returns the definition bound to the given term, if any.
+    ///
+    /// The result is `Some(Nullable::Null)` for a term the context explicitly
+    /// unsets by binding it to `null`.
     pub fn get(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
         self.0.get(key).map(Nullable::as_ref)
     }
 
-    /// Returns the get entry of this `BindingsIter`.
+    /// Returns the `i`th binding in insertion order, if there is one.
     pub fn get_entry(&self, i: usize) -> Option<(&Key, Nullable<&TermDefinition>)> {
         self.0.get_index(i).map(|(key, value)| (key, value.as_ref()))
     }
 
-    /// Returns an iterator over the entries of this `BindingsIter`.
+    /// Returns an iterator over the bindings, in insertion order.
     pub fn iter(&self) -> BindingsIter<'_> {
         BindingsIter(self.0.iter())
     }
 
-    /// Binds `key` to `def`, returning the definition it replaced.
+    /// Binds `key` to `def`, returning the definition it replaced, if any.
+    ///
+    /// Same as [`insert`](Self::insert).
     pub fn insert_with(&mut self, key: Key, def: Nullable<TermDefinition>) -> Option<Nullable<TermDefinition>> {
         self.0.insert(key, def)
     }
@@ -201,23 +213,23 @@ impl FromIterator<(Key, Nullable<TermDefinition>)> for Bindings {
     }
 }
 
-/// Context definition fragment.
+/// Fragment of a context definition.
 pub enum FragmentRef<'a> {
-    /// Context definition entry.
+    /// An entry of the definition, key and value together.
     Entry(EntryRef<'a>),
 
-    /// Context definition entry key.
+    /// The key of an entry of the definition.
     Key(EntryKeyRef<'a>),
 
-    /// Context definition entry value.
+    /// The value of an entry of the definition.
     Value(EntryValueRef<'a>),
 
-    /// Term definition fragment.
+    /// A fragment of one of the term definitions.
     TermDefinitionFragment(term_definition::FragmentRef<'a>),
 }
 
 impl<'a> FragmentRef<'a> {
-    /// Checks whether this `FragmentRef` is key.
+    /// Checks whether this fragment is an entry key.
     pub fn is_key(&self) -> bool {
         match self {
             Self::Key(_) => true,
@@ -226,7 +238,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is entry.
+    /// Checks whether this fragment is an entry, key and value together.
     pub fn is_entry(&self) -> bool {
         match self {
             Self::Entry(_) => true,
@@ -235,7 +247,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is array.
+    /// Checks whether this fragment is a JSON array.
     pub fn is_array(&self) -> bool {
         match self {
             Self::TermDefinitionFragment(i) => i.is_array(),
@@ -243,7 +255,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is object.
+    /// Checks whether this fragment is a JSON object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_object(),
@@ -252,7 +264,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Returns the sub items of this `FragmentRef`.
+    /// Returns an iterator over the fragments directly contained in this one.
     pub fn sub_items(&self) -> SubItems<'a> {
         match self {
             Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(Box::new(e.value()))),
@@ -265,9 +277,9 @@ impl<'a> FragmentRef<'a> {
 
 /// Iterator over the fragments held by a context entry value.
 pub enum EntryValueSubItems<'a> {
-    /// No value.
+    /// Nothing to iterate over: the value holds no fragment of its own.
     None,
-    /// The entries of a term definition.
+    /// The entries of an expanded term definition.
     TermDefinitionFragment(Box<term_definition::Entries<'a>>),
 }
 
@@ -284,11 +296,11 @@ impl<'a> Iterator for EntryValueSubItems<'a> {
 
 /// Iterator over the fragments held by a context definition.
 pub enum SubItems<'a> {
-    /// No value.
+    /// Nothing to iterate over.
     None,
-    /// An object entry.
+    /// The key and value of an entry, yielded in that order.
     Entry(Option<EntryKeyRef<'a>>, Option<Box<EntryValueRef<'a>>>),
-    /// A value object.
+    /// The fragments held by an entry value.
     Value(EntryValueSubItems<'a>),
     /// The fragments of a term definition.
     TermDefinitionFragment(term_definition::SubFragments<'a>),

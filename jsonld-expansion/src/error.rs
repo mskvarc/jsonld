@@ -5,75 +5,91 @@ use jsonld_syntax::ErrorCode;
 /// Error raised while expanding a document.
 pub enum Error<E = std::convert::Infallible> {
     #[error("Invalid context: {0}")]
-    /// Invalid context: the given value.
+    /// The value of an `@context` entry is not a valid JSON-LD context.
     ContextSyntax(#[from] jsonld_syntax::context::InvalidContext),
 
     #[error("Context processing failed: {0}")]
-    /// Context processing failed: the given value.
+    /// Processing a local, scoped or remote `@context` failed. This includes
+    /// the failures of the document loader fetching a remote context.
     ContextProcessing(jsonld_context_processing::Error<E>),
 
     #[error("Invalid `@index` value")]
-    /// Invalid `@index` value.
+    /// An `@index` entry has a value that is not a string.
     InvalidIndexValue,
 
     #[error("Invalid set or list object")]
-    /// Invalid set or list object.
+    /// A `@set` or `@list` object has an entry other than `@set`/`@list` and
+    /// `@index`.
     InvalidSetOrListObject,
 
     #[error("Invalid `@reverse` property map")]
-    /// Invalid `@reverse` property map.
+    /// A key of a `@reverse` map expands to a keyword, or a keyword entry was
+    /// found while `@reverse` is the active property.
     InvalidReversePropertyMap,
 
     #[error("Invalid `@type` value")]
-    /// Invalid `@type` value.
+    /// An `@type` entry is not a string or an array of strings, or one of its
+    /// values does not expand to an IRI or blank node identifier.
     InvalidTypeValue,
 
     #[error("Key `{0}` expansion failed")]
-    /// Key `the given value` expansion failed.
+    /// The given key could not be expanded into an IRI, and the [`Policy`] in
+    /// use rejects such keys instead of dropping them.
+    ///
+    /// [`Policy`]: crate::Policy
     KeyExpansionFailed(String),
 
     #[error("Invalid `@reverse` property value")]
-    /// Invalid `@reverse` property value.
+    /// A reverse property has a value that is not a node object, which cannot
+    /// be the subject of the reversed relation.
     InvalidReversePropertyValue,
 
     #[error("Invalid `@language` map value")]
-    /// Invalid `@language` map value.
+    /// A language map (`@container: @language`) has a value that is neither a
+    /// string, `null`, nor an array of those.
     InvalidLanguageMapValue,
 
     #[error("Colliding keywords")]
-    /// Colliding keywords.
+    /// Two distinct keys of the same node object expand to the same keyword.
+    ///
+    /// In JSON-LD 1.1 this is tolerated for `@included` and `@type`, whose
+    /// values are merged instead.
     CollidingKeywords,
 
     #[error("Invalid `@id` value")]
-    /// Invalid `@id` value.
+    /// An `@id` entry has a value that is not a string.
     InvalidIdValue,
 
     #[error("Invalid `@included` value")]
-    /// Invalid `@included` value.
+    /// An `@included` entry contains something else than node objects.
     InvalidIncludedValue,
 
     #[error("Invalid `@reverse` value")]
-    /// Invalid `@reverse` value.
+    /// A `@reverse` entry has a value that is not a map.
     InvalidReverseValue,
 
     #[error("Invalid `@nest` value")]
-    /// Invalid `@nest` value.
+    /// An `@nest` entry has a value that is not a map (or an array of maps),
+    /// or one of those maps has an entry expanding to `@value`.
     InvalidNestValue,
 
     #[error("Duplicate key `{0}`")]
-    /// Duplicate key `the given value`.
+    /// The given key appears twice in the same JSON object.
     DuplicateKey(jstrict::object::Key),
 
     #[error(transparent)]
-    /// An RDF literal.
+    /// Expanding a scalar into a literal failed. See
+    /// [`LiteralExpansionError`](crate::LiteralExpansionError).
     Literal(crate::LiteralExpansionError),
 
     #[error(transparent)]
-    /// A value object.
+    /// A value object (a map with an `@value` entry) is invalid. See
+    /// [`InvalidValue`](crate::InvalidValue).
     Value(crate::InvalidValue),
 
     #[error("Forbidden use of `@vocab`")]
-    /// Forbidden use of `@vocab`.
+    /// A key could only be expanded through the vocabulary mapping (`@vocab`),
+    /// which the [`Policy`](crate::Policy) in use forbids.
     ForbiddenVocab,
 
     #[error("List of lists")]
@@ -90,7 +106,10 @@ impl<E> From<RejectVocab> for Error<E> {
 }
 
 impl<E> Error<E> {
-    /// Returns the code of this `Error`.
+    /// Returns the JSON-LD error code this error is reported under, as named by
+    /// the [JSON-LD API specification][spec].
+    ///
+    /// [spec]: https://www.w3.org/TR/json-ld11-api/#jsonlderror
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::ContextSyntax(e) => e.code(),
@@ -117,7 +136,8 @@ impl<E> Error<E> {
 }
 
 impl<E> Error<E> {
-    /// Builds a duplicate-key error from the duplicate `jstrict` reports.
+    /// Builds an [`Error::DuplicateKey`] from the pair of colliding entries
+    /// `jstrict` reports, keeping the key of the first one.
     pub fn duplicate_key_ref(jstrict::object::Duplicate(a, _b): jstrict::object::Duplicate<&jstrict::object::Entry>) -> Self {
         Self::DuplicateKey(a.key.clone())
     }

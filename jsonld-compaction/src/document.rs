@@ -8,14 +8,20 @@ use crate::{CompactFragment, iri::IriConfusedWithPrefix};
 /// Result of compacting a whole document.
 pub type CompactDocumentResult<E> = Result<jstrict::Value, crate::Error<E>>;
 
-/// Context embeding method.
+/// Documents that a `@context` can be embedded into.
 ///
-/// This trait provides the `embed_context` method that can be used
-/// to include a JSON-LD context to a JSON-LD document.
-/// It is used at the end of compaction algorithm to embed to
-/// context used to compact the document into the compacted output.
+/// The final step of document compaction is to record, in the output, the
+/// context the output was compacted against, so that the result round-trips
+/// back to the same expanded document.
 pub trait EmbedContext {
-    /// Embeds the given context into the document.
+    /// Embeds `context` into this document as a `@context` entry.
+    ///
+    /// The context is written in its original, unprocessed form, as the first
+    /// entry of the document's top-level object. A document that compacted to an
+    /// array is first wrapped in an object under whatever `@graph` compacts to,
+    /// since only an object can carry `@context`. Nothing is embedded when the
+    /// document compacted to `null` or to nothing at all, or when the context
+    /// itself is null or empty.
     fn embed_context<N>(
         &mut self,
         vocabulary: &N,
@@ -28,9 +34,14 @@ pub trait EmbedContext {
         N::BlankId: Clone + Hash + Eq;
 }
 
-/// Compaction function.
+/// Whole documents that can be compacted against a processed `@context`.
+///
+/// Implemented for [`ExpandedDocument`] and [`FlattenedDocument`]. Unlike
+/// [`CompactFragment`], these methods take the context in both its processed and
+/// its original form: the processed form drives compaction, and the original form
+/// is embedded into the output as its `@context`.
 pub trait Compact<I, B> {
-    /// Compacts the input document with full options.
+    /// Compacts this document with the given [`Options`][crate::Options].
     async fn compact_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -44,8 +55,9 @@ pub trait Compact<I, B> {
         B: Clone + Hash + Eq,
         L: Loader;
 
-    /// Compacts the input document with the given `vocabulary` to
-    /// interpret identifiers.
+    /// Compacts this document with the default
+    /// [`Options`][crate::Options], using `vocabulary` to resolve IRI and blank
+    /// node identifiers.
     async fn compact_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -61,7 +73,9 @@ pub trait Compact<I, B> {
         self.compact_full(vocabulary, context, loader, crate::Options::default()).await
     }
 
-    /// Compacts the input document.
+    /// Compacts this document with the default [`Options`][crate::Options], for
+    /// documents that store IRIs and blank node identifiers inline instead of
+    /// indexing them through a vocabulary.
     async fn compact<'a, L>(&'a self, context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>, loader: &'a L) -> CompactDocumentResult<L::Error>
     where
         (): rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,

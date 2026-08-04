@@ -5,19 +5,19 @@ use std::fmt;
 #[error("nullable value was null")]
 pub struct NullError;
 
-/// Value that can be null.
+/// Value that can be `null`.
 ///
-/// The `Option` type is used in this crate to indicate values that
-/// may or may not be defined.
-/// Sometimes however,
-/// value can be explicitly defined as `null`,
-/// hence the need for this type.
+/// `Option` is used throughout this crate for entries that may or may not be
+/// present. A JSON-LD entry can also be present with the explicit value
+/// `null`, which is meaningful: it unsets whatever the surrounding context
+/// inherited. Hence this separate type, so that `Option<Nullable<T>>` can tell
+/// an absent entry from an entry set to `null`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub enum Nullable<T> {
-    /// Null value.
+    /// The `null` value.
     Null,
 
-    /// Some other value.
+    /// Any other value.
     Some(T),
 }
 
@@ -43,7 +43,7 @@ impl<T> Nullable<T> {
         }
     }
 
-    /// Returns a nullabl reference to the inner value.
+    /// Converts `&Nullable<T>` into `Nullable<&T>`.
     #[inline(always)]
     pub fn as_ref(&self) -> Nullable<&T> {
         match self {
@@ -52,7 +52,8 @@ impl<T> Nullable<T> {
         }
     }
 
-    /// Borrows this `Nullable` as deref, if it is one.
+    /// Converts `&Nullable<T>` into `Nullable<&T::Target>` by dereferencing
+    /// the inner value.
     pub fn as_deref(&self) -> Nullable<&T::Target>
     where
         T: std::ops::Deref,
@@ -63,7 +64,7 @@ impl<T> Nullable<T> {
         }
     }
 
-    /// Transform into an `Option` value.
+    /// Converts this value into an `Option`, mapping `null` to `None`.
     #[inline(always)]
     pub fn option(self) -> Option<T> {
         match self {
@@ -72,7 +73,7 @@ impl<T> Nullable<T> {
         }
     }
 
-    /// Map the inner value using the given function.
+    /// Maps the inner value with the given function, keeping `null` as `null`.
     #[inline(always)]
     pub fn map<F, U>(self, f: F) -> Nullable<U>
     where
@@ -131,7 +132,7 @@ impl<T> From<Option<T>> for Nullable<T> {
 }
 
 impl<T: Clone> Nullable<&T> {
-    /// Clone the referenced inner value.
+    /// Clones the referenced inner value.
     #[inline(always)]
     pub fn cloned(&self) -> Nullable<T> {
         match self {
@@ -184,7 +185,13 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Nullable<T> {
 
 #[cfg(feature = "serde")]
 impl<T> Nullable<T> {
-    /// Deserializes an entry that may be absent or null.
+    /// Deserializes a `Nullable<T>` and wraps it in `Some`.
+    ///
+    /// Meant as the `deserialize_with` of an `Option<Nullable<T>>` field that
+    /// also carries `#[serde(default)]`: an absent entry then yields `None`,
+    /// while an entry present with the value `null` yields
+    /// `Some(Nullable::Null)`. Serde's own handling of `Option` would collapse
+    /// both cases to `None`.
     pub fn optional<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
     where
         T: serde::Deserialize<'de>,

@@ -40,8 +40,12 @@ use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
 use std::{hash::Hash, sync::Arc};
 
-/// Convert a term to a node id, if possible.
-/// Return `None` if the term is `null`.
+/// Turns an expanded term into a node identifier.
+///
+/// Returns `None` for `Term::Null`, which is what a null value or a
+/// keyword-like string expands to. A keyword becomes an invalid identifier
+/// holding the keyword itself, which the key expansion
+/// [`Policy`](crate::Policy) then decides to keep, drop or reject.
 pub(crate) fn node_id_of_term<T: Clone, B: Clone>(term: Arc<Term<T, B>>) -> Option<Id<T, B>> {
     let term = Arc::try_unwrap(term).unwrap_or_else(|a| (*a).clone());
     match term {
@@ -51,7 +55,11 @@ pub(crate) fn node_id_of_term<T: Clone, B: Clone>(term: Arc<Term<T, B>>) -> Opti
     }
 }
 
-/// Expand a node object.
+/// Expands a node object: a map that is neither a value, list nor set object,
+/// and whose entries have already been expanded.
+///
+/// Returns `None` when the node is dropped: when its entries expanded to
+/// nothing, or when it is free-floating and carries no more than an identifier.
 pub(crate) async fn expand_node<'a, N, L, W>(
     env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -69,10 +77,9 @@ where
     L: Loader,
     W: WarningHandler<N>,
 {
-    // Initialize two empty maps, `result` and `nests`.
-    // let mut result = Indexed::new(Node::new(), None);
-    // let mut has_value_object_entries = false;
-
+    // The specification initializes two empty maps here, `result` and `nests`.
+    // No `nests` map is needed: the `@nest` entries are expanded into `result`
+    // as they are met, in the `Keyword::Nest` arm of `expand_node_entries`.
     let (result, has_value_object_entries) = Box::pin(expand_node_entries(
         env,
         Indexed::new(Node::new(), None),
@@ -87,18 +94,15 @@ where
     ))
     .await?;
 
-    // If result contains the entry @value:
-    // The result must not contain any entries other than @direction, @index,
-    // @language, @type, and @value.
+    // The specification post-processes a result carrying `@value`, `@type`,
+    // `@set` or `@list` entries here. None of it applies: `result` is a
+    // `Node`, a type that cannot hold `@value`, `@set` or `@list` entries —
+    // maps with those entries never reach this function — and whose `@type`
+    // values are already stored as a list.
 
-    // Otherwise, if result contains the entry @type and its
-    // associated value is not an array, set it to an array
-    // containing only the associated value.
-    // FIXME TODO
-
-    // Otherwise, if result contains the entry @set or @list:
-    // FIXME TODO
-
+    // The specification drops a result whose only entry is `@language`. Here
+    // that is a node which saw an `@language` or `@direction` entry — neither
+    // of which a node object can carry — and expanded to nothing else.
     if has_value_object_entries && result.is_empty() && result.id.is_none() {
         return Ok(None);
     }
@@ -106,12 +110,13 @@ where
     // If active property is null or @graph, drop free-floating
     // values as follows:
     if active_property.is_none() || active_property == Keyword::Graph {
-        // If `result` is a map which is empty,
-        // [or contains only the entries `@value` or `@list` (does not apply here)]
-        // set `result` to null.
+        // If `result` is a map which is empty, set `result` to null. The
+        // specification also covers a map containing only the entries `@value`
+        // or `@list`, which a node object never does.
         // Otherwise, if result is a map whose only entry is @id, set result to null.
         if result.is_empty() && result.index().is_none() {
-            // both cases are covered by checking `is_empty`.
+            // `Node::is_empty` ignores `@id`, so both cases hold at once: an
+            // empty node, and a node carrying nothing but an identifier.
             return Ok(None);
         }
     }
@@ -119,16 +124,19 @@ where
     Ok(Some(result))
 }
 
-/// Type returned by the `expand_node_entries` function.
-///
-/// It is a tuple containing both the node being expanded
-/// and a boolean flag set to `true` if the node contains
-/// value object entries (in practice, if it has a `@language` entry).
+/// Node being expanded, paired with a flag set to `true` when the map it comes
+/// from had an entry only a value object may carry, namely `@language` or
+/// `@direction`.
 type ExpandedNode<T, B> = (Indexed<Node<T, B>>, bool);
 
-/// Result of the `expand_node_entries` function.
+/// Result of expanding the entries of a node object.
 type NodeEntriesExpensionResult<T, B, E> = Result<ExpandedNode<T, B>, Error<E>>;
 
+/// Expands the given entries into `result`, one entry at a time.
+///
+/// Takes the node under construction and returns it, so that the `@nest` arm
+/// can call this function recursively and have the nested entries land in the
+/// same node.
 async fn expand_node_entries<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     mut result: Indexed<Node<N::Iri, N::BlankId>>,
@@ -151,21 +159,25 @@ where
     // For each `key` and `value` in `element`, ordered lexicographically by key
     // if `ordered` is `true`:
     for ExpandedEntry(key, expanded_key, value) in expanded_entries {
-        // The term-resolution cache and the keyword table both keep their own
-        // reference to this term, so `Arc::try_unwrap` here always failed and
-        // fell through to a full clone — an allocation per key under an
-        // `IriBuf` vocabulary. Match through the `Arc` and clone only in the
-        // one arm that needs an owned id.
+        // The active context holds references of its own to this term, in its
+        // term definitions and in its term-resolution cache, so
+        // `Arc::try_unwrap` would fail and clone the whole term for every key —
+        // one allocation per key under an `IriBuf` vocabulary. Match through
+        // the `Arc` instead, and clone only where an owned identifier is
+        // required.
+        //
+        // The specification IRI-expands `key` into `expanded_property` at this
+        // point, then drops the key when `expanded_property` is `null` or
+        // neither contains a colon (`:`) nor is a keyword. Here the keys arrive
+        // already expanded: those that expanded to nothing were left out by the
+        // caller, those that expanded to `Term::Null` are dropped by the first
+        // arm below, and those that expanded to an identifier without a colon by
+        // the last one.
         match &*expanded_key {
             Term::Null => (),
 
             // If key is @context, continue to the next key.
             Term::Keyword(Keyword::Context) => (),
-            // Initialize `expanded_property` to the result of IRI expanding `key`.
-
-            // If `expanded_property` is `null` or it neither contains a colon (:)
-            // nor it is a keyword, drop key by continuing to the next key.
-            // (already done)
 
             // If `expanded_property` is a keyword:
             Term::Keyword(expanded_property) => {
@@ -304,6 +316,10 @@ where
                             result.set_included(Some(expanded_nodes.into_iter().collect()));
                         }
                     }
+                    // A node object has nowhere to put `@language` or
+                    // `@direction`, both of which belong to value objects. Only
+                    // record that one was seen, so that `expand_node` can drop
+                    // the node if it holds nothing else.
                     // If expanded property is @language:
                     Keyword::Language => has_value_object_entries = true,
                     // If expanded property is @direction:
@@ -404,7 +420,7 @@ where
                                             return Err(Error::KeyExpansionFailed(reverse_key.to_string()));
                                         }
 
-                                        // otherwise the key is just dropped.
+                                        // Otherwise the key is dropped.
                                     }
                                 }
                             }
@@ -415,11 +431,14 @@ where
                     // If expanded property is @nest
                     Keyword::Nest => {
                         let nesting_key = key;
-                        // Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
-                        // and nested value for element.
+                        // Recursively repeat steps 3, 8, 13, and 14 of the
+                        // expansion algorithm using `nesting_key` for active
+                        // property, and nested value for element.
                         let value = jstrict::Value::force_as_array(value);
                         for nested_value in value {
-                            // Step 3 again.
+                            // Expansion algorithm step 3, applied again for
+                            // the nesting key: pick up its property-scoped
+                            // context.
                             let mut property_scoped_base_url = None;
                             let property_scoped_context = match active_context.get(nesting_key) {
                                 Some(definition) => {
@@ -432,7 +451,8 @@ where
                                 None => None,
                             };
 
-                            // Step 8 again.
+                            // Expansion algorithm step 8, applied again: process
+                            // that context on top of the active one.
                             let active_context = match property_scoped_context {
                                 Some(property_scoped_context) => {
                                     let options: ProcessingOptions = options.into();
@@ -464,7 +484,8 @@ where
                                 None => ContextRef::Borrowed(active_context),
                             };
 
-                            // Steps 13 and 14 again.
+                            // Steps 13 and 14 again: expand the nested entries
+                            // into the same `result`.
                             if let Some(nested_value) = nested_value.as_object() {
                                 let mut nested_entries: SmallVec<[&Entry; 8]> = SmallVec::new();
 
@@ -516,13 +537,21 @@ where
                             }
                         }
                     }
+                    // A node object never has a `@value` entry: reaching this
+                    // arm means one turned up inside the value of an `@nest`
+                    // entry, which the specification forbids.
                     Keyword::Value => return Err(Error::InvalidNestValue),
+                    // Any other keyword (`@list`, `@set`, `@none`, a context
+                    // keyword...) has no node object entry to fill and is
+                    // ignored. Maps with a `@list` or `@set` entry are expanded
+                    // as list and set objects, before this function is reached.
                     _ => (),
                 }
             }
 
             Term::Id(prop) if prop.with(&*env.vocabulary).as_str().contains(':') => {
-                // Consumed by `insert_all` below, so this one needs to own it.
+                // Inserting into `result` hands over the property identifier, so
+                // this is the one arm that has to clone it out of the `Arc`.
                 let prop = prop.clone();
                 if let Id::Invalid(name) = &prop {
                     match options.policy.invalid {
@@ -617,8 +646,7 @@ where
                                                 let (language, error) = LenientLangTagBuf::new(language.to_string());
 
                                                 if let Some(error) = error {
-                                                    env.warnings
-                                                        .handle(env.vocabulary, Warning::MalformedLanguageTag(language.to_string().clone(), error))
+                                                    env.warnings.handle(env.vocabulary, Warning::MalformedLanguageTag(language.to_string(), error))
                                                 }
 
                                                 Some(language)
@@ -628,10 +656,11 @@ where
                                             // key-value pairs: (@value-item) and
                                             // (@language-language).
                                             if let Ok(v) = LangString::new(item.clone(), language, direction) {
-                                                // If item is neither @none nor well-formed
-                                                // according to section 2.2.9 of [BCP47],
-                                                // processors SHOULD issue a warning.
-                                                // TODO warning
+                                                // The specification asks for a warning when the
+                                                // language is neither @none nor well-formed
+                                                // according to section 2.2.9 of [BCP47]. It is
+                                                // raised just above, where the tag is turned
+                                                // into a `LenientLangTagBuf`.
 
                                                 // Append v to expanded value.
                                                 expanded_value.push(Object::Value(Value::LangString(v)).into())
@@ -739,16 +768,19 @@ where
                                 // context to active context", which would
                                 // discard the `previous_context` selected in
                                 // step 13.8.1 whenever the index term has no
-                                // type-scoped local context. Like upstream
-                                // `json-ld` (and untested by the W3C suite),
-                                // this implementation keeps the context from
-                                // step 13.8.1 instead: reverting here would
-                                // make 13.8.1's assignment observable only
-                                // through 13.8.2, which reads as a spec
-                                // editing artifact rather than intent.
+                                // type-scoped local context. This
+                                // implementation keeps the context chosen in
+                                // step 13.8.1 instead: reverting would make
+                                // that assignment observable only through
+                                // 13.8.2, which reads as a spec editing
+                                // artifact rather than intent. No W3C
+                                // expansion test covers the difference.
 
                                 // Initialize `expanded_index` to the result of IRI
-                                // expanding index.
+                                // expanding index. It is left `None` when index
+                                // expands to `@none` or to nothing, which is how
+                                // the "expanded index is not @none" condition of
+                                // the steps below is enforced.
                                 let expanded_index = match expand_iri(
                                     &mut env,
                                     active_context,
@@ -760,9 +792,9 @@ where
                                     key => key.map(|arc| Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone())),
                                 };
 
-                                // If index value is not an array set index value to
-                                // an array containing only index value.
-                                // let index_value = as_array(index_value);
+                                // The specification wraps a non-array index value
+                                // in an array here; `expand_element` accepts both
+                                // and yields the same expansion either way.
 
                                 // Initialize index value to the result of using this
                                 // algorithm recursively, passing map context as
@@ -802,7 +834,6 @@ where
                                         // If `container_mapping` includes @index,
                                         // index key is not @index, and expanded index is
                                         // not @none:
-                                        // TODO the @none part.
                                         if container_mapping.contains(ContainerKind::Index) && index_key != "@index" {
                                             // Initialize re-expanded index to the result
                                             // of calling the Value Expansion algorithm,
@@ -832,7 +863,9 @@ where
                                                 Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
                                                     match Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone()) {
                                                         Term::Id(prop) => prop,
-                                                        // Already filtered above; skip just in case.
+                                                        // Unreachable: the guard above
+                                                        // matched `Term::Id`. Skipping
+                                                        // keeps the match total.
                                                         _ => continue,
                                                     }
                                                 }
@@ -957,7 +990,8 @@ where
                     // If the term definition associated to key indicates that it
                     // is a reverse property:
                     if is_reverse_property {
-                        // We must filter out anything that is not an object.
+                        // The values become the subjects of the reversed
+                        // relation, so each of them must be a node object.
                         let mut reverse_expanded_nodes = Vec::new();
                         for object in expanded_value {
                             match object.try_cast::<Node<N::Iri, N::BlankId>>() {
@@ -977,7 +1011,10 @@ where
             }
 
             Term::Id(prop) => {
-                // non-keyword properties that does not include a ':' are skipped.
+                // A key that is no keyword and whose expansion contains no `:`
+                // cannot become an IRI, and the entry is dropped: nothing is
+                // inserted into `result` here. The policy only decides whether
+                // that silent loss is an error instead.
                 if let Id::Invalid(name) = prop {
                     match options.policy.invalid {
                         Action::Drop | Action::Keep => (),

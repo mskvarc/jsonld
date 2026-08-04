@@ -129,8 +129,11 @@ impl expand::Test {
                         panic!("expansion succeeded when it should have failed with `{}`", expected_error_code)
                     }
                     Err(_e) => {
-                        // TODO improve error codes.
-                        // assert_eq!(e.code().as_str(), expected_error_code)
+                        // The test only asserts that expansion failed, not that
+                        // it failed with `expected_error_code`: this
+                        // implementation's error codes do not yet line up with
+                        // the ones the manifests name, so comparing them would
+                        // fail on tests whose actual behaviour is correct.
                     }
                 }
             }

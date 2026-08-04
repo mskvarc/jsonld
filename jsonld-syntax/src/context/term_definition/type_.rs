@@ -5,16 +5,19 @@ use std::hash::Hash;
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-/// Value of the `@type` entry of a term definition.
+/// Value of the `@type` entry of a term definition: the type mapping of the
+/// term.
 pub enum Type {
-    /// A JSON-LD keyword.
+    /// One of the keywords `@type` accepts.
     Keyword(TypeKeyword),
-    /// A term defined by the active context.
+    /// A datatype given as an IRI, a compact IRI or another term of the
+    /// context. Kept unvalidated, as telling those apart requires the
+    /// processed context.
     Term(String),
 }
 
 impl Type {
-    /// Borrows this `Type` as IRI, if it is one.
+    /// Parses this value as an IRI, returning `None` if it is not one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         match self {
             Self::Term(t) => Iri::parse(t.as_str()).ok(),
@@ -22,7 +25,7 @@ impl Type {
         }
     }
 
-    /// Borrows this `Type` as compact IRI, if it is one.
+    /// Parses this value as a compact IRI, returning `None` if it is not one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         match self {
             Self::Term(t) => CompactIri::new(t).ok(),
@@ -30,7 +33,7 @@ impl Type {
         }
     }
 
-    /// Borrows this `Type` as keyword, if it is one.
+    /// Returns the keyword, or `None` if this value is not one.
     pub fn as_keyword(&self) -> Option<TypeKeyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -38,7 +41,7 @@ impl Type {
         }
     }
 
-    /// Returns this value as a string slice.
+    /// Returns this value as it is spelled in the context.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t.as_str(),
@@ -46,7 +49,8 @@ impl Type {
         }
     }
 
-    /// Consumes this `Type`, returning its string.
+    /// Converts this value into an owned `String`, allocating if it is a
+    /// keyword.
     pub fn into_string(self) -> String {
         match self {
             Self::Term(t) => t,
@@ -82,25 +86,26 @@ impl From<String> for Type {
     }
 }
 
-/// Subset of keyword acceptable for as value for the `@type` entry
-/// of an expanded term definition.
+/// The keywords accepted as the value of the `@type` entry of an expanded term
+/// definition.
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TypeKeyword {
     #[cfg_attr(feature = "serde", serde(rename = "@id"))]
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// `@id`: the string values of the term are IRIs referencing nodes.
     Id,
 
     #[cfg_attr(feature = "serde", serde(rename = "@json"))]
-    /// The `@json` type, marking the value as a JSON literal.
+    /// `@json`: the values of the term are JSON literals.
     Json,
 
     #[cfg_attr(feature = "serde", serde(rename = "@none"))]
-    /// The `@none` entry, used as the index of values without one.
+    /// `@none`: accepted as a type mapping by the JSON-LD 1.1 grammar.
     None,
 
     #[cfg_attr(feature = "serde", serde(rename = "@vocab"))]
-    /// The `@vocab` entry, setting the vocabulary against which terms expand.
+    /// `@vocab`: the string values of the term are expanded as terms against
+    /// the vocabulary mapping.
     Vocab,
 }
 
@@ -122,35 +127,36 @@ impl Hash for TypeKeyword {
 }
 
 impl TypeKeyword {
-    /// Returns the keyword of this `TypeKeyword`.
+    /// Returns this value as a general [`Keyword`].
     pub fn keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
-    /// Consumes this `TypeKeyword`, returning its keyword.
+    /// Same as [`keyword`](Self::keyword), taking `self` by value.
     pub fn into_keyword(self) -> Keyword {
         self.into()
     }
 
-    /// Returns this value as a string slice.
+    /// Returns the spelling of this keyword, such as `"@vocab"`.
     pub fn as_str(&self) -> &'static str {
         self.into_keyword().into_str()
     }
 
-    /// Consumes this `TypeKeyword`, returning its str.
+    /// Same as [`as_str`](Self::as_str), taking `self` by value.
     pub fn into_str(self) -> &'static str {
         self.into_keyword().into_str()
     }
 }
 
-/// Error raised when a keyword is not allowed as a `@type` value.
+/// Error raised when a keyword is not one of those a `@type` entry accepts.
 pub struct NotATypeKeyword(pub Keyword);
 
-/// Error raised when a `@type` value is not a usable keyword.
+/// Error raised when a string is not one of the keywords a `@type` entry
+/// accepts.
 pub enum InvalidTypeKeyword<T> {
-    /// The value is not a keyword at all.
+    /// The string is not a keyword at all. Holds the rejected string.
     NotAKeyword(T),
-    /// The value is a keyword, but not one `@type` accepts.
+    /// The string is a keyword, but not one `@type` accepts.
     NotATypeKeyword(Keyword),
 }
 
@@ -198,15 +204,6 @@ impl<'a> TryFrom<&'a str> for TypeKeyword {
         Ok(Self::try_from(Keyword::try_from(s)?)?)
     }
 }
-
-// impl<'a> From<TypeRef<'a>> for context::definition::KeyOrKeywordRef<'a> {
-// 	fn from(d: TypeRef<'a>) -> Self {
-// 		match d {
-// 			TypeRef::Term(t) => Self::Key(t.into()),
-// 			TypeRef::Keyword(k) => Self::Keyword(k.into()),
-// 		}
-// 	}
-// }
 
 impl<'a> From<&'a Type> for ExpandableRef<'a> {
     fn from(d: &'a Type) -> Self {

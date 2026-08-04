@@ -4,7 +4,10 @@ use crate::{Direction, LenientLangTagBuf, Nullable, context::TermDefinition};
 use iri_rs::IriRefBuf;
 
 impl Definition {
-    /// Returns an iterator over the entries of this value.
+    /// Returns an iterator over the entries of this context definition.
+    ///
+    /// The keyword entries come first, in the order they are declared on
+    /// [`Definition`], followed by the term bindings in insertion order.
     pub fn iter(&self) -> Entries<'_> {
         Entries {
             base: self.base.as_ref().map(Nullable::as_ref),
@@ -126,20 +129,22 @@ pub enum EntryValueRef<'a> {
     Direction(Nullable<Direction>),
     /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate(bool),
-    /// The `@protected` entry, forbidding redefinition of the term.
+    /// The `@protected` entry, forbidding redefinition of the terms defined here.
     Protected(bool),
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, setting how the node types of the described documents
+    /// are laid out and whether that setting is protected.
     Type(Type),
     /// The `@version` entry, declaring the processing mode.
     Version(Version),
     /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab(Nullable<&'a Vocab>),
-    /// A term definition.
+    /// The definition bound to a term, or `null` to unset that term.
     Definition(Nullable<&'a TermDefinition>),
 }
 
 impl<'a> EntryValueRef<'a> {
-    /// Checks whether this `EntryValueRef` is object.
+    /// Checks whether this value is a JSON object: the `@type` entry, or an
+    /// expanded term definition.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Type(_) => true,
@@ -148,7 +153,7 @@ impl<'a> EntryValueRef<'a> {
         }
     }
 
-    /// Returns the sub items of this `EntryValueRef`.
+    /// Returns an iterator over the fragments held by this value.
     pub fn sub_items(&self) -> EntryValueSubItems<'a> {
         match self {
             Self::Definition(Nullable::Some(TermDefinition::Expanded(e))) => EntryValueSubItems::TermDefinitionFragment(Box::new(e.iter())),
@@ -169,15 +174,16 @@ pub enum EntryRef<'a> {
     Direction(Nullable<Direction>),
     /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate(bool),
-    /// The `@protected` entry, forbidding redefinition of the term.
+    /// The `@protected` entry, forbidding redefinition of the terms defined here.
     Protected(bool),
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, setting how the node types of the described documents
+    /// are laid out and whether that setting is protected.
     Type(Type),
     /// The `@version` entry, declaring the processing mode.
     Version(Version),
     /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab(Nullable<&'a Vocab>),
-    /// A term definition.
+    /// A term binding: the term and the definition bound to it.
     Definition(&'a Key, Nullable<&'a TermDefinition>),
 }
 
@@ -194,20 +200,22 @@ pub enum EntryKeyRef<'a> {
     Direction,
     /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate,
-    /// The `@protected` entry, forbidding redefinition of the term.
+    /// The `@protected` entry, forbidding redefinition of the terms defined here.
     Protected,
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, setting how the node types of the described documents
+    /// are laid out and whether that setting is protected.
     Type,
     /// The `@version` entry, declaring the processing mode.
     Version,
     /// The `@vocab` entry, setting the vocabulary against which terms expand.
     Vocab,
-    /// A term definition.
+    /// The term of a term binding.
     Definition(&'a Key),
 }
 
 impl<'a> EntryKeyRef<'a> {
-    /// Returns this value as a string slice.
+    /// Returns this key as it is spelled in the context, such as `"@vocab"` or
+    /// the term itself.
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Base => "@base",
@@ -225,7 +233,7 @@ impl<'a> EntryKeyRef<'a> {
 }
 
 impl<'a> EntryRef<'a> {
-    /// Consumes this `EntryKeyRef`, returning its key.
+    /// Returns the key of this entry, taking `self` by value.
     pub fn into_key(self) -> EntryKeyRef<'a> {
         match self {
             Self::Base(_) => EntryKeyRef::Base,
@@ -241,7 +249,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Returns the key of this `EntryKeyRef`.
+    /// Returns the key of this entry.
     pub fn key(&self) -> EntryKeyRef<'a> {
         match self {
             Self::Base(_) => EntryKeyRef::Base,
@@ -257,7 +265,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Consumes this `EntryKeyRef`, returning its value.
+    /// Returns the value of this entry, taking `self` by value.
     pub fn into_value(self) -> EntryValueRef<'a> {
         match self {
             Self::Base(v) => EntryValueRef::Base(v),
@@ -273,7 +281,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Returns the value of this `EntryKeyRef`.
+    /// Returns the value of this entry.
     pub fn value(&self) -> EntryValueRef<'a> {
         match self {
             Self::Base(v) => EntryValueRef::Base(*v),
@@ -289,12 +297,12 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Consumes this `EntryKeyRef`, returning its key value.
+    /// Returns the key and value of this entry, taking `self` by value.
     pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
         self.key_value()
     }
 
-    /// Returns the key value of this `EntryKeyRef`.
+    /// Returns the key and value of this entry.
     pub fn key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
         match self {
             Self::Base(v) => (EntryKeyRef::Base, EntryValueRef::Base(*v)),

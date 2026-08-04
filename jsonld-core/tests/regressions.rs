@@ -196,9 +196,10 @@ fn from_rdf_folds_lists() {
     assert_eq!(values, ["v0", "v1"]);
 }
 
-/// `LinkedDataResource for Value` used to be stubbed as
-/// `Uninterpreted(None)`, silently dropping every literal from ld-core
-/// serialization.
+/// Literals must survive `ld-core` serialization.
+///
+/// `LinkedDataResource for Value` has to report an interpreted term; a
+/// `Uninterpreted(None)` stub compiles and silently drops every literal.
 #[test]
 fn linked_data_serialization_keeps_literals() {
     let mut node: Node<IriBuf, rdfx::BlankIdBuf> = Node::with_id(Id::Valid(ValidId::Iri(IriBuf::new("http://example.com/s".to_string()).unwrap())));

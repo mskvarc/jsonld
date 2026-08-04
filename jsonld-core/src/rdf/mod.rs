@@ -1,8 +1,10 @@
-//! RDF interop helpers and well-known IRI constants.
+//! Conversion of expanded JSON-LD documents to RDF, and the well-known IRI
+//! constants the conversion needs.
 //!
-//! The full RDF triple/quad machinery (Generator-driven, Vocabulary-aware) lives
-//! in `triples.rs` and is gated until task 8 ports it to rdfx's
-//! `GeneralizedTriple`/`LocalGenerator` API.
+//! [`quad`] walks an expanded document and yields its quads; the
+//! triple-level machinery that turns individual objects into RDF terms —
+//! minting blank node identifiers through a generator and interning IRIs in a
+//! vocabulary — is re-exported alongside it.
 use iri_rs::{Iri, iri};
 
 /// RDF quads produced from an expanded document.

@@ -13,29 +13,34 @@ pub use index::*;
 pub use nest::*;
 pub use type_::*;
 
-/// Term definition.
+/// Definition bound to a term by a context.
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum TermDefinition {
-    /// A term mapped directly to an IRI, a compact IRI or a blank node.
+    /// A string mapping the term directly to an IRI, a compact IRI or a blank
+    /// node identifier.
     Simple(Simple),
-    /// A term defined by an object of entries.
+    /// An object, which can set more about the term than the IRI it maps to.
     Expanded(Box<Expanded>),
 }
 
 impl TermDefinition {
-    /// Checks whether this `TermDefinition` is expanded.
+    /// Checks whether this definition is in expanded form.
     pub fn is_expanded(&self) -> bool {
         matches!(self, Self::Expanded(_))
     }
 
-    /// Checks whether this `TermDefinition` is object.
+    /// Checks whether this definition is written as a JSON object, which is the
+    /// case exactly when it is in expanded form.
     pub fn is_object(&self) -> bool {
         self.is_expanded()
     }
 
-    /// Borrows this `TermDefinition` as expanded, if it is one.
+    /// Returns a borrowed view of this definition in expanded form.
+    ///
+    /// A simple definition is presented as an expanded one whose only entry is
+    /// the `@id` it maps to.
     pub fn as_expanded(&self) -> ExpandedRef<'_> {
         match self {
             Self::Simple(term) => ExpandedRef {
@@ -50,20 +55,26 @@ impl TermDefinition {
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(transparent))]
 /// Simple term definition: the string a term maps to.
+///
+/// Kept unvalidated: the string may be an IRI, a compact IRI, a blank node
+/// identifier or another term, and which one it is can only be told once the
+/// context is processed.
 pub struct Simple(pub(crate) String);
 
 impl Simple {
-    /// Borrows this `Simple` as IRI, if it is one.
+    /// Parses this definition as an IRI, returning `None` if it is not one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0.as_str()).ok()
     }
 
-    /// Borrows this `Simple` as compact IRI, if it is one.
+    /// Parses this definition as a compact IRI, returning `None` if it is not
+    /// one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(&self.0).ok()
     }
 
-    /// Borrows this `Simple` as blank id, if it is one.
+    /// Parses this definition as a blank node identifier, returning `None` if
+    /// it is not one.
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         BlankId::new(&self.0).ok()
     }
@@ -73,7 +84,7 @@ impl Simple {
         &self.0
     }
 
-    /// Consumes this `Simple`, returning its string.
+    /// Unwraps the underlying string.
     pub fn into_string(self) -> String {
         self.0
     }
@@ -106,18 +117,18 @@ pub struct Expanded {
         feature = "serde",
         serde(rename = "@id", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// The `@id` entry, giving the IRI the term expands to.
     pub id: Option<Nullable<Id>>,
 
     #[cfg_attr(
         feature = "serde",
         serde(rename = "@type", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, giving the type of the values of the term.
     pub type_: Option<Nullable<Type>>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@context", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@context` entry, holding a context local to this definition.
+    /// The `@context` entry, holding a context scoped to the term.
     pub context: Option<Box<context::Context>>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none"))]
@@ -125,7 +136,8 @@ pub struct Expanded {
     pub reverse: Option<context::definition::Key>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@index", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@index` entry, indexing the value within its container.
+    /// The `@index` entry, naming the property that carries the index of the
+    /// values in an index map.
     pub index: Option<Index>,
 
     #[cfg_attr(
@@ -146,15 +158,17 @@ pub struct Expanded {
         feature = "serde",
         serde(rename = "@container", default, deserialize_with = "Nullable::optional", skip_serializing_if = "Option::is_none")
     )]
-    /// The `@container` entry, declaring how values of the term are laid out.
+    /// The `@container` entry, declaring the container the values of the term
+    /// are held in.
     pub container: Option<Nullable<Container>>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@nest", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@nest` entry, gathering properties under a nesting term.
+    /// The `@nest` entry, naming the term under which this property is nested.
     pub nest: Option<Nest>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@prefix", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@prefix` entry, allowing the term to expand compact IRIs.
+    /// The `@prefix` entry, allowing the term to be used as the prefix of a
+    /// compact IRI.
     pub prefix: Option<bool>,
 
     #[cfg_attr(feature = "serde", serde(rename = "@propagate", default, skip_serializing_if = "Option::is_none"))]
@@ -167,12 +181,13 @@ pub struct Expanded {
 }
 
 impl Expanded {
-    /// Creates a new `Expanded`.
+    /// Creates an expanded term definition with no entry set.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Checks whether this `Expanded` is null.
+    /// Checks whether this definition is equivalent to `null`, which unsets the
+    /// term: no entry is set, except possibly an `@id` explicitly set to `null`.
     pub fn is_null(&self) -> bool {
         matches!(&self.id, None | Some(Nullable::Null))
             && self.type_.is_none()
@@ -188,7 +203,8 @@ impl Expanded {
             && self.protected.is_none()
     }
 
-    /// Checks whether this `Expanded` is simple definition.
+    /// Checks whether this definition can be written in simple form: `@id` is
+    /// set to a non-null value and no other entry is set.
     pub fn is_simple_definition(&self) -> bool {
         matches!(&self.id, Some(Nullable::Some(_)))
             && self.type_.is_none()
@@ -204,8 +220,9 @@ impl Expanded {
             && self.protected.is_none()
     }
 
-    /// Reduces this definition to its simple form when the expanded form
-    /// carries nothing but an `@id`.
+    /// Reduces this definition to the shortest equivalent form: `null` when it
+    /// unsets the term, a simple string definition when it carries nothing but
+    /// an `@id`, and the expanded form otherwise.
     pub fn simplify(self) -> Nullable<TermDefinition> {
         if self.is_null() {
             return Nullable::Null;
@@ -229,7 +246,8 @@ impl Expanded {
         }
     }
 
-    /// Returns an iterator over the entries of this `Expanded`.
+    /// Returns an iterator over the entries this definition sets, in the order
+    /// they are declared on this struct.
     pub fn iter(&self) -> Entries<'_> {
         Entries {
             id: self.id.as_ref().map(Nullable::as_ref),
@@ -247,7 +265,7 @@ impl Expanded {
         }
     }
 
-    /// Borrows this `Expanded` as expanded ref, if it is one.
+    /// Returns a borrowed view of this definition.
     pub fn as_expanded_ref(&self) -> ExpandedRef<'_> {
         ExpandedRef {
             id: self.id.as_ref().map(|i| i.as_ref().map(|id| id.as_id_ref())),
@@ -266,29 +284,35 @@ impl Expanded {
     }
 }
 
-/// Expanded term definition.
+/// Borrowed view of a term definition in expanded form.
+///
+/// Also used to present a simple definition, or `null`, in expanded form; see
+/// [`TermDefinition::as_expanded`].
 #[derive(Debug, Educe)]
 #[educe(Default)]
 pub struct ExpandedRef<'a> {
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// The `@id` entry, giving the IRI the term expands to.
     pub id: Option<Nullable<IdRef<'a>>>,
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, giving the type of the values of the term.
     pub type_: Option<Nullable<&'a Type>>,
-    /// The `@context` entry, holding a context local to this definition.
+    /// The `@context` entry, holding a context scoped to the term.
     pub context: Option<&'a context::Context>,
     /// The `@reverse` entry, mapping the term to a reverse property.
     pub reverse: Option<&'a context::definition::Key>,
-    /// The `@index` entry, indexing the value within its container.
+    /// The `@index` entry, naming the property that carries the index of the
+    /// values in an index map.
     pub index: Option<&'a Index>,
     /// The `@language` entry, tagging string values with a language.
     pub language: Option<Nullable<&'a LenientLangTag>>,
     /// The `@direction` entry, setting the base direction of string values.
     pub direction: Option<Nullable<Direction>>,
-    /// The `@container` entry, declaring how values of the term are laid out.
+    /// The `@container` entry, declaring the container the values of the term
+    /// are held in.
     pub container: Option<Nullable<&'a Container>>,
-    /// The `@nest` entry, gathering properties under a nesting term.
+    /// The `@nest` entry, naming the term under which this property is nested.
     pub nest: Option<&'a Nest>,
-    /// The `@prefix` entry, allowing the term to expand compact IRIs.
+    /// The `@prefix` entry, allowing the term to be used as the prefix of a
+    /// compact IRI.
     pub prefix: Option<bool>,
     /// The `@propagate` entry, controlling whether the context survives into
     /// node objects.
@@ -309,7 +333,7 @@ impl<'a> From<Nullable<&'a TermDefinition>> for ExpandedRef<'a> {
     }
 }
 
-/// Term definition entries.
+/// Iterator over the entries of an expanded term definition.
 pub struct Entries<'a> {
     id: Option<Nullable<&'a Id>>,
     type_: Option<Nullable<&'a Type>>,
@@ -327,25 +351,28 @@ pub struct Entries<'a> {
 
 /// Entry of an expanded term definition, key and value together.
 pub enum EntryRef<'a> {
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// The `@id` entry, giving the IRI the term expands to.
     Id(Nullable<&'a Id>),
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, giving the type of the values of the term.
     Type(Nullable<&'a Type>),
-    /// The `@context` entry, holding a context local to this definition.
+    /// The `@context` entry, holding a context scoped to the term.
     Context(&'a context::Context),
     /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse(&'a context::definition::Key),
-    /// The `@index` entry, indexing the value within its container.
+    /// The `@index` entry, naming the property that carries the index of the
+    /// values in an index map.
     Index(&'a Index),
     /// The `@language` entry, tagging string values with a language.
     Language(Nullable<&'a LenientLangTagBuf>),
     /// The `@direction` entry, setting the base direction of string values.
     Direction(Nullable<Direction>),
-    /// The `@container` entry, declaring how values of the term are laid out.
+    /// The `@container` entry, declaring the container the values of the term
+    /// are held in.
     Container(Nullable<&'a Container>),
-    /// The `@nest` entry, gathering properties under a nesting term.
+    /// The `@nest` entry, naming the term under which this property is nested.
     Nest(&'a Nest),
-    /// The `@prefix` entry, allowing the term to expand compact IRIs.
+    /// The `@prefix` entry, allowing the term to be used as the prefix of a
+    /// compact IRI.
     Prefix(bool),
     /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate(bool),
@@ -354,7 +381,7 @@ pub enum EntryRef<'a> {
 }
 
 impl<'a> EntryRef<'a> {
-    /// Consumes this `EntryRef`, returning its key.
+    /// Returns the key of this entry, taking `self` by value.
     pub fn into_key(self) -> EntryKey {
         match self {
             Self::Id(_) => EntryKey::Id,
@@ -372,7 +399,7 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Returns the key of this `EntryRef`.
+    /// Returns the key of this entry.
     pub fn key(&self) -> EntryKey {
         match self {
             Self::Id(_) => EntryKey::Id,
@@ -390,12 +417,12 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Consumes this `EntryRef`, returning its value.
+    /// Returns the value of this entry, taking `self` by value.
     pub fn into_value(self) -> EntryValueRef<'a> {
         self.value()
     }
 
-    /// Returns the value of this `EntryRef`.
+    /// Returns the value of this entry.
     pub fn value(&self) -> EntryValueRef<'a> {
         match self {
             Self::Id(e) => EntryValueRef::Id(*e),
@@ -413,12 +440,12 @@ impl<'a> EntryRef<'a> {
         }
     }
 
-    /// Consumes this `EntryRef`, returning its key value.
+    /// Returns the key and value of this entry, taking `self` by value.
     pub fn into_key_value(self) -> (EntryKey, EntryValueRef<'a>) {
         self.key_value()
     }
 
-    /// Returns the key value of this `EntryRef`.
+    /// Returns the key and value of this entry.
     pub fn key_value(&self) -> (EntryKey, EntryValueRef<'a>) {
         match self {
             Self::Id(e) => (EntryKey::Id, EntryValueRef::Id(*e)),
@@ -439,25 +466,28 @@ impl<'a> EntryRef<'a> {
 
 /// Key of an expanded term definition entry.
 pub enum EntryKey {
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// The `@id` entry, giving the IRI the term expands to.
     Id,
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, giving the type of the values of the term.
     Type,
-    /// The `@context` entry, holding a context local to this definition.
+    /// The `@context` entry, holding a context scoped to the term.
     Context,
     /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse,
-    /// The `@index` entry, indexing the value within its container.
+    /// The `@index` entry, naming the property that carries the index of the
+    /// values in an index map.
     Index,
     /// The `@language` entry, tagging string values with a language.
     Language,
     /// The `@direction` entry, setting the base direction of string values.
     Direction,
-    /// The `@container` entry, declaring how values of the term are laid out.
+    /// The `@container` entry, declaring the container the values of the term
+    /// are held in.
     Container,
-    /// The `@nest` entry, gathering properties under a nesting term.
+    /// The `@nest` entry, naming the term under which this property is nested.
     Nest,
-    /// The `@prefix` entry, allowing the term to expand compact IRIs.
+    /// The `@prefix` entry, allowing the term to be used as the prefix of a
+    /// compact IRI.
     Prefix,
     /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate,
@@ -466,7 +496,7 @@ pub enum EntryKey {
 }
 
 impl EntryKey {
-    /// Returns the keyword of this `EntryKey`.
+    /// Returns the keyword naming this entry.
     pub fn keyword(&self) -> Keyword {
         match self {
             Self::Id => Keyword::Id,
@@ -484,7 +514,7 @@ impl EntryKey {
         }
     }
 
-    /// Returns this value as a string slice.
+    /// Returns the keyword naming this entry as a string, such as `"@id"`.
     pub fn as_str(&self) -> &'static str {
         self.keyword().into_str()
     }
@@ -492,25 +522,28 @@ impl EntryKey {
 
 /// Value of an expanded term definition entry.
 pub enum EntryValueRef<'a> {
-    /// The `@id` entry, identifying the node or mapping the term to an IRI.
+    /// The `@id` entry, giving the IRI the term expands to.
     Id(Nullable<&'a Id>),
-    /// The `@type` entry, giving the type of the node or the values.
+    /// The `@type` entry, giving the type of the values of the term.
     Type(Nullable<&'a Type>),
-    /// The `@context` entry, holding a context local to this definition.
+    /// The `@context` entry, holding a context scoped to the term.
     Context(&'a context::Context),
     /// The `@reverse` entry, mapping the term to a reverse property.
     Reverse(&'a context::definition::Key),
-    /// The `@index` entry, indexing the value within its container.
+    /// The `@index` entry, naming the property that carries the index of the
+    /// values in an index map.
     Index(&'a Index),
     /// The `@language` entry, tagging string values with a language.
     Language(Nullable<&'a LenientLangTagBuf>),
     /// The `@direction` entry, setting the base direction of string values.
     Direction(Nullable<Direction>),
-    /// The `@container` entry, declaring how values of the term are laid out.
+    /// The `@container` entry, declaring the container the values of the term
+    /// are held in.
     Container(Nullable<&'a Container>),
-    /// The `@nest` entry, gathering properties under a nesting term.
+    /// The `@nest` entry, naming the term under which this property is nested.
     Nest(&'a Nest),
-    /// The `@prefix` entry, allowing the term to expand compact IRIs.
+    /// The `@prefix` entry, allowing the term to be used as the prefix of a
+    /// compact IRI.
     Prefix(bool),
     /// The `@propagate` entry, controlling whether the context survives into node objects.
     Propagate(bool),
@@ -519,7 +552,8 @@ pub enum EntryValueRef<'a> {
 }
 
 impl<'a> EntryValueRef<'a> {
-    /// Checks whether this `EntryValueRef` is object.
+    /// Checks whether this value is a JSON object, which only the scoped
+    /// `@context` can be.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Context(c) => c.is_object(),
@@ -527,7 +561,8 @@ impl<'a> EntryValueRef<'a> {
         }
     }
 
-    /// Checks whether this `EntryValueRef` is array.
+    /// Checks whether this value is a JSON array, which only a multi-valued
+    /// `@container` can be.
     pub fn is_array(&self) -> bool {
         match self {
             Self::Container(Nullable::Some(c)) => c.is_array(),
@@ -633,33 +668,33 @@ impl<'a> Iterator for Entries<'a> {
 
 impl<'a> ExactSizeIterator for Entries<'a> {}
 
-/// Term definition fragment.
+/// Fragment of a term definition.
 pub enum FragmentRef<'a> {
-    /// Term definition entry.
+    /// An entry of the definition, key and value together.
     Entry(EntryRef<'a>),
 
-    /// Term definition entry key.
+    /// The key of an entry of the definition.
     Key(EntryKey),
 
-    /// Term definition entry value.
+    /// The value of an entry of the definition.
     Value(EntryValueRef<'a>),
 
-    /// Container value fragment.
+    /// One item of an array-valued `@container` entry.
     ContainerFragment(&'a ContainerKind),
 }
 
 impl<'a> FragmentRef<'a> {
-    /// Checks whether this `FragmentRef` is key.
+    /// Checks whether this fragment is an entry key.
     pub fn is_key(&self) -> bool {
         matches!(self, Self::Key(_))
     }
 
-    /// Checks whether this `FragmentRef` is entry.
+    /// Checks whether this fragment is an entry, key and value together.
     pub fn is_entry(&self) -> bool {
         matches!(self, Self::Entry(_))
     }
 
-    /// Checks whether this `FragmentRef` is array.
+    /// Checks whether this fragment is a JSON array.
     pub fn is_array(&self) -> bool {
         match self {
             Self::Value(v) => v.is_array(),
@@ -667,7 +702,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is object.
+    /// Checks whether this fragment is a JSON object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_object(),
@@ -675,7 +710,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Returns the sub fragments of this `FragmentRef`.
+    /// Returns an iterator over the fragments directly contained in this one.
     pub fn sub_fragments(&self) -> SubFragments<'a> {
         match self {
             Self::Value(EntryValueRef::Container(Nullable::Some(c))) => SubFragments::Container(c.sub_fragments()),
@@ -686,9 +721,9 @@ impl<'a> FragmentRef<'a> {
 
 /// Iterator over the fragments held by a term definition entry.
 pub enum SubFragments<'a> {
-    /// No value.
+    /// Nothing to iterate over.
     None,
-    /// The values of a `@container` entry.
+    /// The items of an array-valued `@container` entry.
     Container(container::SubValues<'a>),
 }
 

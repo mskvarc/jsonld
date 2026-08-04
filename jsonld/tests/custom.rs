@@ -19,23 +19,10 @@ async fn custom_01() {
     doc.to_rdf(&mut generator, &loader).await.unwrap();
 }
 
-// This may fail depending on the default stack size.
-// #[tokio::test]
-// async fn custom_01_default_memory() {
-// 	custom_01().await
-// }
-
-// This will fail because not enough stack memory.
-// #[test]
-// fn custom_01_low_memory() {
-// 	let child = std::thread::Builder::new()
-// 		.stack_size(512 * 1024)
-// 		.spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(custom_01()))
-// 		.unwrap();
-
-// 	child.join().unwrap()
-// }
-
+// `t01-in.jsonld` nests deeply enough that `to_rdf` needs more stack than a
+// thread gets by default, so the test runs on a thread with an enlarged one.
+// A 512 KiB stack is known to overflow on this input; the default stack is
+// borderline and varies by platform.
 #[test]
 fn custom_01_high_memory() {
     let child = std::thread::Builder::new()

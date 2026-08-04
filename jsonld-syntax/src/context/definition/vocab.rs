@@ -6,20 +6,25 @@ use rdfx::BlankId;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 /// Value of the `@vocab` entry.
+///
+/// Kept as an unvalidated string: it may be an IRI, a compact IRI, a blank node
+/// identifier or a term of the surrounding context, and which one it is can
+/// only be told once the context is processed.
 pub struct Vocab(String);
 
 impl Vocab {
-    /// Borrows this `Vocab` as IRI, if it is one.
+    /// Parses this value as an IRI, returning `None` if it is not one.
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0.as_str()).ok()
     }
 
-    /// Borrows this `Vocab` as compact IRI, if it is one.
+    /// Parses this value as a compact IRI, returning `None` if it is not one.
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(&self.0).ok()
     }
 
-    /// Borrows this `Vocab` as blank id, if it is one.
+    /// Parses this value as a blank node identifier, returning `None` if it is
+    /// not one.
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         BlankId::new(&self.0).ok()
     }
@@ -29,7 +34,7 @@ impl Vocab {
         &self.0
     }
 
-    /// Consumes this `Vocab`, returning its string.
+    /// Unwraps the underlying string.
     pub fn into_string(self) -> String {
         self.0
     }

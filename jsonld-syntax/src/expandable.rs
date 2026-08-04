@@ -2,12 +2,16 @@ use std::fmt;
 
 use crate::{Keyword, context::definition::KeyOrKeyword};
 
-/// Borrowed entry key that can be expanded into a term.
+/// Borrowed value that IRI expansion can be applied to.
+///
+/// Keywords are recognised while borrowing, so that expansion does not have to
+/// match against the keyword list again.
 pub enum ExpandableRef<'a> {
-    /// Keyword.
+    /// A JSON-LD keyword.
     Keyword(Keyword),
 
-    /// Other term.
+    /// Anything else: a term, a compact IRI, an IRI or a blank node
+    /// identifier.
     String(&'a str),
 }
 

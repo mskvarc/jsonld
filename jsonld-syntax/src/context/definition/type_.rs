@@ -3,18 +3,24 @@ use std::{hash::Hash, str::FromStr};
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The `@type` entry of a context definition.
+///
+/// Unlike the `@type` entry of a term definition, this one is an object rather
+/// than a string: it configures how the `@type` entries of the described node
+/// objects are handled.
 pub struct Type {
     #[cfg_attr(feature = "serde", serde(rename = "@container"))]
-    /// The `@container` entry, declaring how values of the term are laid out.
+    /// The `@container` entry, which may only be `@set`: node types are then
+    /// always represented as an array.
     pub container: TypeContainer,
 
     #[cfg_attr(feature = "serde", serde(rename = "@protected", default, skip_serializing_if = "Option::is_none"))]
-    /// The `@protected` entry, forbidding redefinition of the term.
+    /// The `@protected` entry, forbidding later contexts from overriding this
+    /// `@type` setting.
     pub protected: Option<bool>,
 }
 
 impl Type {
-    /// Returns an iterator over the entries of this `Type`.
+    /// Returns an iterator over the entries of this `@type` definition.
     pub fn iter(&self) -> ContextTypeEntries {
         ContextTypeEntries {
             container: Some(self.container),
@@ -65,7 +71,7 @@ pub enum ContextTypeEntry {
 }
 
 impl ContextTypeEntry {
-    /// Returns the key of this `ContextTypeEntry`.
+    /// Returns the key of this entry.
     pub fn key(&self) -> ContextTypeKey {
         match self {
             Self::Container(_) => ContextTypeKey::Container,
@@ -83,7 +89,7 @@ pub enum ContextTypeKey {
 }
 
 impl ContextTypeKey {
-    /// Returns this value as a string slice.
+    /// Returns `"@container"` or `"@protected"`.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Container => "@container",
@@ -94,25 +100,29 @@ impl ContextTypeKey {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid JSON-LD `@type` container `{0}`")]
-/// Error raised when a `@type` container is neither `@set` nor absent.
+/// Error raised when the `@container` entry of a context `@type` definition is
+/// not `@set`.
 pub struct InvalidTypeContainer<T = String>(pub T);
 
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
-/// Container allowed on a context `@type` definition.
+/// Container of a context `@type` definition.
+///
+/// `@set` is the only container JSON-LD allows there, so this enum has a single
+/// variant and all its values are equal.
 pub enum TypeContainer {
     /// The `@set` container.
     Set,
 }
 
 impl TypeContainer {
-    /// Returns this value as a string slice.
+    /// Returns `"@set"`.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Set => "@set",
         }
     }
 
-    /// Consumes this `TypeContainer`, returning its str.
+    /// Same as [`as_str`](Self::as_str), taking `self` by value.
     pub fn into_str(self) -> &'static str {
         self.as_str()
     }

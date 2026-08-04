@@ -1,9 +1,22 @@
-//! This library implements the [JSON-LD compaction algorithm](https://www.w3.org/TR/json-ld-api/#compaction-algorithms)
-//! for the [`json-ld` crate](https://crates.io/crates/json-ld).
+//! Implementation of the [JSON-LD compaction algorithms][1].
 //!
-//! # Usage
+//! Compaction turns an expanded JSON-LD document back into the terse,
+//! human-friendly shape described by a `@context`: IRIs become terms or
+//! compact IRIs, single-element arrays collapse, and value objects reduce to
+//! plain JSON scalars wherever the context makes that lossless.
 //!
-//! The compaction algorithm is provided by the [`Compact`] trait.
+//! [`Compact`] compacts a whole document (an
+//! [`ExpandedDocument`][jsonld_core::ExpandedDocument] or a
+//! [`FlattenedDocument`][jsonld_core::FlattenedDocument]) and embeds the
+//! `@context` used into the output. [`CompactFragment`] compacts a single
+//! object, node, list or collection against an already-processed active
+//! context, and is what the document-level algorithm recurses through.
+//!
+//! This crate is the compaction half of the `jsonld` family; the `jsonld`
+//! crate re-exports it behind a processor API that also handles expansion,
+//! flattening and RDF serialization.
+//!
+//! [1]: https://www.w3.org/TR/json-ld-api/#compaction-algorithms
 use jsonld_context_processing::{Options as ProcessingOptions, Process};
 use jsonld_core::{
     Context,
@@ -38,11 +51,15 @@ use value::*;
 /// Error raised while compacting a document.
 pub enum Error<E = std::convert::Infallible> {
     #[error("IRI confused with prefix")]
-    /// IRI confused with prefix.
+    /// An IRI cannot be written out because it would be read back as a
+    /// compact IRI.
+    ///
+    /// See [`IriConfusedWithPrefix`] for the exact condition.
     IriConfusedWithPrefix,
 
     #[error("Invalid `@nest` value")]
-    /// Invalid `@nest` value.
+    /// A term definition's `@nest` value is neither `@nest` itself nor a term
+    /// of the active context that expands to `@nest`.
     InvalidNestValue,
 
     #[error("Colliding compacted entry")]
@@ -53,12 +70,16 @@ pub enum Error<E = std::convert::Infallible> {
     CollidingEntry,
 
     #[error("Context processing failed: {0}")]
-    /// Context processing failed: the given value.
+    /// A `@context` encountered during compaction could not be processed.
+    ///
+    /// Compaction processes scoped contexts (`@context` entries inside term
+    /// definitions) as it descends, so any context-processing error can
+    /// surface here.
     ContextProcessing(jsonld_context_processing::Error<E>),
 }
 
 impl<E> Error<E> {
-    /// Returns the code of this `Error`.
+    /// Returns the JSON-LD error code this error is reported under.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
@@ -90,23 +111,29 @@ pub struct Options {
     /// JSON-LD processing mode.
     pub processing_mode: ProcessingMode,
 
-    /// Determines if IRIs are compacted relative to the provided base IRI or document location when compacting.
+    /// Whether IRIs may be compacted into references relative to the
+    /// document's location.
     ///
-    /// This crate itself never reads this flag: IRIs are relativized whenever
-    /// the active context has a base IRI. The flag is honored by the
-    /// higher-level `jsonld` processor, which only seeds the active context's
-    /// base IRI when it is set.
+    /// The compaction algorithm itself does not read this flag: it relativizes
+    /// IRIs whenever the active context has a base IRI. The flag is what
+    /// decides whether that base IRI gets set in the first place — the
+    /// `jsonld` processor seeds the active context with the input document's
+    /// URL only when this is `true` and no explicit base IRI was given.
     pub compact_to_relative: bool,
 
-    /// If set to `true`, arrays with just one element are replaced with that element during compaction.
-    /// If set to `false`, all arrays will remain arrays even if they have just one element.
+    /// Whether a single-element array is replaced by that element.
+    ///
+    /// When `false`, arrays stay arrays even with one element. Terms whose
+    /// container mapping includes `@set`, and the `@graph` and `@list` keys,
+    /// keep their arrays regardless.
     pub compact_arrays: bool,
 
-    /// If set to `true`, properties are processed by lexical order.
-    /// If `false`, order is not considered in processing.
+    /// Whether the entries of each node object are processed in lexicographic
+    /// order of their expanded property IRI.
+    ///
+    /// Only affects the order of keys in the output, not which keys appear.
     pub ordered: bool,
 }
-
 
 impl From<Options> for jsonld_context_processing::Options {
     fn from(options: Options) -> jsonld_context_processing::Options {
@@ -140,7 +167,16 @@ impl Default for Options {
 
 /// Document fragments that can be compacted against an active context.
 pub trait CompactFragment<I, B> {
-    /// Compacts this fragment, taking every parameter explicitly.
+    /// Compacts this fragment, taking every parameter of the algorithm
+    /// explicitly.
+    ///
+    /// `active_context` is the context in force for this fragment.
+    /// `type_scoped_context` is the context as it stood *before* this
+    /// fragment's own type-scoped contexts were applied; term definitions for
+    /// `active_property` and for `@type` values are looked up there, as the
+    /// specification requires. `active_property` is the term this fragment was
+    /// reached through, and drives container, language and index handling.
+    /// `loader` resolves any remote context referenced by a scoped `@context`.
     async fn compact_fragment_full<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -157,7 +193,9 @@ pub trait CompactFragment<I, B> {
         L: Loader;
 
     #[inline(always)]
-    /// Compacts this fragment using the given vocabulary.
+    /// Compacts this fragment at the top level of a document, with the default
+    /// [`Options`], using `vocabulary` to resolve IRI and blank node
+    /// identifiers.
     async fn compact_fragment_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -175,7 +213,9 @@ pub trait CompactFragment<I, B> {
     }
 
     #[inline(always)]
-    /// Compacts this fragment against the active context.
+    /// Compacts this fragment at the top level of a document, with the default
+    /// [`Options`], for documents that store IRIs and blank node identifiers
+    /// inline instead of indexing them through a vocabulary.
     async fn compact_fragment<'a, L>(&'a self, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
         (): VocabularyMut<Iri = I, BlankId = B>,
@@ -201,9 +241,21 @@ enum TypeLangValue<'a, I> {
     Lang(LangSelection<'a>),
 }
 
-/// Type that can be compacted with an index.
+/// Document fragments that carry an `@index` separately from their own
+/// contents.
+///
+/// [`Indexed<T>`] pairs a fragment with the index it was reached through;
+/// implementing this trait for `T` is what gives `Indexed<T>` its
+/// [`CompactFragment`] implementation. The index has to be passed down rather
+/// than read off the fragment because whether it survives into the output
+/// depends on the active property's container mapping.
 pub trait CompactIndexedFragment<I, B> {
-    /// Compacts this fragment, keeping the `@index` it was reached through.
+    /// Compacts this fragment together with the `@index` value it was reached
+    /// through.
+    ///
+    /// The index is emitted as an `@index` entry unless the active property's
+    /// container mapping includes `@index`, in which case it has already become
+    /// the enclosing map's key and is dropped.
     async fn compact_indexed_fragment<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -275,8 +327,12 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                 }
 
                 // If the term definition for active property in active context has a local context:
-                // FIXME https://github.com/w3c/json-ld-api/issues/502
-                //       Seems that the term definition should be looked up in `type_scoped_context`.
+                //
+                // Known deviation from the specification text, which says to look the
+                // term definition up in the active context. This looks it up in
+                // `type_scoped_context` instead, which is what makes the W3C
+                // compaction test suite pass; the spec text is believed to be in error.
+                // See https://github.com/w3c/json-ld-api/issues/502.
                 let mut active_context = ContextRef::Borrowed(active_context);
                 let mut list_container = false;
                 if let Some(active_property) = active_property
@@ -354,18 +410,22 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
     }
 }
 
-/// Default value of `as_array` is false.
+/// Adds `value` under `key` in `map`, following the JSON-LD API's [add value][1]
+/// algorithm.
 ///
-/// Refactored from a 3-lookup-per-call shape (peek + remove+reinsert + insert)
-/// to a single `get_unique_mut` per scalar call. Array values still recurse,
-/// but the scalar path — which is the common case — now hits the indexmap
-/// once.
+/// A key that already holds something becomes an array of both values. When
+/// `as_array` is true the value is wrapped in an array even if `key` was absent,
+/// so that a term with an `@set` container always compacts to an array. An
+/// array `value` is added element by element rather than nested.
+///
+/// [1]: https://www.w3.org/TR/json-ld-api/#add-value
 fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_array: bool) {
     match value {
         jstrict::Value::Array(values) => {
-            // Pre-arrange the entry shape exactly as the original two-pass code did:
-            // wrap an existing scalar into a single-element array, or insert an
-            // empty array when `as_array` is set and the entry is absent.
+            // Establish the entry's shape before adding the elements: wrap an
+            // existing scalar into a single-element array, or insert an empty
+            // array when `as_array` is set and the entry is absent, so that an
+            // empty `values` still leaves an array behind.
             // Compaction-built objects never have duplicate keys, so the `Err`
             // (duplicate key) case of `get_unique_mut` is treated as absent.
             match map.get_unique_mut(key).ok().flatten() {
@@ -406,7 +466,8 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
     }
 }
 
-/// Get the `@value` field of a value object.
+/// Returns the JSON value carried by the `@value` entry of a value object,
+/// discarding its `@type`, `@language` and `@direction`.
 fn value_value<I>(value: &Value<I>) -> jstrict::Value {
     use jsonld_core::object::Literal;
     match value {
@@ -421,6 +482,13 @@ fn value_value<I>(value: &Value<I>) -> jstrict::Value {
     }
 }
 
+/// Compacts every item of a collection, then unwraps the result to a single
+/// value when the `compactArrays` option allows it.
+///
+/// Items compacting to `null` are dropped. A single-element array is kept as an
+/// array when `options.compact_arrays` is `false`, when `active_property` is
+/// `@graph` or `@set`, or when its container mapping includes `@list` or
+/// `@set`.
 async fn compact_collection_with<'a, N, L, O, T>(
     vocabulary: &'a mut N,
     items: O,

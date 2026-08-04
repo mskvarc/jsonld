@@ -4,6 +4,10 @@ use std::{borrow::Borrow, fmt, hash::Hash, ops::Deref};
 use crate::utils::{case_insensitive_cmp, case_insensitive_eq, case_insensitive_hash};
 
 /// Language tag that may not be well-formed.
+///
+/// JSON-LD accepts any string as a `@language` value, so an ill-formed tag must
+/// be preserved rather than rejected. Comparison, ordering and hashing are
+/// ASCII-case-insensitive, as language tags are case-insensitive.
 // `repr(transparent)` guarantees the layout assumed by the `&str` transmutes
 // in `new` and `as_lenient_lang_tag_ref`.
 #[derive(Debug)]
@@ -13,7 +17,8 @@ use crate::utils::{case_insensitive_cmp, case_insensitive_eq, case_insensitive_h
 pub struct LenientLangTag(str);
 
 impl LenientLangTag {
-    /// Creates a new `LenientLangTag`.
+    /// Borrows the given string as a language tag, along with the error
+    /// produced by validating it, if it is not well-formed.
     pub fn new(s: &str) -> (&Self, Option<InvalidLangTag<&str>>) {
         let err = LangTag::new(s).err();
         (unsafe { std::mem::transmute::<&str, &Self>(s) }, err)
@@ -29,12 +34,13 @@ impl LenientLangTag {
         &self.0
     }
 
-    /// Checks whether this `LenientLangTag` is well formed.
+    /// Checks whether this tag is a well-formed language tag.
     pub fn is_well_formed(&self) -> bool {
         LangTag::new(self.as_str()).is_ok()
     }
 
-    /// Borrows this `LenientLangTag` as well formed, if it is one.
+    /// Borrows this tag as a well-formed [`LangTag`], or returns `None` if it
+    /// is not well-formed.
     pub fn as_well_formed(&self) -> Option<&LangTag> {
         LangTag::new(self.as_str()).ok()
     }
@@ -94,23 +100,25 @@ impl fmt::Display for LenientLangTag {
 pub struct LenientLangTagBuf(String);
 
 impl LenientLangTagBuf {
-    /// Creates a new `LenientLangTagBuf`.
+    /// Takes ownership of the given string as a language tag, along with the
+    /// error produced by validating it, if it is not well-formed.
     pub fn new(s: String) -> (Self, Option<InvalidLangTag<String>>) {
         let err = LangTag::new(s.as_str()).err().map(|InvalidLangTag(s)| InvalidLangTag(s.to_owned()));
         (Self(s), err)
     }
 
-    /// Borrows this `LenientLangTagBuf` as lenient lang tag ref, if it is one.
+    /// Borrows this value as a [`LenientLangTag`].
     pub fn as_lenient_lang_tag_ref(&self) -> &LenientLangTag {
         unsafe { std::mem::transmute(self.0.as_str()) }
     }
 
-    /// Consumes this `LenientLangTagBuf`, returning its string.
+    /// Unwraps the underlying string.
     pub fn into_string(self) -> String {
         self.0
     }
 
-    /// Consumes this `LenientLangTagBuf`, returning its well formed.
+    /// Converts this tag into a well-formed [`LangTagBuf`], failing if it is
+    /// not well-formed.
     pub fn into_well_formed(self) -> Result<LangTagBuf, InvalidLangTag<String>> {
         LangTagBuf::new(self.0)
     }

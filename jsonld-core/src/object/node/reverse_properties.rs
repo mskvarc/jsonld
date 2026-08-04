@@ -88,9 +88,10 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
         }
     }
 
-    /// Get one of the nodes associated to the given reverse property.
+    /// Returns one of the nodes associated with the given reverse property.
     ///
-    /// If multiple nodes are found, there are no guaranties on which node will be returned.
+    /// If multiple nodes are associated with it, there is no guarantee on
+    /// which one is returned.
     #[inline(always)]
     pub fn get_any<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(&self, prop: &Q) -> Option<&IndexedNode<T, B>>
     where

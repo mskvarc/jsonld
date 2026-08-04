@@ -13,27 +13,33 @@ use iri_rs::IriRefBuf;
 /// Error raised when a JSON value is not a valid context.
 pub enum InvalidContext {
     #[error("Invalid IRI reference: {0}")]
-    /// Invalid IRI reference: the given value.
+    /// A context entry was a string that is not a valid IRI reference. Holds
+    /// the rejected string.
     InvalidIriRef(String),
 
     #[error("Unexpected {0}")]
-    /// Unexpected the given value.
+    /// A value had the wrong JSON kind. Holds the kind that was found and the
+    /// kinds that would have been accepted.
     Unexpected(jstrict::Kind, &'static [jstrict::Kind]),
 
     #[error("Invalid `@direction`")]
-    /// Invalid `@direction`.
+    /// A `@direction` entry was a string other than `"ltr"` or `"rtl"`.
     InvalidDirection,
 
     #[error("Duplicate key")]
-    /// Duplicate key.
+    /// The same key appeared twice in a context definition or in a term
+    /// definition.
     DuplicateKey,
 
     #[error("Invalid term definition")]
-    /// Invalid term definition.
+    /// A term definition, or a structured entry of a context definition such as
+    /// `@type` or `@version`, held an entry or a value the grammar does not
+    /// allow there.
     InvalidTermDefinition,
 
     #[error("Invalid `@nest` value `{0}`")]
-    /// Invalid `@nest` value `the given value`.
+    /// A `@nest` entry held a keyword other than `@nest`. Holds the rejected
+    /// string.
     InvalidNestValue(String),
 
     #[error("Context too deeply nested")]
@@ -50,7 +56,7 @@ pub enum InvalidContext {
 pub const MAX_CONTEXT_DEPTH: usize = 128;
 
 impl InvalidContext {
-    /// Returns the code of this `InvalidContext`.
+    /// Returns the JSON-LD error code this error reports as.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidIriRef(_) => ErrorCode::InvalidIriMapping,

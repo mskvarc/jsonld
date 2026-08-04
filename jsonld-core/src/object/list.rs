@@ -25,19 +25,19 @@ impl<T, B> List<T, B> {
         Self { entry: objects }
     }
 
-    /// Returns the number of entries of this `List`.
+    /// Returns the number of objects in the list.
     pub fn len(&self) -> usize {
         self.entry.len()
     }
 
-    /// Checks whether this `List` is empty.
+    /// Checks whether the list holds no objects.
     pub fn is_empty(&self) -> bool {
         self.entry.is_empty()
     }
 
-    /// Returns a reference to the "@list" entry of the list object.
+    /// Returns the objects of the `@list` entry, in list order.
     ///
-    /// Alias for `as_slice`.
+    /// Alias for [`as_slice`](Self::as_slice).
     pub fn entry(&self) -> &[IndexedObject<T, B>] {
         &self.entry
     }
@@ -47,22 +47,22 @@ impl<T, B> List<T, B> {
         &mut self.entry
     }
 
-    /// Borrows this `List` as slice, if it is one.
+    /// Returns the objects of the list as a slice, in list order.
     pub fn as_slice(&self) -> &[IndexedObject<T, B>] {
         self.entry.as_slice()
     }
 
-    /// Borrows this `List` as mut slice, if it is one.
+    /// Returns the objects of the list as a mutable slice, in list order.
     pub fn as_mut_slice(&mut self) -> &mut [IndexedObject<T, B>] {
         self.entry.as_mut_slice()
     }
 
-    /// Consumes this `List`, returning its entry.
+    /// Consumes the list, returning the objects of its `@list` entry.
     pub fn into_entry(self) -> Vec<IndexedObject<T, B>> {
         self.entry
     }
 
-    /// Appends a value to this `List`.
+    /// Appends an object to the end of the list.
     pub fn push(&mut self, object: IndexedObject<T, B>) {
         self.entry.push(object)
     }
@@ -72,33 +72,33 @@ impl<T, B> List<T, B> {
         self.entry.pop()
     }
 
-    /// Returns an iterator over the entries of this `List`.
+    /// Returns an iterator over the objects of the list, in list order.
     pub fn iter(&self) -> core::slice::Iter<'_, IndexedObject<T, B>> {
         self.entry.iter()
     }
 
-    /// Returns a mutable iterator over the entries of this `List`.
+    /// Returns a mutable iterator over the objects of the list, in list
+    /// order.
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, IndexedObject<T, B>> {
         self.entry.iter_mut()
     }
 
-    /// Puts this list object literals into canonical form using the given
-    /// `buffer`.
-    ///
-    /// The buffer is used to compute the canonical form of numbers.
+    /// Puts every literal of the list into canonical form, using the given
+    /// `buffer` to render numbers.
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
         for object in self {
             object.canonicalize_with(buffer)
         }
     }
 
-    /// Puts this list object literals into canonical form.
+    /// Puts every literal of the list into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
         self.canonicalize_with(&mut buffer)
     }
 
-    /// Map the identifiers present in this list (recursively).
+    /// Rewrites every IRI and identifier of the list (recursively) with the
+    /// given functions.
     pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> List<U, C>
     where
         U: Eq + Hash,

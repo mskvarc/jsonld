@@ -54,7 +54,8 @@ impl<T: Hash, B: Hash> Hash for Discriminant<'_, T, B> {
 /// Result of the document expansion algorithm: a set of (indexed) objects.
 ///
 /// Objects are kept in insertion order, and deduplicated through an index of
-/// [`Discriminant`] buckets rather than by hashing each object in full.
+/// discriminant buckets (shallow per-object keys) rather than by hashing
+/// each object in full.
 #[derive(Debug, Clone)]
 pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf> {
     objects: Vec<IndexedObject<T, B>>,
@@ -114,50 +115,52 @@ impl<T, B> ExpandedDocument<T, B> {
     }
 
     #[inline(always)]
-    /// Returns the number of entries of this `ExpandedDocument`.
+    /// Returns the number of top-level objects in the document.
     pub fn len(&self) -> usize {
         self.objects.len()
     }
 
     #[inline(always)]
-    /// Checks whether this `ExpandedDocument` is empty.
+    /// Checks whether the document has no top-level objects.
     pub fn is_empty(&self) -> bool {
         self.objects.is_empty()
     }
 
     #[inline(always)]
-    /// Returns the objects of this `ExpandedDocument`, in insertion order.
+    /// Returns the top-level objects of the document, in insertion order.
     pub fn objects(&self) -> &[IndexedObject<T, B>] {
         &self.objects
     }
 
     #[inline(always)]
-    /// Consumes this `ExpandedDocument`, returning its objects in insertion
+    /// Consumes the document, returning its top-level objects in insertion
     /// order.
     pub fn into_objects(self) -> Vec<IndexedObject<T, B>> {
         self.objects
     }
 
     #[inline(always)]
-    /// Returns an iterator over the entries of this `ExpandedDocument`.
+    /// Returns an iterator over the top-level objects of the document, in
+    /// insertion order.
     pub fn iter(&self) -> std::slice::Iter<'_, IndexedObject<T, B>> {
         self.objects.iter()
     }
 
     #[inline(always)]
-    /// Returns the traverse of this `ExpandedDocument`.
+    /// Returns an iterator that visits every fragment of the document: each
+    /// top-level object and, recursively, everything it contains.
     pub fn traverse(&self) -> Traverse<'_, T, B> {
         Traverse::new(self.iter().map(|o| FragmentRef::IndexedObject(o)))
     }
 
     #[inline(always)]
-    /// Checks whether this `ExpandedDocument` count.
+    /// Counts the fragments of the document matching the given predicate.
     pub fn count(&self, f: impl FnMut(&FragmentRef<T, B>) -> bool) -> usize {
         self.traverse().filter(f).count()
     }
 
-    /// Give an identifier (`@id`) to every nodes using the given generator to
-    /// generate fresh identifiers for anonymous nodes.
+    /// Gives an identifier (`@id`) to every node, using the given generator
+    /// to create fresh identifiers for anonymous nodes.
     #[inline(always)]
     pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
@@ -171,8 +174,8 @@ impl<T, B> ExpandedDocument<T, B> {
         self.try_rewrite(|object| object.identify_all_with(vocabulary, generator))
     }
 
-    /// Give an identifier (`@id`) to every nodes using the given generator to
-    /// generate fresh identifiers for anonymous nodes.
+    /// Gives an identifier (`@id`) to every node, using the given generator
+    /// to create fresh identifiers for anonymous nodes.
     #[inline(always)]
     pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
@@ -183,9 +186,8 @@ impl<T, B> ExpandedDocument<T, B> {
         self.identify_all_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 
-    /// Give an identifier (`@id`) to every nodes and canonicalize every
-    /// literals using the given generator to generate fresh identifiers for
-    /// anonymous nodes.
+    /// Relabels every node identifier with a fresh one from the given
+    /// generator and puts every literal into canonical form.
     #[inline(always)]
     pub fn relabel_and_canonicalize_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
@@ -205,9 +207,8 @@ impl<T, B> ExpandedDocument<T, B> {
         })
     }
 
-    /// Give an identifier (`@id`) to every nodes and canonicalize every
-    /// literals using the given generator to generate fresh identifiers for
-    /// anonymous nodes.
+    /// Relabels every node identifier with a fresh one from the given
+    /// generator and puts every literal into canonical form.
     #[inline(always)]
     pub fn relabel_and_canonicalize<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
@@ -218,7 +219,8 @@ impl<T, B> ExpandedDocument<T, B> {
         self.relabel_and_canonicalize_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 
-    /// Relabels nodes.
+    /// Relabels every node identifier with a fresh one from the given
+    /// generator.
     #[inline(always)]
     pub fn relabel_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
@@ -233,7 +235,8 @@ impl<T, B> ExpandedDocument<T, B> {
         self.try_rewrite(|object| object.relabel_with(vocabulary, generator, &mut relabeling))
     }
 
-    /// Relabels nodes.
+    /// Relabels every node identifier with a fresh one from the given
+    /// generator.
     #[inline(always)]
     pub fn relabel<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
@@ -244,10 +247,8 @@ impl<T, B> ExpandedDocument<T, B> {
         self.relabel_with(rdfx::vocabulary::no_vocabulary_mut(), generator)
     }
 
-    /// Puts this document literals into canonical form using the given
-    /// `buffer`.
-    ///
-    /// The buffer is used to compute the canonical form of numbers.
+    /// Puts every literal of the document into canonical form, using the
+    /// given `buffer` to render numbers.
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer)
     where
         T: Eq + Hash,
@@ -259,7 +260,7 @@ impl<T, B> ExpandedDocument<T, B> {
         }
     }
 
-    /// Puts this document literals into canonical form.
+    /// Puts every literal of the document into canonical form.
     pub fn canonicalize(&mut self)
     where
         T: Eq + Hash,
@@ -269,7 +270,8 @@ impl<T, B> ExpandedDocument<T, B> {
         self.canonicalize_with(&mut buffer)
     }
 
-    /// Map the identifiers present in this expanded document (recursively).
+    /// Rewrites every IRI and identifier of the document (recursively) with
+    /// the given functions.
     pub fn map_ids<U, C>(self, mut map_iri: impl FnMut(T) -> U, mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>) -> ExpandedDocument<U, C>
     where
         U: Eq + Hash,

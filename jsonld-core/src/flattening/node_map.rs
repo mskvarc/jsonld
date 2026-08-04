@@ -62,12 +62,13 @@ impl<T, B> NodeMap<T, B> {
         }
     }
 
-    /// Consumes this `NodeMap`, returning its parts.
+    /// Consumes the node map, returning its default graph and named graphs.
     pub fn into_parts(self) -> Parts<T, B> {
         (self.default_graph, self.graphs)
     }
 
-    /// Returns an iterator over the entries of this `NodeMap`.
+    /// Returns an iterator over the graphs of the node map: the default
+    /// graph first, then the named graphs in declaration order.
     pub fn iter(&self) -> Iter<'_, T, B> {
         Iter {
             default_graph: Some(&self.default_graph),
@@ -75,14 +76,15 @@ impl<T, B> NodeMap<T, B> {
         }
     }
 
-    /// Returns the iter named of this `NodeMap`, in graph declaration order.
+    /// Returns an iterator over the named graphs only, in declaration order.
     pub fn iter_named(&self) -> indexmap::map::Iter<'_, Id<T, B>, NodeMapGraph<T, B>> {
         self.graphs.iter()
     }
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
-    /// Returns the graph of this `NodeMap`.
+    /// Returns the graph of the given name, or the default graph for `None`,
+    /// if it is declared.
     pub fn graph(&self, id: Option<&Id<T, B>>) -> Option<&NodeMapGraph<T, B>> {
         match id {
             Some(id) => self.graphs.get(id),
@@ -202,7 +204,7 @@ impl<T, B> NodeMapGraph<T, B> {
 pub type DeclareNodeResult<'a, T, B> = Result<&'a mut Indexed<Node<T, B>>, ConflictingIndexes<T, B>>;
 
 impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
-    /// Checks whether this `NodeMapGraph` contains.
+    /// Checks whether the graph declares a node with the given identifier.
     pub fn contains(&self, id: &Id<T, B>) -> bool {
         self.nodes.contains_key(id)
     }
@@ -245,7 +247,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         }
     }
 
-    /// Merge this graph with `other`.
+    /// Merges `other` into this graph.
     ///
     /// This calls [`merge_node`](Self::merge_node) with every node of `other`.
     pub fn merge_with(&mut self, other: Self)
@@ -258,9 +260,9 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         }
     }
 
-    /// Merge the given `node` into the graph.
+    /// Merges the given `node` into the graph.
     ///
-    /// The `node` must has an identifier, or this function will have no effect.
+    /// The `node` must have an identifier, or this function has no effect.
     /// If there is already a node with the same identifier:
     /// - The index of `node`, if any, overrides the previously existing index.
     /// - The list of `node` types is concatenated after the preexisting types.
@@ -299,12 +301,13 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         }
     }
 
-    /// Returns the nodes of this `NodeMapGraph`.
+    /// Returns an iterator over the nodes of the graph, in declaration order.
     pub fn nodes(&self) -> NodeMapGraphNodes<'_, T, B> {
         self.nodes.values()
     }
 
-    /// Consumes this `NodeMapGraph`, returning its nodes.
+    /// Consumes the graph, returning an iterator over its nodes in
+    /// declaration order.
     pub fn into_nodes(self) -> IntoNodeMapGraphNodes<T, B> {
         self.nodes.into_values()
     }
@@ -471,26 +474,6 @@ where
                     .properties_mut()
                     .insert_unique(property.clone(), Indexed::none(Object::node(Node::with_id(id.clone()))))
             }
-
-            // let mut flat_nodes = Vec::new();
-            // for node in nodes {
-            // 	let flat_node = extend_node_map_from_node(
-            // 		env,
-            // 		node_map,
-            // 		node.inner(),
-            // 		node.index(),
-            // 		active_graph,
-            // 	)?;
-            // 	flat_nodes.push(flat_node);
-            // }
-
-            // node_map
-            // 	.graph_mut(active_graph)
-            // 	.unwrap()
-            // 	.get_mut(&id)
-            // 	.unwrap()
-            // 	.reverse_properties_mut()
-            // 	.insert_all_unique(property.clone(), flat_nodes)
         }
     }
 

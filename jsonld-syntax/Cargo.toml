@@ -14,6 +14,9 @@ readme.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
+# Enables the `doc(auto_cfg)` attribute in lib.rs, which labels each
+# feature-gated item with the feature that unlocks it.
+rustdoc-args = ["--cfg", "docsrs"]
 # The `gxhash` feature hard-fails without AES intrinsics; docs.rs applies
 # rustc-args as extra RUSTFLAGS, so this reaches the gxhash dependency build.
 rustc-args = ["-C", "target-cpu=native"]

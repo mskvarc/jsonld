@@ -1,22 +1,48 @@
-//! Synchronous mirror of the context-processing algorithm.
+//! Synchronous mirror of the context processing algorithm.
 //!
-//! Functionally identical to the `async` versions in `mod.rs`, `define.rs`,
-//! and `iri.rs`, with `async`/`.await`/`Box::pin` removed and recursive calls
-//! made direct. Used when [`requires_loader`] proves the input has no remote
-//! `@context` IRIs and no `@import` — the common case in production payloads
-//! (NGSI-LD, schema.org, etc.).
+//! # Two implementations, one algorithm: keep `mod.rs` in step
 //!
-//! Soundness contract: if any code path is reached that the async version
-//! would handle via `loader.load_with(...).await`, the sync version returns
-//! [`Error::LoadingDocumentFailed`]. The dispatcher in
-//! [`Process::process_full`][crate::Process::process_full] only calls these
-//! functions after [`requires_loader`] has been verified, so this fallback
-//! should never fire in practice — it exists as a defence against pre-scan
-//! drift from the algorithm body.
+//! This module is a second, hand-maintained implementation of the *same*
+//! algorithm as the `async` code in `mod.rs`, `define.rs` and `iri.rs`, with
+//! `async`, `.await` and `Box::pin` stripped out and recursion made direct. It
+//! is used as a fast path whenever [`requires_loader`] proves the input contains
+//! no remote `@context` IRI and no `@import`, which is the common case in real
+//! payloads (NGSI-LD, schema.org and similar).
 //!
-//! Unlike the async version, recursion here happens on the native stack, so
-//! it is bounded by [`MAX_SYNC_DEPTH`]; crafted deeply-nested contexts fail
-//! with [`Error::ContextOverflow`] instead of overflowing the stack.
+//! Which of the two runs is invisible to callers: for any input both must
+//! produce the same active context and the same error. **A change to the
+//! algorithm here therefore has to be mirrored in the `async` files, and a
+//! change there mirrored back here.** Nothing enforces this — the two are
+//! separate function bodies with no shared code, so a fix applied to only one
+//! silently makes the result depend on whether the input happened to reference a
+//! remote context. The mirrored pairs are:
+//!
+//! | this module | `async` counterpart |
+//! |---|---|
+//! | [`process_context_sync`] | `process_context` (`mod.rs`) |
+//! | [`define_sync`] | `define` (`define.rs`) |
+//! | [`expand_iri_with_sync`] | `expand_iri_with` (`iri.rs`) |
+//!
+//! The commentary quoting the specification's steps is deliberately not
+//! duplicated here; it lives on the `async` versions, which are the ones to read
+//! when auditing the code against the specification.
+//!
+//! # Loader tripwire
+//!
+//! Reaching a code path that the `async` version would handle by awaiting the
+//! loader is treated as a bug rather than silently skipped: the functions here
+//! return [`Error::LoadingDocumentFailed`] instead. Since
+//! [`Process::process_full`][crate::Process::process_full] only dispatches here
+//! after [`requires_loader`] has said no loader is needed, that should be
+//! unreachable — it exists to catch the pre-scan drifting out of step with the
+//! algorithm body.
+//!
+//! # Recursion depth
+//!
+//! The `async` version heap-allocates each recursion level through `Box::pin`;
+//! this one recurses on the native stack, so it is bounded by
+//! [`MAX_SYNC_DEPTH`]. A crafted deeply nested `@context` fails with
+//! [`Error::ContextOverflow`] rather than overflowing the stack.
 
 use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_legacy_vocab, resolve_iri};
 use crate::{
@@ -73,12 +99,12 @@ type ExpandIriResult<N, L> =
 type ProcessContextResult<'l, N, L> =
     Result<crate::Processed<'l, <N as rdfx::vocabulary::IriVocabulary>::Iri, <N as rdfx::vocabulary::BlankIdVocabulary>::BlankId>, Error<<L as Loader>::Error>>;
 
-/// Returns `true` if the given context (or any context nested in a term
-/// definition's `@context`) references a remote `@context` IRI or contains
-/// `@import`.
+/// Checks whether processing `ctx` would have to fetch a document.
 ///
-/// When this returns `false`, the entire algorithm can run without the loader
-/// — i.e. synchronously.
+/// Returns `true` if `ctx`, or any context nested in one of its term
+/// definitions' `@context` entries, references a remote `@context` by IRI or
+/// carries an `@import`. When it returns `false` the whole algorithm can run
+/// without the loader, and therefore synchronously.
 pub fn requires_loader(ctx: &syntax::context::Context) -> bool {
     for entry in ctx {
         if entry_requires_loader(entry) {
@@ -88,6 +114,11 @@ pub fn requires_loader(ctx: &syntax::context::Context) -> bool {
     false
 }
 
+/// Checks one entry of a context for anything the loader would have to fetch.
+///
+/// A bare IRI reference always needs the loader. A context definition needs it
+/// for `@import`, or if any of its term definitions carries a scoped `@context`
+/// that in turn needs it.
 fn entry_requires_loader(entry: &syntax::ContextEntry) -> bool {
     match entry {
         syntax::ContextEntry::Null => false,
@@ -113,10 +144,17 @@ fn entry_requires_loader(entry: &syntax::ContextEntry) -> bool {
     }
 }
 
+// The three helpers below are byte-for-byte copies of the ones in `define.rs`.
+// They are duplicated rather than shared because they are private to that
+// module; keep the copies identical.
+
+/// Checks whether `c` is one of RFC 3986's generic delimiters.
 fn is_gen_delim(c: char) -> bool {
     matches!(c, ':' | '/' | '?' | '#' | '[' | ']' | '@')
 }
 
+/// Checks whether `t` is a blank node identifier, or an IRI whose last character
+/// is a generic delimiter.
 fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri = T, BlankId = B>, t: &Term<T, B>) -> bool {
     match t {
         Term::Id(Id::Valid(ValidId::Blank(_))) => true,
@@ -128,6 +166,8 @@ fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri = T, BlankId 
     }
 }
 
+/// Checks whether `c` occurs in `id`, but as neither its first nor its last
+/// character.
 fn contains_between_boundaries(id: &str, c: char) -> bool {
     if let Some(i) = id.find(c) {
         // SAFETY: `find` matched, so `rfind` must also match.
@@ -138,7 +178,11 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
     }
 }
 
-/// Sync mirror of [`super::expand_iri_with`].
+/// Loader-free mirror of `expand_iri_with` in `iri.rs`. Changes to either must be
+/// applied to both — see the module documentation.
+///
+/// `depth` is the current recursion depth, checked against [`MAX_SYNC_DEPTH`] by
+/// [`define_sync`], which this function recurses through.
 pub fn expand_iri_with_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -274,6 +318,9 @@ where
     }
 }
 
+/// Reports `value` as a malformed IRI and returns it as an invalid identifier.
+///
+/// Mirrors the identically named helper in `iri.rs`.
 fn invalid_iri<N, L, W: jsonld_core::warning::Handler<N, Warning>>(env: &mut Environment<N, L, W>, value: String) -> Term<N::Iri, N::BlankId>
 where
     N: rdfx::vocabulary::Vocabulary,
@@ -282,7 +329,11 @@ where
     Term::Id(Id::Invalid(value))
 }
 
-/// Sync mirror of [`super::define`].
+/// Loader-free mirror of `define` in `define.rs`. Changes to either must be
+/// applied to both — see the module documentation.
+///
+/// `depth` is the current recursion depth; exceeding [`MAX_SYNC_DEPTH`] returns
+/// [`Error::ContextOverflow`] rather than risking a stack overflow.
 pub fn define_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -739,10 +790,12 @@ where
     Ok(())
 }
 
-/// Sync mirror of [`super::process_context`].
+/// Loader-free mirror of `process_context` in `mod.rs`. Changes to either must be
+/// applied to both — see the module documentation.
 ///
-/// Returns `Err(Error::LoadingDocumentFailed)` if a remote `@context` IRI or
-/// `@import` is encountered. Pre-scan via [`requires_loader`] before calling.
+/// Call only after [`requires_loader`] has returned `false` for `local_context`:
+/// meeting a remote `@context` IRI or an `@import` here returns
+/// [`Error::LoadingDocumentFailed`] instead of loading it.
 pub(crate) fn process_context_sync<'l: 'a, 'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -793,8 +846,10 @@ where
                 }
             }
 
-            // The pre-scan promised no IriRef. If one is here, fall back via
-            // an explicit error rather than silently doing the wrong thing.
+            // `requires_loader` promised there would be no remote context
+            // reference. Reaching one means the pre-scan and this function have
+            // drifted apart: fail loudly instead of silently skipping the
+            // context and returning a wrong active context.
             syntax::ContextEntry::IriRef(_) => {
                 return Err(Error::LoadingDocumentFailed);
             }
@@ -804,7 +859,8 @@ where
                     return Err(Error::ProcessingModeConflict);
                 }
 
-                // Pre-scan promised no @import.
+                // Same tripwire as above: `requires_loader` promised no
+                // `@import`, which would need the loader to dereference.
                 if context.import.is_some() {
                     return Err(Error::LoadingDocumentFailed);
                 }

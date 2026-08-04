@@ -40,7 +40,7 @@ impl<T, S> Multiset<T, S> {
         Self::default()
     }
 
-    /// Returns this `Multiset` with its capacity set.
+    /// Creates a new `Multiset` with room for `cap` values.
     pub fn with_capacity(cap: usize) -> Self
     where
         S: Default,
@@ -51,17 +51,17 @@ impl<T, S> Multiset<T, S> {
         }
     }
 
-    /// Returns the number of entries of this `Multiset`.
+    /// Returns the number of values in the multiset, duplicates included.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
-    /// Checks whether this `Multiset` is empty.
+    /// Checks whether the multiset holds no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
-    /// Checks whether this `Multiset` contains.
+    /// Checks whether the multiset holds the given value.
     pub fn contains(&self, value: &T) -> bool
     where
         T: PartialEq,
@@ -69,17 +69,19 @@ impl<T, S> Multiset<T, S> {
         self.data.contains(value)
     }
 
-    /// Returns an iterator over the entries of this `Multiset`.
+    /// Returns an iterator over the values of the multiset, in insertion
+    /// order.
     pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.data.iter()
     }
 
-    /// Returns a mutable iterator over the entries of this `Multiset`.
+    /// Returns a mutable iterator over the values of the multiset, in
+    /// insertion order.
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 
-    /// Borrows this `Multiset` as slice, if it is one.
+    /// Returns the values of the multiset as a slice, in insertion order.
     pub fn as_slice(&self) -> &[T] {
         &self.data
     }
@@ -96,12 +98,14 @@ impl<T: Hash, S: BuildHasher> Multiset<T, S> {
         result
     }
 
-    /// Inserts an entry into this `Multiset`, returning the entry it replaced.
+    /// Inserts a value. Duplicates are kept: inserting a value already
+    /// present adds another occurrence of it.
     pub fn insert(&mut self, value: T) {
         self.data.push(value);
     }
 
-    /// Checks whether this `Multiset` insert unique.
+    /// Inserts the value only if it is not already present. Returns `true`
+    /// if it was inserted.
     pub fn insert_unique(&mut self, value: T) -> bool
     where
         T: PartialEq,

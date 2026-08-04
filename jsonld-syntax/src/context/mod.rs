@@ -20,9 +20,9 @@ pub use try_from_json::{InvalidContext, MAX_CONTEXT_DEPTH};
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(clippy::large_enum_variant)]
 pub enum Context {
-    /// Exactly one value.
+    /// A single entry, written on its own.
     One(ContextEntry),
-    /// Several values.
+    /// Several entries, written as a JSON array.
     Many(Vec<ContextEntry>),
 }
 
@@ -55,7 +55,8 @@ impl Context {
 }
 
 impl Context {
-    /// Returns the number of entries of this `Context`.
+    /// Returns the number of entries of this context, which is 1 for a single
+    /// entry.
     pub fn len(&self) -> usize {
         match self {
             Self::One(_) => 1,
@@ -63,7 +64,7 @@ impl Context {
         }
     }
 
-    /// Checks whether this `Context` is empty.
+    /// Checks whether this context has no entry, which only an empty array can.
     pub fn is_empty(&self) -> bool {
         match self {
             Self::One(_) => false,
@@ -71,7 +72,7 @@ impl Context {
         }
     }
 
-    /// Borrows this `Context` as slice, if it is one.
+    /// Returns the entries of this context as a slice.
     pub fn as_slice(&self) -> &[ContextEntry] {
         match self {
             Self::One(c) => std::slice::from_ref(c),
@@ -79,7 +80,8 @@ impl Context {
         }
     }
 
-    /// Checks whether this `Context` is object.
+    /// Checks whether this context is a single context definition, written as
+    /// a JSON object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::One(c) => c.is_object(),
@@ -87,12 +89,13 @@ impl Context {
         }
     }
 
-    /// Checks whether this `Context` is array.
+    /// Checks whether this context is written as a JSON array.
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
-    /// Returns the traverse of this `Context`.
+    /// Returns a depth-first iterator over this context and every fragment it
+    /// contains, itself included.
     pub fn traverse(&self) -> Traverse<'_> {
         match self {
             Self::One(c) => Traverse::new(FragmentRef::Context(c)),
@@ -100,7 +103,7 @@ impl Context {
         }
     }
 
-    /// Returns an iterator over the entries of this `Context`.
+    /// Returns an iterator over the entries of this context, in order.
     pub fn iter(&self) -> std::slice::Iter<'_, ContextEntry> {
         self.as_slice().iter()
     }
@@ -114,9 +117,9 @@ impl Context {
 /// a [`Vec`] iterator. [`Option<Box<_>>`] is null-pointer-optimised, so no
 /// allocation happens once the entry has been yielded.
 pub enum IntoIter {
-    /// Exactly one value.
+    /// The entry of a single-entry context, until it has been yielded.
     One(Option<Box<ContextEntry>>),
-    /// Several values.
+    /// The remaining entries of an array of contexts.
     Many(std::vec::IntoIter<ContextEntry>),
 }
 
@@ -188,15 +191,15 @@ impl From<Definition> for Context {
     }
 }
 
-/// Context.
+/// Single entry of a `@context`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
 pub enum ContextEntry {
-    /// The null value.
+    /// The `null` value, which clears the active context.
     Null,
-    /// An IRI reference.
+    /// An IRI reference to a remote context, to be dereferenced and loaded.
     IriRef(IriRefBuf),
-    /// A term definition.
+    /// An inline context definition.
     Definition(Definition),
 }
 
@@ -208,7 +211,8 @@ impl ContextEntry {
         }
     }
 
-    /// Checks whether this `ContextEntry` is object.
+    /// Checks whether this entry is an inline context definition, written as a
+    /// JSON object.
     pub fn is_object(&self) -> bool {
         matches!(self, Self::Definition(_))
     }
@@ -244,20 +248,20 @@ impl From<Definition> for ContextEntry {
     }
 }
 
-/// Context value fragment.
+/// Fragment of a context value: any JSON value reachable inside a `@context`.
 pub enum FragmentRef<'a> {
-    /// Context array.
+    /// An array of context entries.
     ContextArray(&'a [ContextEntry]),
 
-    /// Context.
+    /// A single context entry.
     Context(&'a ContextEntry),
 
-    /// Context definition fragment.
+    /// A fragment of a context definition.
     DefinitionFragment(definition::FragmentRef<'a>),
 }
 
 impl<'a> FragmentRef<'a> {
-    /// Checks whether this `FragmentRef` is array.
+    /// Checks whether this fragment is a JSON array.
     pub fn is_array(&self) -> bool {
         match self {
             Self::ContextArray(_) => true,
@@ -266,7 +270,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is object.
+    /// Checks whether this fragment is a JSON object.
     pub fn is_object(&self) -> bool {
         match self {
             Self::Context(c) => c.is_object(),
@@ -275,7 +279,7 @@ impl<'a> FragmentRef<'a> {
         }
     }
 
-    /// Returns the sub items of this `FragmentRef`.
+    /// Returns an iterator over the fragments directly contained in this one.
     pub fn sub_items(&self) -> SubFragments<'a> {
         match self {
             Self::ContextArray(a) => SubFragments::ContextArray(a.iter()),
@@ -287,9 +291,9 @@ impl<'a> FragmentRef<'a> {
 
 /// Iterator over the fragments held by a single context entry.
 pub enum ContextSubFragments<'a> {
-    /// No value.
+    /// Nothing to iterate over: the entry is `null` or an IRI reference.
     None,
-    /// A term definition.
+    /// The entries of a context definition.
     Definition(Box<definition::Entries<'a>>),
 }
 
@@ -306,11 +310,11 @@ impl<'a> Iterator for ContextSubFragments<'a> {
 
 /// Iterator over the fragments held by a context.
 pub enum SubFragments<'a> {
-    /// The entries of an array of contexts.
+    /// The items of an array of contexts.
     ContextArray(std::slice::Iter<'a, ContextEntry>),
-    /// The fragments of a single context.
+    /// The fragments of a single context entry.
     Context(ContextSubFragments<'a>),
-    /// A term definition.
+    /// The fragments of a context definition.
     Definition(Box<definition::SubItems<'a>>),
 }
 
@@ -361,6 +365,6 @@ impl<'a> Iterator for Traverse<'a> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ContextDocument {
     #[cfg_attr(feature = "serde", serde(rename = "@context"))]
-    /// The `@context` entry, holding a context local to this definition.
+    /// The `@context` entry, the sole entry of the document.
     pub context: Context,
 }

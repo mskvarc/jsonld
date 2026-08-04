@@ -3,6 +3,12 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+/// Folds an ASCII uppercase byte to its lowercase counterpart, leaving every
+/// other byte untouched.
+///
+/// Used to compare language tags case-insensitively. Well-formed tags are
+/// ASCII-only, so folding bytes rather than characters is enough; non-ASCII
+/// bytes, which only an ill-formed tag can contain, are compared as they are.
 pub fn into_smallcase(c: u8) -> u8 {
     if c.is_ascii_uppercase() { c + 0x20 } else { c }
 }

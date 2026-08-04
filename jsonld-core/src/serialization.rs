@@ -666,11 +666,11 @@ where
     }
 }
 
-// TODO (task 18 follow-up): port the LinkedDataDeserialize impl to ld_core's
-// new `<I: Interpretation>`-only signature. The legacy impl required a
-// `Vocabulary` to look up IRI / literal lexical values for type comparisons
-// (RDF_JSON, XSD_BOOLEAN, …); the new trait does not surface a vocabulary so
-// the impl needs to be reshaped against `interpretation.iris_of(...)` /
-// `literals_of(...)`. The free function `from_interpreted_quads_in` still
-// works with the vocabulary parameter and remains the entry point for
-// callers that already have one.
+// TODO: `ExpandedDocument` has no `LinkedDataDeserialize` impl. Providing one
+// means reshaping the deserialization logic against `ld_core`'s
+// `<I: Interpretation>`-only trait signature: the type comparisons this code
+// performs (`RDF_JSON`, `XSD_BOOLEAN`, …) need IRI and literal lexical values,
+// which the old vocabulary-taking signature supplied directly and the new
+// trait does not — they have to come from `interpretation.iris_of(...)` and
+// `literals_of(...)` instead. Until then, `from_interpreted_quads_in` below is
+// the entry point, and it still takes a vocabulary.

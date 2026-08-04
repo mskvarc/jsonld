@@ -1,9 +1,26 @@
-//! This library implements the [JSON-LD expansion algorithm](https://www.w3.org/TR/json-ld-api/#expansion-algorithms)
-//! for the [`json-ld` crate](https://crates.io/crates/json-ld).
+//! Implementation of the JSON-LD 1.1
+//! [Expansion algorithm](https://www.w3.org/TR/json-ld11-api/#expansion-algorithms).
+//!
+//! Expansion rewrites a JSON-LD document into a regular form: terms and
+//! compact IRIs become full IRIs, the defaults a context sets (`@base`,
+//! `@vocab`, `@language`...) are applied to every value, and the `@context`
+//! entries themselves disappear. It is the first step of almost every other
+//! JSON-LD algorithm, since it removes the many ways the syntax offers to say
+//! the same thing.
+//!
+//! The algorithm operates on the JSON syntax tree of the `jstrict` crate and
+//! produces the [`ExpandedDocument`] type of the `jsonld-core` crate.
 //!
 //! # Usage
 //!
-//! The expansion algorithm is provided by the [`Expand`] trait.
+//! Expansion is exposed by the [`Expand`] trait, implemented for
+//! [`jstrict::Value`] (a parsed JSON document) and for [`RemoteDocument`]
+//! (a parsed JSON document along with the URL it comes from, used to resolve
+//! relative IRI references).
+//!
+//! Most users will not depend on this crate directly but on the
+//! [`jsonld` crate](https://crates.io/crates/jsonld), which re-exports
+//! [`Expand`] next to the other JSON-LD algorithms.
 use std::hash::Hash;
 
 // Re-exported because they appear in the public `Expand` signatures:
@@ -44,81 +61,84 @@ pub(crate) use literal::*;
 pub(crate) use node::*;
 pub(crate) use value::*;
 
-/// Result of the document expansion.
+/// Result of a document expansion, where `E` is the error type of the document
+/// loader used to fetch the remote contexts.
 pub type ExpansionResult<T, B, E> = Result<ExpandedDocument<T, B>, Error<E>>;
 
-/// Handler for the possible warnings emitted during the expansion
-/// of a JSON-LD document.
+/// Handler for the warnings emitted while expanding a JSON-LD document.
+///
+/// This is an alias for a [`jsonld_core::warning::Handler`] of [`Warning`],
+/// automatically implemented by every such handler. The unit type `()` is a
+/// handler that discards every warning.
 pub trait WarningHandler<N: BlankIdVocabulary>: jsonld_core::warning::Handler<N, Warning<N::BlankId>> {}
 
 impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where H: jsonld_core::warning::Handler<N, Warning<N::BlankId>> {}
 
 /// Document expansion.
 ///
-/// This trait provides the functions necessary to expand
-/// a JSON-LD document into an [`ExpandedDocument`].
-/// It is implemented by [`jstrict::Value`] representing
-/// a JSON object and [`RemoteDocument`].
+/// Provides the functions expanding a JSON-LD document into an
+/// [`ExpandedDocument`]. It is implemented by [`jstrict::Value`], for a
+/// document parsed from JSON, and by [`RemoteDocument`], for a parsed document
+/// carrying the URL it comes from.
 ///
 /// # Example
 ///
 /// ```
-/// # mod json_ld { pub use jsonld_syntax as syntax; pub use jsonld_core::{RemoteDocument, ExpandedDocument, NoLoader}; pub use jsonld_expansion::Expand; };
-///
-/// use iri_rs::IriBuf;
-/// use rdfx::BlankIdBuf;
 /// use iri_rs::iri;
-/// use jsonld::{syntax::Parse, RemoteDocument, Expand};
+/// use jsonld::{Expand, NoLoader, syntax::Parse};
 ///
-/// # #[tokio::test]
-/// # async fn example() {
-/// // Parse the input JSON(-LD) document.
+/// # #[tokio::main(flavor = "current_thread")]
+/// # async fn main() {
+/// // Parse the input JSON-LD document.
 /// let (json, _) = jsonld::syntax::Value::parse_str(
-///   r##"
+///   r#"
 ///   {
-///     "@graph": [
-///       {
-///         "http://example.org/vocab#a": {
-///           "@graph": [
-///             {
-///               "http://example.org/vocab#b": "Chapter One"
-///             }
-///           ]
-///         }
-///       }
-///     ]
+///     "@context": { "label": "http://example.org/vocab#label" },
+///     "@id": "http://example.org/book",
+///     "label": "Chapter One"
 ///   }
-///   "##)
+///   "#)
 /// .unwrap();
 ///
-/// // Prepare a dummy document loader using [`jsonld::NoLoader`],
-/// // since we won't need to load any remote document while expanding this one.
-/// let mut loader = jsonld::NoLoader;
+/// // Expanding this document requires no remote context, so a loader that
+/// // fetches nothing will do.
+/// let loader = NoLoader;
 ///
-/// // The `expand` method returns an [`jsonld::ExpandedDocument`].
-/// json
-///     .expand(&mut loader)
-///     .await
-///     .unwrap();
+/// let expanded = json.expand(&loader).await.unwrap();
+///
+/// // The `label` term has been replaced by the IRI it is defined as.
+/// let object = expanded.into_iter().next().unwrap();
+/// let label = object
+///   .as_node().unwrap()
+///   .get_any(&iri!("http://example.org/vocab#label")).unwrap()
+///   .as_str().unwrap();
+///
+/// assert_eq!(label, "Chapter One");
 /// # }
 /// ```
 pub trait Expand<Iri> {
-    /// Returns the default base URL passed to the expansion algorithm
-    /// and used to initialize the default empty context when calling
-    /// [`Expand::expand`] or [`Expand::expand_with`].
+    /// Returns the base URL the document is expanded against when none is
+    /// given explicitly, as in [`Expand::expand`] and [`Expand::expand_with`].
+    ///
+    /// It is also the base URL of the empty initial context those two methods
+    /// build.
     fn default_base_url(&self) -> Option<&Iri>;
 
-    /// Expand the document with full options.
+    /// Expands the document, controlling every parameter of the algorithm.
     ///
-    /// The `vocabulary` is used to interpret identifiers.
-    /// The `context` is used as initial context.
-    /// The `base_url` is the initial base URL used to resolve relative IRI references.
-    /// The given `loader` is used to load remote documents (such as contexts)
-    /// imported by the input and required during expansion.
-    /// The `options` are used to tweak the expansion algorithm.
-    /// The `warning_handler` is called each time a warning is emitted during
-    /// expansion, including warnings raised while processing scoped and local
-    /// `@context`s (wrapped in [`Warning::ContextProcessing`]).
+    /// - `vocabulary` interprets the identifiers of the input and mints those
+    ///   of the result;
+    /// - `context` is the initial active context;
+    /// - `base_url` is the initial base URL, against which relative IRI
+    ///   references are resolved;
+    /// - `loader` fetches the remote documents (contexts, mostly) the input
+    ///   refers to;
+    /// - `options` tune the algorithm: processing mode, key expansion policy
+    ///   and entry ordering;
+    /// - `warnings_handler` is called for each warning raised during
+    ///   expansion, including the warnings raised while processing scoped and
+    ///   local `@context`s, which arrive wrapped in
+    ///   [`Warning::ContextProcessing`].
     async fn expand_full<N, L, W>(
         &self,
         vocabulary: &mut N,
@@ -135,13 +155,13 @@ pub trait Expand<Iri> {
         L: Loader,
         W: WarningHandler<N>;
 
-    /// Expand the input JSON-LD document with the given `vocabulary`
-    /// to interpret identifiers.
+    /// Expands the document, interpreting identifiers with the given
+    /// `vocabulary`.
     ///
-    /// The given `loader` is used to load remote documents (such as contexts)
-    /// imported by the input and required during expansion.
-    /// The expansion algorithm is called with an empty initial context with
-    /// a base URL given by [`Expand::default_base_url`].
+    /// The algorithm starts from an empty context whose base URL is
+    /// [`Expand::default_base_url`], runs with the default [`Options`] and
+    /// discards warnings. The given `loader` fetches the remote documents
+    /// (contexts, mostly) the input refers to.
     async fn expand_with<'a, N, L>(&'a self, vocabulary: &'a mut N, loader: &'a L) -> ExpansionResult<Iri, N::BlankId, L::Error>
     where
         N: VocabularyMut<Iri = Iri>,
@@ -160,12 +180,14 @@ pub trait Expand<Iri> {
         .await
     }
 
-    /// Expand the input JSON-LD document.
+    /// Expands the document, keeping identifiers as `IriBuf` and
+    /// [`BlankIdBuf`] values instead of interning them in a vocabulary.
     ///
-    /// The given `loader` is used to load remote documents (such as contexts)
-    /// imported by the input and required during expansion.
-    /// The expansion algorithm is called with an empty initial context with
-    /// a base URL given by [`Expand::default_base_url`].
+    /// Otherwise behaves like [`Expand::expand_with`]: the algorithm starts
+    /// from an empty context whose base URL is [`Expand::default_base_url`],
+    /// runs with the default [`Options`] and discards warnings. The given
+    /// `loader` fetches the remote documents (contexts, mostly) the input
+    /// refers to.
     async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf, L::Error>
     where
         (): VocabularyMut<Iri = Iri>,
@@ -176,7 +198,9 @@ pub trait Expand<Iri> {
     }
 }
 
-/// Value expansion without base URL.
+/// A parsed JSON document has no URL of its own, hence no default base URL:
+/// relative IRI references it contains can only be resolved against a base URL
+/// given explicitly to [`Expand::expand_full`].
 impl<Iri> Expand<Iri> for Value {
     fn default_base_url(&self) -> Option<&Iri> {
         None
@@ -213,10 +237,9 @@ impl<Iri> Expand<Iri> for Value {
     }
 }
 
-/// Remote document expansion.
-///
-/// The default base URL given to the expansion algorithm is the URL of
-/// the remote document.
+/// A remote document knows where it comes from: its own URL is used as default
+/// base URL, so relative IRI references resolve as they would for a consumer
+/// fetching the document.
 impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
     fn default_base_url(&self) -> Option<&Iri> {
         self.url()

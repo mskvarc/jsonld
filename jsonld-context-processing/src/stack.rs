@@ -20,12 +20,12 @@ struct StackNode<I> {
 }
 
 impl<I> StackNode<I> {
-    /// Create a new stack frame registering the load of the given context URL.
+    /// Creates a stack frame recording the load of `url` on top of `previous`.
     fn new(previous: Option<Arc<StackNode<I>>>, url: I) -> StackNode<I> {
         StackNode { previous, url }
     }
 
-    /// Checks if this frame or any parent holds the given URL.
+    /// Checks whether this frame or any frame below it holds `url`.
     fn contains(&self, url: &I) -> bool
     where
         I: PartialEq,
@@ -41,26 +41,37 @@ impl<I> StackNode<I> {
     }
 }
 
-/// Context processing stack.
+/// The chain of remote context URLs currently being processed.
 ///
-/// Contains the list of the loaded contexts to detect loops.
+/// This is the specification's `remote contexts` array. It serves two purposes:
+/// spotting a context that includes itself, and bounding the length of a remote
+/// context chain at [`MAX_REMOTE_CONTEXTS`]. Whether it is empty also tells the
+/// algorithm whether the context being processed came from a remote document,
+/// which is what decides if its `@base` entry applies.
+///
+/// Implemented as an immutable singly-linked list behind [`Arc`]s, so the copy
+/// each recursive call receives is a pointer bump rather than a clone of the
+/// chain.
 #[derive(Clone)]
 pub struct ProcessingStack<I> {
     head: Option<Arc<StackNode<I>>>,
 }
 
 impl<I> ProcessingStack<I> {
-    /// Creates a new empty processing stack.
+    /// Creates an empty stack, meaning no remote context is being processed.
     pub fn new() -> Self {
         Self { head: None }
     }
 
-    /// Checks if the stack is empty.
+    /// Checks whether no remote context has been entered, i.e. the context being
+    /// processed is not itself remote.
     pub fn is_empty(&self) -> bool {
         self.head.is_none()
     }
 
-    /// Returns the number of URLs in the stack.
+    /// Returns the number of remote contexts on the stack.
+    ///
+    /// Walks the chain, so this is linear in the stack depth.
     pub fn len(&self) -> usize {
         let mut len = 0;
         let mut node = &self.head;
@@ -71,9 +82,8 @@ impl<I> ProcessingStack<I> {
         len
     }
 
-    /// Checks if the given URL is already in the stack.
-    ///
-    /// This is used for loop detection.
+    /// Checks whether `url` is already on the stack, meaning entering it would
+    /// close a loop.
     pub fn cycle(&self, url: &I) -> bool
     where
         I: PartialEq,
@@ -84,10 +94,12 @@ impl<I> ProcessingStack<I> {
         }
     }
 
-    /// Push a new URL to the stack, unless it is already in the stack.
+    /// Pushes `url` onto the stack, unless it is already there.
     ///
-    /// Returns `true` if the URL was successfully added or
-    /// `false` if a loop has been detected.
+    /// Returns `true` when the URL was added, and `false` when it was already on
+    /// the stack and nothing changed. What `false` means is version-dependent:
+    /// JSON-LD 1.0 treats it as a recursive context inclusion error, while 1.1
+    /// simply skips reprocessing the context.
     pub fn push(&mut self, url: I) -> bool
     where
         I: PartialEq,

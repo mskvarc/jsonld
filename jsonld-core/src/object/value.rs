@@ -24,7 +24,8 @@ pub enum TypeRef<'a, T> {
 }
 
 impl<'a, T> TypeRef<'a, T> {
-    /// Borrows this `TypeRef` as syntax type, if it is one.
+    /// Converts this value type into the more general term type used by
+    /// context definitions.
     pub fn as_syntax_type(&self) -> crate::Type<&'a T> {
         match self {
             Self::Json => crate::Type::Json,
@@ -32,7 +33,8 @@ impl<'a, T> TypeRef<'a, T> {
         }
     }
 
-    /// Consumes this `TypeRef`, returning its reference.
+    /// Returns the node identifier naming this type, or `None` for the
+    /// `@json` type, which names a literal rather than a node.
     pub fn into_reference<B>(self) -> Option<crate::id::Ref<'a, T, B>> {
         match self {
             Self::Json => None,
@@ -85,7 +87,7 @@ impl Literal {
         }
     }
 
-    /// Consumes this `Literal`, returning its JSON.
+    /// Converts the literal into the equivalent JSON value.
     pub fn into_json(self) -> jstrict::Value {
         match self {
             Self::Null => jstrict::Value::Null,
@@ -95,9 +97,8 @@ impl Literal {
         }
     }
 
-    /// Puts this literal into canonical form using the given `buffer`.
-    ///
-    /// The buffer is used to compute the canonical form of numbers.
+    /// Puts the literal into canonical form, using the given `buffer` to
+    /// render numbers. Only numbers have a non-trivial canonical form.
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
         if let Self::Number(n) = self {
             *n = NumberBuf::from_number(n.canonical_with(buffer))
@@ -144,7 +145,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
-    /// Borrows this `Value` as literal, if it is one.
+    /// Returns the literal and its type, if this is a typed literal value.
     pub fn as_literal(&self) -> Option<(&Literal, Option<&T>)> {
         match self {
             Self::Literal(lit, ty) => Some((lit, ty.as_ref())),
@@ -152,7 +153,8 @@ impl<T> Value<T> {
         }
     }
 
-    /// Returns the literal type of this `Value`.
+    /// Returns the `@type` IRI of this value, if it is a typed literal with
+    /// one.
     pub fn literal_type(&self) -> Option<&T> {
         match self {
             Self::Literal(_, ty) => ty.as_ref(),
@@ -160,9 +162,10 @@ impl<T> Value<T> {
         }
     }
 
-    /// Set the literal value type, and returns the old type.
+    /// Sets the `@type` IRI of a typed literal value, returning the type it
+    /// replaced.
     ///
-    /// Has no effect and return `None` if the value is not a literal value.
+    /// Has no effect and returns `None` if the value is not a typed literal.
     pub fn set_literal_type(&mut self, mut ty: Option<T>) -> Option<T> {
         match self {
             Self::Literal(_, old_ty) => {
@@ -173,9 +176,10 @@ impl<T> Value<T> {
         }
     }
 
-    /// Maps the literal value type.
+    /// Replaces the `@type` IRI of a typed literal value with the result of
+    /// `f`.
     ///
-    /// Has no effect if the value is not a literal value.
+    /// Has no effect if the value is not a typed literal.
     pub fn map_literal_type<F: FnOnce(Option<T>) -> Option<T>>(&mut self, f: F) {
         if let Self::Literal(_, ty) = self {
             *ty = f(ty.take())
@@ -183,7 +187,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
-    /// Borrows this `Value` as bool, if it is one.
+    /// Returns the value as a boolean, if it is a literal holding one.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Value::Literal(lit, _) => lit.as_bool(),
@@ -192,7 +196,7 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
-    /// Borrows this `Value` as number, if it is one.
+    /// Returns the value as a number, if it is a literal holding one.
     pub fn as_number(&self) -> Option<&Number> {
         match self {
             Value::Literal(lit, _) => lit.as_number(),
@@ -200,9 +204,10 @@ impl<T> Value<T> {
         }
     }
 
-    /// Return the type of the value if any.
+    /// Returns the `@type` of the value, if it has one.
     ///
-    /// This will return `Some(Type::Json)` for JSON literal values.
+    /// JSON literal values report [`TypeRef::Json`]; language-tagged strings
+    /// have no type and report `None`.
     pub fn typ(&self) -> Option<TypeRef<'_, T>> {
         match self {
             Value::Literal(_, Some(ty)) => Some(TypeRef::Id(ty)),
@@ -211,9 +216,10 @@ impl<T> Value<T> {
         }
     }
 
-    /// If the value is a language tagged string, return its associated language if any.
+    /// Returns the `@language` of the value.
     ///
-    /// Returns `None` if the value is not a language tagged string.
+    /// Returns `None` if the value is not a language-tagged string, or is one
+    /// carrying only a `@direction`.
     #[inline(always)]
     pub fn language(&self) -> Option<&LenientLangTag> {
         match self {
@@ -222,9 +228,10 @@ impl<T> Value<T> {
         }
     }
 
-    /// If the value is a language tagged string, return its associated direction if any.
+    /// Returns the `@direction` of the value.
     ///
-    /// Returns `None` if the value is not a language tagged string.
+    /// Returns `None` if the value is not a language-tagged string, or is one
+    /// carrying only a `@language`.
     #[inline(always)]
     pub fn direction(&self) -> Option<Direction> {
         match self {
@@ -234,7 +241,8 @@ impl<T> Value<T> {
     }
 
     #[inline(always)]
-    /// Returns the entries of this `Value`.
+    /// Returns an iterator over the entries of the JSON representation of
+    /// the value object.
     pub fn entries(&self) -> Entries<'_, T> {
         match self {
             Self::Literal(l, ty) => Entries {
@@ -298,10 +306,8 @@ impl<T> Value<T> {
         }
     }
 
-    /// Puts this value object literal into canonical form using the given
-    /// `buffer`.
-    ///
-    /// The buffer is used to compute the canonical form of numbers.
+    /// Puts the literal held by this value object into canonical form, using
+    /// the given `buffer` to render numbers.
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
         match self {
             Self::Json(json) => json.canonicalize_with(buffer),
@@ -310,13 +316,14 @@ impl<T> Value<T> {
         }
     }
 
-    /// Puts this literal into canonical form.
+    /// Puts the literal held by this value object into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
         self.canonicalize_with(&mut buffer)
     }
 
-    /// Map the type IRI of this value, if any.
+    /// Rewrites the `@type` IRI of the value, if it has one, with the given
+    /// function.
     pub fn map_ids<U>(self, map_iri: impl FnOnce(T) -> U) -> Value<U> {
         match self {
             Self::Literal(l, type_) => Value::Literal(l, type_.map(map_iri)),
@@ -443,7 +450,7 @@ pub enum EntryKey {
 }
 
 impl EntryKey {
-    /// Consumes this `EntryKey`, returning its keyword.
+    /// Returns the JSON-LD keyword this key stands for.
     pub fn into_keyword(self) -> Keyword {
         match self {
             Self::Value => Keyword::Value,
@@ -453,12 +460,12 @@ impl EntryKey {
         }
     }
 
-    /// Borrows this `EntryKey` as keyword, if it is one.
+    /// Returns the JSON-LD keyword this key stands for.
     pub fn as_keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
-    /// Consumes this `EntryKey`, returning its str.
+    /// Returns the key as a string slice.
     pub fn into_str(&self) -> &'static str {
         match self {
             Self::Value => "@value",
@@ -550,7 +557,7 @@ pub enum FragmentRef<'a, T> {
 }
 
 impl<'a, T> FragmentRef<'a, T> {
-    /// Consumes this `FragmentRef`, returning its IRI.
+    /// Returns the IRI this fragment stands for, if it is one.
     pub fn into_iri(self) -> Option<&'a T> {
         match self {
             Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -558,7 +565,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
-    /// Borrows this `FragmentRef` as IRI, if it is one.
+    /// Returns the IRI this fragment stands for, if it is one.
     pub fn as_iri(&self) -> Option<&'a T> {
         match self {
             Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -566,7 +573,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is JSON array.
+    /// Checks whether this fragment renders as a JSON array.
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => json.is_array(),
@@ -575,7 +582,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
-    /// Checks whether this `FragmentRef` is JSON object.
+    /// Checks whether this fragment renders as a JSON object.
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => json.is_object(),
@@ -584,7 +591,7 @@ impl<'a, T> FragmentRef<'a, T> {
         }
     }
 
-    /// Returns the sub fragments of this `FragmentRef`.
+    /// Returns an iterator over the fragments directly contained in this one.
     pub fn sub_fragments(&self) -> SubFragments<'a, T> {
         match self {
             Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),

@@ -21,21 +21,20 @@ use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
 use std::{borrow::Cow, hash::Hash, sync::Arc};
 
+/// Entry of a JSON object whose key has been expanded: the key as written, the
+/// term it expanded to, and the value left untouched.
 pub(crate) struct ExpandedEntry<'a, T, B>(pub &'a str, pub Arc<Term<T, B>>, pub &'a Value);
 
+/// Property whose value is being expanded, as written in the input document.
+///
+/// It is `None` at the top level of a document, where the element being
+/// expanded is not the value of any property.
 pub(crate) enum ActiveProperty<'a> {
     Some(&'a str),
     None,
 }
 
 impl<'a> ActiveProperty<'a> {
-    // pub fn as_str(&self) -> Option<&'a str> {
-    // 	match self {
-    // 		Self::Some(Meta(s, _)) => Some(s),
-    // 		Self::None => None
-    // 	}
-    // }
-
     pub fn is_some(&self) -> bool {
         matches!(self, Self::Some(_))
     }
@@ -44,6 +43,8 @@ impl<'a> ActiveProperty<'a> {
         matches!(self, Self::None)
     }
 
+    /// Returns the definition of this property in the given context, if the
+    /// context defines it.
     pub fn get_from<'c, T, B>(&self, context: &'c Context<T, B>) -> Option<jsonld_core::context::TermDefinitionRef<'c, T, B>> {
         match self {
             Self::Some(s) => context.get(*s),
@@ -72,10 +73,15 @@ impl<'a> PartialEq<Keyword> for ActiveProperty<'a> {
 /// Result of the expansion of a single element in a JSON-LD document.
 pub(crate) type ElementExpansionResult<T, B, E> = Result<Expanded<T, B>, Error<E>>;
 
-/// Expand an element.
+/// Expands one element of a JSON-LD document — a value, an array or a map —
+/// against the given active context.
 ///
-/// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
-/// The default specified value for `ordered` and `from_map` is `false`.
+/// Implements the [Expansion
+/// algorithm](https://www.w3.org/TR/json-ld11-api/#expansion-algorithm) and is
+/// called recursively for every nested element. `from_map` tells whether this
+/// element is the value of an entry of an index, id, type or language map,
+/// which suspends the reverting to a previous context; the specification
+/// defaults it to `false`.
 pub(crate) async fn expand_element<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -114,7 +120,8 @@ where
     };
 
     match element {
-        // Early-returned above; preserve the match exhaustiveness without panic.
+        // A null element already returned at the top of this function; this arm
+        // only keeps the match total, without a panic.
         Value::Null => Ok(Expanded::Null),
         Value::Array(element) => {
             expand_array(
@@ -132,9 +139,16 @@ where
         }
 
         Value::Object(element) => {
-            // Otherwise element is a map.
-            // If `active_context` has a `previous_context`, the active context is not
-            // propagated. Compute has_value_entry / has_id_entry only when needed.
+            // Otherwise `element` is a map.
+            //
+            // If `active_context` has a `previous_context`, the active context
+            // is not propagated: revert to `previous_context`, unless this map
+            // comes from a map expansion (`from_map`), contains an entry
+            // expanding to `@value`, or consists of a single entry expanding to
+            // `@id`. A term-scoped context does not reach into a new node
+            // object. Deciding this means IRI-expanding every key, so the two
+            // entry checks are only computed when there is a
+            // `previous_context` to revert to.
             let mut active_context = ContextRef::Borrowed(active_context);
             if !from_map && active_context.previous_context().is_some() {
                 let mut has_value_entry = false;
@@ -235,9 +249,12 @@ where
                 Cow::Borrowed(element.entries())
             };
 
-            // Single sweep: expand each key with the current active context, build
-            // `expanded_entries`, and record indices of entries whose key expanded to
-            // `@type`. Replaces the prior loops 2 + 3 in the spec.
+            // Single sweep over the entries: expand each key with the current
+            // active context, build `expanded_entries`, and record the index of
+            // every entry whose key expanded to `@type`. The specification
+            // walks the entries twice here, once to collect the `@type` entries
+            // driving type-scoped context processing and once to expand every
+            // key; one pass plus a list of indices does the same work.
             let mut expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>> = Vec::with_capacity(entries.len());
             let mut type_indices: Vec<usize> = Vec::new();
             for Entry { key, value } in entries.iter() {
@@ -265,9 +282,10 @@ where
             let type_scoped_context = active_context.as_ref();
             let mut active_context = ContextRef::Borrowed(active_context.as_ref());
 
-            // For each entry whose key IRI-expands to `@type`, sorted lexicographically
-            // by key, walk the @type values in lex order and apply any associated
-            // type-scoped contexts to `active_context`.
+            // For each entry whose key IRI-expands to `@type`, sorted
+            // lexicographically by key, walk the `@type` values in
+            // lexicographic order too and apply the type-scoped context of each
+            // of them, if any, to `active_context`.
             for &i in &type_indices {
                 let value = Value::force_as_array(expanded_entries[i].2);
                 let mut sorted_value: SmallVec<[&str; 4]> = SmallVec::with_capacity(value.len());
@@ -336,8 +354,10 @@ where
                 None
             };
 
-            // If type-scoped processing replaced `active_context`, the cached expansions
-            // in `expanded_entries` may be stale w.r.t. the final context — refresh them.
+            // Type-scoped processing replaces `active_context` with an owned
+            // one, under which a key may expand differently: the expansions
+            // recorded during the single sweep above are then stale and have to
+            // be redone.
             if active_context.is_owned() {
                 expanded_entries.clear();
                 for Entry { key, value } in entries.iter() {
@@ -388,7 +408,7 @@ where
                 // Initialize expanded value to the result of using this algorithm
                 // recursively passing active context, active property, value for element,
                 // base URL, and the ordered flags, ensuring that the
-                // result is an array..
+                // result is an array.
                 let mut result = Vec::new();
                 let list_entry = Value::force_as_array(list_entry);
                 for item in list_entry {
@@ -422,8 +442,8 @@ where
                 for ExpandedEntry(_, expanded_key, _) in expanded_entries {
                     match expanded_key.as_ref() {
                         Term::Keyword(Keyword::Index) => {
-                            // having an `@index` here is tolerated,
-                            // but is ignored.
+                            // An `@index` entry alongside `@set` is tolerated,
+                            // but ignored: a set has no order to index.
                         }
                         Term::Keyword(Keyword::Set) => (),
                         _ => return Err(Error::InvalidSetOrListObject),
@@ -483,11 +503,11 @@ where
         }
 
         _ => {
-            // Literals.
+            // Otherwise `element` is a scalar: a boolean, a number or a string
+            // (`null` returned at the top of this function).
 
-            // If element is a scalar (bool, int, string, null),
-            // If `active_property` is `null` or `@graph`, drop the free-floating scalar by
-            // returning null.
+            // If `active_property` is `null` or `@graph`, the scalar describes
+            // nothing: drop it by returning null.
             if active_property.is_none() || active_property == Keyword::Graph {
                 return Ok(Expanded::Null);
             }
@@ -497,8 +517,10 @@ where
             // local context, and `base_url` from the term definition for `active_property` in
             // `active context`.
             let active_context = if let Some(property_scoped_context) = property_scoped_context {
-                // FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
-                let base_url = active_property.get_from(active_context).and_then(|definition| definition.base_url().cloned());
+                // A property-scoped context only exists when `active_property`
+                // has a term definition, so `property_scoped_base_url` is the
+                // base URL of that very definition, as the algorithm requires.
+                let base_url = property_scoped_base_url;
 
                 let result = match cache {
                     Some(cache) => Box::pin(property_scoped_context.process_full_with_cache(

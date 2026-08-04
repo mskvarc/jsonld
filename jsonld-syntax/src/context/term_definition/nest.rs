@@ -3,17 +3,19 @@ use std::hash::Hash;
 use crate::is_keyword;
 
 #[derive(Clone, PartialOrd, Ord, Debug)]
-/// Value of the `@nest` entry of a term definition.
+/// Value of the `@nest` entry of a term definition: the term under which the
+/// property is nested.
 pub enum Nest {
-    /// The `@nest` keyword itself.
+    /// The `@nest` keyword itself, nesting the property under a plain `@nest`
+    /// entry.
     Nest,
 
-    /// Must not be a keyword.
+    /// Another term of the context, which must not be a keyword.
     Term(String),
 }
 
 impl Nest {
-    /// Returns this value as a string slice.
+    /// Returns this value as it is spelled in the context.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Nest => "@nest",
@@ -21,7 +23,8 @@ impl Nest {
         }
     }
 
-    /// Consumes this `Nest`, returning its string.
+    /// Converts this value into an owned `String`, allocating for the `@nest`
+    /// keyword.
     pub fn into_string(self) -> String {
         match self {
             Self::Nest => "@nest".to_string(),
@@ -50,7 +53,7 @@ impl Hash for Nest {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid `@nest` value")]
-/// Error raised when a `@nest` value is neither `@nest` nor a term.
+/// Error raised when a `@nest` value is a keyword other than `@nest`.
 pub struct InvalidNest(pub String);
 
 impl TryFrom<String> for Nest {

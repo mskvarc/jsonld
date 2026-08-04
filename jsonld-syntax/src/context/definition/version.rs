@@ -5,9 +5,10 @@ use std::{hash::Hash, str::FromStr};
 /// Error raised when `@version` holds anything but `1.1`.
 pub struct UnknownVersion(pub String);
 
-/// Version number.
+/// Value of the `@version` entry, selecting the processing mode.
 ///
-/// The only allowed value is a number with the value `1.1`.
+/// The only value JSON-LD allows is the number `1.1`, so this enum has a single
+/// variant and all its values are equal.
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
 pub enum Version {
     /// JSON-LD 1.1 processing mode.
@@ -15,27 +16,27 @@ pub enum Version {
 }
 
 impl Version {
-    /// Consumes this `Version`, returning its bytes.
+    /// Returns the decimal spelling of this version as bytes: `b"1.1"`.
     pub fn into_bytes(self) -> &'static [u8] {
         match self {
             Self::V1_1 => b"1.1",
         }
     }
 
-    /// Consumes this `Version`, returning its str.
+    /// Returns the decimal spelling of this version: `"1.1"`.
     pub fn into_str(self) -> &'static str {
         match self {
             Self::V1_1 => "1.1",
         }
     }
 
-    /// Consumes this `Version`, returning its JSON number.
+    /// Returns this version as a borrowed JSON number.
     pub fn into_json_number(self) -> &'static jstrict::Number {
         // SAFETY: `into_bytes` only returns `b"1.1"`, a valid JSON number.
         unsafe { jstrict::Number::new_unchecked(self.into_bytes()) }
     }
 
-    /// Consumes this `Version`, returning its JSON number buf.
+    /// Returns this version as an owned JSON number.
     pub fn into_json_number_buf(self) -> jstrict::NumberBuf {
         // SAFETY: `into_bytes` only returns `b"1.1"`, a valid JSON number.
         unsafe { jstrict::NumberBuf::new_unchecked(self.into_bytes().into()) }

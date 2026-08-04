@@ -45,6 +45,11 @@ impl<'a, T, B> ContextRef<'a, T, B> {
     }
 
     /// Borrows the context, whichever arm holds it.
+    //
+    // Deliberately an inherent method rather than an `AsRef` impl, mirroring
+    // `Option::as_ref`: callers reach for it on a concrete `ContextRef`, and a
+    // trait impl would force type annotations at every call site.
+    #[allow(clippy::should_implement_trait)]
     #[inline(always)]
     pub fn as_ref(&self) -> &Context<T, B> {
         match self {
@@ -104,13 +109,6 @@ pub enum InvalidContextError {
     UnresolvedIri,
 }
 
-/// Processed JSON-LD context.
-///
-/// Represents the result of the [context processing algorithm][1] implemented
-/// by the [`json-ld-context-processing`] crate.
-///
-/// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
-/// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
 /// Cache key for [`Context::compact_iri_cache`]:
 /// `(var, vocab, reverse, mode)`.
 ///
@@ -221,6 +219,9 @@ fn keyword_alias_index(k: Keyword) -> Option<usize> {
 type CompactIriCache<T, B> = Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>>;
 type TermResolutionCache<T, B> = Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>>;
 
+/// A prefix-eligible term paired with the term it maps to.
+pub type PrefixTerm<T, B> = (Key, Arc<Term<T, B>>);
+
 /// Active context: everything the algorithms need to expand or compact
 /// against the current scope.
 pub struct Context<T = IriBuf, B = BlankIdBuf> {
@@ -249,7 +250,7 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
     // `Arc` with a fresh one, so other holders of the original `Arc`
     // keep their (still-valid) cached entries.
     inverse: Arc<OnceCell<InverseContext<T, B>>>,
-    prefix_terms: Arc<OnceCell<Vec<(Key, Arc<Term<T, B>>)>>>,
+    prefix_terms: Arc<OnceCell<Vec<PrefixTerm<T, B>>>>,
     compact_iri_cache: Arc<OnceCell<CompactIriCache<T, B>>>,
     term_resolution_cache: Arc<OnceCell<TermResolutionCache<T, B>>>,
     // One slot per processing mode: alias selection is mode-dependent.
@@ -465,7 +466,7 @@ impl<T, B> Context<T, B> {
         false
     }
 
-    /// Returns the inverse of this context.
+    /// Returns the inverse context, computing and caching it on first access.
     pub fn inverse(&self) -> &InverseContext<T, B>
     where
         T: Clone + Hash + Eq,
@@ -484,7 +485,7 @@ impl<T, B> Context<T, B> {
     ///
     /// Lazily computed and cached; invalidated whenever a definition is added,
     /// removed, or replaced.
-    pub fn prefix_terms(&self) -> &[(Key, Arc<Term<T, B>>)] {
+    pub fn prefix_terms(&self) -> &[PrefixTerm<T, B>] {
         self.prefix_terms.get_or_init(|| {
             self.definitions
                 .iter()
@@ -693,9 +694,11 @@ impl<T, B> Context<T, B> {
     }
 }
 
-/// Context fragment to syntax method.
+/// Conversion of a processed context back into its syntactic form.
 pub trait IntoSyntax<T = IriBuf, B = BlankIdBuf> {
-    /// Consumes this `IntoSyntax`, returning its syntax.
+    /// Consumes this value, returning the equivalent syntactic context. The
+    /// given vocabulary must be the one the context was built with, so its
+    /// IRI handles can be resolved back to actual IRIs.
     fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError>;
 }
 

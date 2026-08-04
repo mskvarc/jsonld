@@ -1,4 +1,22 @@
-//! JSON-LD core types.
+//! Core types shared by the JSON-LD processing algorithms.
+//!
+//! This crate defines the data model the algorithm crates operate on — the
+//! processed [`Context`], the [`Object`] tree an expanded document is made
+//! of, [`ExpandedDocument`] and [`FlattenedDocument`], and the [`Loader`]
+//! trait used to dereference remote contexts — together with the conversions
+//! to RDF ([`rdf`]) and the pretty-printer ([`mod@print`]).
+//!
+//! Identifiers are generic over the vocabulary that interns them: `T` is an
+//! IRI handle and `B` a blank node identifier handle, defaulting to owned
+//! [`iri_rs::IriBuf`] and [`rdfx::BlankIdBuf`] values.
+//!
+//! Most users should depend on the `jsonld` umbrella crate rather than on
+//! this one directly; it re-exports everything here alongside the algorithms.
+// On docs.rs, label every feature-gated item with the feature that unlocks it.
+// `doc(auto_cfg)` is still nightly-gated, and `docsrs` is set by docs.rs itself
+// (see `rustdoc-args` in Cargo.toml), so stable builds are unaffected.
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, doc(auto_cfg))]
 pub use jsonld_syntax::{Direction, LenientLangTag, LenientLangTagBuf, Nullable};
 
 mod container;

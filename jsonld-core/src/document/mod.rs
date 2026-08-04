@@ -29,37 +29,37 @@ impl<I, B> Document<I, B> {
         Self { remote, expanded }
     }
 
-    /// Consumes this `Document`, returning its remote.
+    /// Consumes the document, returning its remote (compact) form.
     pub fn into_remote(self) -> RemoteDocument<I> {
         self.remote
     }
 
-    /// Consumes this `Document`, returning its compact.
+    /// Consumes the document, returning its compact form as a JSON value.
     pub fn into_compact(self) -> jsonld_syntax::Value {
         self.remote.into_document()
     }
 
-    /// Consumes this `Document`, returning its expanded.
+    /// Consumes the document, returning its expanded form.
     pub fn into_expanded(self) -> ExpandedDocument<I, B> {
         self.expanded
     }
 
-    /// Consumes this `Document`, returning its parts.
+    /// Consumes the document, returning its remote and expanded forms.
     pub fn into_parts(self) -> DocumentParts<I, B> {
         (self.remote, self.expanded)
     }
 
-    /// Borrows this `Document` as remote, if it is one.
+    /// Returns the remote (compact) form of the document.
     pub fn as_remote(&self) -> &RemoteDocument<I> {
         &self.remote
     }
 
-    /// Borrows this `Document` as compact, if it is one.
+    /// Returns the compact form of the document as a JSON value.
     pub fn as_compact(&self) -> &jsonld_syntax::Value {
         self.remote.document()
     }
 
-    /// Borrows this `Document` as expanded, if it is one.
+    /// Returns the expanded form of the document.
     pub fn as_expanded(&self) -> &ExpandedDocument<I, B> {
         &self.expanded
     }
@@ -109,4 +109,6 @@ impl<I, B> serde::Serialize for Document<I, B> {
     }
 }
 
-// TODO (task 7): port LinkedData / LinkedDataGraph impls to ld_core's Interpretation-only API
+// TODO: `Document` lost its `LinkedData` / `LinkedDataGraph` impls when the
+// serialization layer moved to `ld_core`; they need to be rewritten against
+// `ld_core`'s `Interpretation`-based API.

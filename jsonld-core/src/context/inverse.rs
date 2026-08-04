@@ -221,7 +221,9 @@ impl<T> InverseDefinition<T> {
         self.map.entry(*container).or_insert_with(insert)
     }
 
-    /// Returns the select of this `InverseDefinition`.
+    /// Selects the term to compact with: containers are tried in the given
+    /// preference order, and within the first one that has entries the term
+    /// matching `selection` is returned.
     pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
     where
         T: Clone + Hash + Eq,
@@ -279,19 +281,20 @@ impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
 }
 
 impl<T, B> InverseContext<T, B> {
-    /// Creates a new `Selection`.
+    /// Creates an empty inverse context.
     pub fn new() -> Self {
         InverseContext { map: HashMap::default() }
     }
 }
 
 impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
-    /// Checks whether this `Selection` contains.
+    /// Checks whether the given term has an inverse definition.
     pub fn contains(&self, term: &Term<T, B>) -> bool {
         self.map.contains_key(term)
     }
 
-    /// Inserts an entry into this `Selection`, returning the entry it replaced.
+    /// Binds the given inverse definition to `term`, replacing any previous
+    /// binding.
     pub fn insert(&mut self, term: Term<T, B>, value: InverseDefinition<T>) {
         self.map.insert(term, value);
     }
@@ -314,7 +317,10 @@ impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
         self.map.entry(term.clone()).or_insert_with(insert)
     }
 
-    /// Returns the select of this `Selection`.
+    /// Selects the term to compact `var` with, trying `containers` in
+    /// preference order and matching `selection` within the first container
+    /// that has entries. Returns `None` if `var` has no inverse definition
+    /// or nothing matches.
     pub fn select(&self, var: &Term<T, B>, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
     where
         T: Clone,

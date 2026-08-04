@@ -1,6 +1,9 @@
 use std::{convert::TryFrom, fmt};
 
-/// Error code.
+/// JSON-LD error code.
+///
+/// One variant per error code of the JSON-LD 1.1 API specification, plus a few
+/// codes specific to this implementation (noted on the variants concerned).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum ErrorCode {
     /// Two properties which expand to the same keyword have been detected.
@@ -10,7 +13,7 @@ pub enum ErrorCode {
     /// Multiple conflicting indexes have been found for the same node.
     ConflictingIndexes,
 
-    /// maximum number of `@context` URLs exceeded.
+    /// The maximum number of remote `@context` URLs has been exceeded.
     ContextOverflow,
 
     /// A cycle in IRI mappings has been detected.
@@ -46,7 +49,7 @@ pub enum ErrorCode {
     /// The `@version` entry was used in a context with an out of range value.
     InvalidVersionValue,
 
-    /// The value of `@direction` is not "ltr", "rtl", or null and thus invalid.
+    /// The value of `@direction` is not `"ltr"`, `"rtl"` or null and thus invalid.
     InvalidBaseDirection,
 
     /// An invalid base IRI has been detected, i.e., it is neither an IRI nor null.
@@ -143,9 +146,11 @@ pub enum ErrorCode {
     /// (because its IRI scheme matches a term definition and it has no IRI authority).
     IriConfusedWithPrefix,
 
-    /// Unable to expand a key into a IRI, blank node identifier or keyword
+    /// Unable to expand a key into an IRI, blank node identifier or keyword
     /// using the current key expansion policy.
-    /// Note: this error is not defined in the JSON-LD API specification.
+    ///
+    /// Specific to this implementation; not defined by the JSON-LD API
+    /// specification.
     KeyExpansionFailed,
 
     /// A keyword redefinition has been detected.
@@ -179,12 +184,18 @@ pub enum ErrorCode {
     /// JSON-LD 1.0 only: 1.1 allows lists of lists.
     ListOfLists,
 
-    /// Duplicate key in JSON object.
+    /// The same key appeared twice in a JSON object.
+    ///
+    /// Specific to this implementation; not defined by the JSON-LD API
+    /// specification.
     DuplicateKey,
 }
 
 impl ErrorCode {
-    /// Get the error message corresponding to the error code.
+    /// Returns the name of this error code, as spelled by the JSON-LD API
+    /// specification: for instance `"colliding keywords"`.
+    ///
+    /// [`TryFrom<&str>`](TryFrom) parses these names back into error codes.
     pub fn as_str(&self) -> &str {
         use ErrorCode::*;
 

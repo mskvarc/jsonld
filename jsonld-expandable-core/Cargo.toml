@@ -13,6 +13,9 @@ description = "Runtime traits, attribute parser, and codegen for the JSON-LD `Ex
 
 [package.metadata.docs.rs]
 all-features = true
+# Enables the `doc(auto_cfg)` attribute in lib.rs, which labels each
+# feature-gated item with the feature that unlocks it.
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []

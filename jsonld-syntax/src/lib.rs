@@ -1,8 +1,23 @@
-//! This library provide functions to parse JSON-LD contexts
-//! and print JSON-LD documents.
+//! Syntax of JSON-LD contexts.
+//!
+//! This crate provides the Rust types mirroring the JSON-LD grammar of a
+//! `@context`: context definitions, term definitions, keywords, container
+//! mappings, language tags and text directions. Each of them can be built
+//! from a JSON value with [`TryFromJson`], converted back with [`IntoJson`],
+//! and pretty-printed with the [`Print`] trait re-exported from `jstrict`.
+//!
+//! Interpreting a context — resolving remote references, expanding terms into
+//! IRIs, compacting IRIs back into terms — is the job of the sibling
+//! `jsonld-context-processing`, `jsonld-expansion` and `jsonld-compaction`
+//! crates.
+// On docs.rs, label every feature-gated item with the feature that unlocks it.
+// `doc(auto_cfg)` is still nightly-gated, and `docsrs` is set by docs.rs itself
+// (see `rustdoc-args` in Cargo.toml), so stable builds are unaffected.
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, doc(auto_cfg))]
 mod compact_iri;
 mod compare;
-/// Container mappings.
+/// Container mappings: the values a `@container` entry may take.
 pub mod container;
 /// Contexts, their definitions and term definitions.
 pub mod context;

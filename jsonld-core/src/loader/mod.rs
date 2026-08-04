@@ -339,13 +339,10 @@ pub enum StandardProfile {
     /// To request or specify flattened JSON-LD document form.
     Flattened,
 
-    // /// To request or specify a JSON-LD frame document.
-    // Frame,
     /// To request or specify a JSON-LD framed document.
     Framed,
 }
 
-/// Standard JSON-LD profiles, as registered by the specification.
 impl StandardProfile {
     /// Returns the standard profile denoted by `iri`, if any.
     pub fn from_iri(iri: Iri<&str>) -> Option<Self> {
@@ -364,7 +361,7 @@ impl StandardProfile {
         }
     }
 
-    /// Returns the IRI of this `StandardProfile`.
+    /// Returns the IRI that identifies this profile.
     pub fn iri(&self) -> Iri<&'static str> {
         match self {
             Self::Expanded => iri!("http://www.w3.org/ns/json-ld#expanded"),
@@ -376,14 +373,13 @@ impl StandardProfile {
     }
 }
 
-/// Value for the `profile` parameter defined for the `application/ld+json`.
+/// Value of the `profile` parameter of the `application/ld+json` media type.
 ///
-/// Standard values defined by the JSON-LD specification are defined by the
-/// [`StandardProfile`] type.
+/// The values the JSON-LD specification itself registers are enumerated by
+/// [`StandardProfile`]; any other IRI is carried as [`Profile::Custom`].
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// Profile parameter of a JSON-LD media type.
 pub enum Profile<I = IriBuf> {
     /// A profile registered by the JSON-LD specification.
     Standard(StandardProfile),
@@ -392,7 +388,8 @@ pub enum Profile<I = IriBuf> {
 }
 
 impl Profile {
-    /// Creates a new `Profile`.
+    /// Builds a profile from an IRI, recognising the ones the specification
+    /// registers.
     pub fn new(iri: Iri<&str>) -> Self {
         match StandardProfile::from_iri(iri) {
             Some(p) => Self::Standard(p),
@@ -400,7 +397,7 @@ impl Profile {
         }
     }
 
-    /// Returns the IRI of this `Profile`.
+    /// Returns the IRI that identifies this profile.
     pub fn iri(&self) -> Iri<&str> {
         match self {
             Self::Standard(s) => s.iri(),

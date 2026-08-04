@@ -4,34 +4,51 @@ use jsonld_core::{Context, Environment, Id, Indexed, IndexedObject, LangString, 
 use jsonld_syntax::{Direction, ErrorCode, Keyword, LenientLangTagBuf, Nullable};
 use rdfx::vocabulary::VocabularyMut;
 
+/// Error raised while expanding a value object, a map with an `@value` entry.
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidValue {
+    /// The `@language` entry of the value object is not a string.
     #[error("Invalid language tagged string")]
     LanguageTaggedString,
 
+    /// The `@direction` entry of the value object is neither `"ltr"` nor
+    /// `"rtl"`.
     #[error("Invalid base `@direction`")]
     BaseDirection,
 
+    /// The `@index` entry of the value object is not a string.
     #[error("Invalid `@index` value")]
     IndexValue,
 
+    /// The `@type` entry of the value object is not a string, or does not
+    /// expand to an IRI or to `@json`.
     #[error("Invalid typed value")]
     TypedValue,
 
+    /// The value object has an entry other than `@value`, `@type`,
+    /// `@language`, `@direction` and `@index`, or combines `@type` with
+    /// `@language` or `@direction`.
     #[error("Invalid value object")]
     ValueObject,
 
+    /// The `@value` entry holds an array or a map where only a scalar or
+    /// `null` is allowed. A `@type` of `@json` lifts that restriction.
     #[error("Invalid value object value")]
     ValueObjectValue,
 
+    /// The value object carries `@language` or `@direction` but its `@value`
+    /// is not a string, so it cannot be tagged.
     #[error("Invalid language tagged value")]
     LanguageTaggedValue,
 
+    /// The `@type` entry had to be expanded through the vocabulary mapping
+    /// (`@vocab`), which the [`Policy`](crate::Policy) in use forbids.
     #[error("Forbidden use of `@vocab`")]
     ForbiddenVocab,
 }
 
 impl InvalidValue {
+    /// Returns the JSON-LD error code this error is reported under.
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::LanguageTaggedString => ErrorCode::InvalidLanguageTaggedString,
@@ -52,9 +69,19 @@ impl From<RejectVocab> for InvalidValue {
     }
 }
 
+/// Result of expanding a value object, `None` standing for a value object that
+/// is dropped because its `@value` is `null`.
 pub type ValueExpansionResult<T, B> = Result<Option<IndexedObject<T, B>>, InvalidValue>;
 
-/// Expand a value object.
+/// Expands a value object, a map whose entries have already been expanded and
+/// one of which is `@value`.
+///
+/// Implements the value object cases of the [Expansion
+/// algorithm](https://www.w3.org/TR/json-ld11-api/#expansion-algorithm): the
+/// only entries a value object may have are `@value`, `@type`, `@language`,
+/// `@direction` and `@index`, and their combination decides whether the result
+/// is a plain literal, a typed literal, a language-tagged string or a JSON
+/// literal.
 pub(crate) fn expand_value<N, L, W>(
     env: &mut Environment<N, L, W>,
     vocab_policy: Action,
@@ -85,8 +112,9 @@ where
                 if let Some(value) = value.as_str() {
                     // Otherwise, set expanded value to value. If value is not
                     // well-formed according to section 2.2.9 of [BCP47],
-                    // processors SHOULD issue a warning.
-                    // TODO warning.
+                    // processors SHOULD issue a warning. That warning is
+                    // raised further down, where the tag is turned into a
+                    // `LenientLangTagBuf`.
 
                     if value != "@none" {
                         language = Some(value.to_owned());
@@ -125,7 +153,7 @@ where
                     return Err(InvalidValue::IndexValue);
                 }
             }
-            // If expanded ...
+            // If expanded property is @type:
             Term::Keyword(Keyword::Type) => {
                 if let Some(ty_value) = value.as_str() {
                     let expanded_ty = expand_iri(env, type_scoped_context, Nullable::Some(ty_value.into()), true, Some(vocab_policy))?;
@@ -144,17 +172,25 @@ where
                     return Err(InvalidValue::TypedValue);
                 }
             }
+            // The `@value` entry itself is handled after the loop, from
+            // `value_entry`.
             Term::Keyword(Keyword::Value) => (),
+            // A value object must not have any other entry.
             _ => {
                 return Err(InvalidValue::ValueObject);
             }
         }
     }
 
-    // If input type is @json, set expanded value to value.
-    // If processing mode is json-ld-1.0, an invalid value object value error has
-    // been detected and processing is aborted.
+    // If input type is @json, set expanded value to value. The specification
+    // also raises an invalid value object value error here when the processing
+    // mode is json-ld-1.0, which this implementation does not: context
+    // processing already rejects a term definition with a `@json` type mapping
+    // under 1.0, but an explicit `"@type": "@json"` entry in a value object
+    // still goes through.
     if is_json {
+        // A value object must not combine a type with `@language` or
+        // `@direction`, `@json` included.
         if language.is_some() || direction.is_some() {
             return Err(InvalidValue::ValueObject);
         }
@@ -173,9 +209,8 @@ where
         }
     };
 
-    // If the result's @type entry is @json, then the @value entry may contain any
-    // value, and is treated as a JSON literal.
-    // NOTE already checked?
+    // A `@type` of `@json` lets the `@value` entry hold any value, treated as a
+    // JSON literal. That case returned above, before the scalar check.
 
     // Otherwise, if the value of result's @value entry is null, or an empty array,
     // return null
@@ -188,6 +223,8 @@ where
     // been detected (only strings can be language-tagged) and processing is
     // aborted.
     if language.is_some() || direction.is_some() {
+        // A value object must not have an `@type` entry alongside `@language`
+        // or `@direction`.
         if ty.is_some() {
             return Err(InvalidValue::ValueObject);
         }
@@ -215,10 +252,10 @@ where
         }
     }
 
-    // If active property is null or @graph, drop free-floating values as follows:
-    // If result is a map which is empty, or contains only the entries @value or
-    // @list, set result to null.
-    // TODO
+    // The specification also drops free-floating value objects here, when the
+    // active property is null or `@graph`. This implementation drops them one
+    // level up instead, in `filter_top_level_item`, which filters both the top
+    // level of the document and the content of every `@graph` entry.
 
     Ok(Some(Indexed::new(Object::Value(Value::Literal(result, ty)), index)))
 }

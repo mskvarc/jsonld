@@ -7,6 +7,17 @@
 //! Cargo unifies features across a dependency graph, so two unrelated
 //! dependants asking for different hashers must not break the build: when
 //! both features end up enabled, `gxhash` wins.
+//!
+//! # The `fast-hash` feature does not apply here
+//!
+//! Despite its name, the crate's default `fast-hash` feature has no effect on
+//! [`DefaultBuildHasher`]: it only forwards to `iri-rs/fast-hash`, changing
+//! how *that* crate hashes IRIs. Switching the hasher used by the collections
+//! below requires the `ahash` or `gxhash` feature.
+//!
+//! Enabling `ahash` also adds no new dependency: `lasso`, which backs the
+//! [string interner](crate::intern), enables its `ahasher` feature
+//! unconditionally, so `ahash` is compiled either way.
 
 /// Hasher used by the collections of this crate.
 #[cfg(feature = "gxhash")]

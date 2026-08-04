@@ -415,7 +415,7 @@ pub enum JsonLdError<E = std::convert::Infallible> {
 ///   - no suffix: minimum parameters. No custom vocabulary: [`IriBuf`] and
 ///     [`BlankIdBuf`] must be used as IRI and blank node id respectively.
 ///
-/// [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
+/// [`IriBuf`]: iri_rs::IriBuf
 /// [`BlankIdBuf`]: rdfx::BlankIdBuf
 /// [`Vocabulary`]: rdfx::vocabulary::Vocabulary
 ///
@@ -1850,7 +1850,7 @@ impl<V: Vocabulary, G: rdfx::LocalGenerator> ToRdf<V, G> {
         self.quads().cloned()
     }
 
-    /// Returns the vocabulary of this `ToRdf`.
+    /// Returns the vocabulary the document's identifiers are interned in.
     pub fn vocabulary(&self) -> &V {
         &self.vocabulary
     }
@@ -1860,12 +1860,12 @@ impl<V: Vocabulary, G: rdfx::LocalGenerator> ToRdf<V, G> {
         &mut self.vocabulary
     }
 
-    /// Consumes this `ToRdf`, returning its vocabulary.
+    /// Consumes this value, returning the vocabulary.
     pub fn into_vocabulary(self) -> V {
         self.vocabulary
     }
 
-    /// Returns the generator of this `ToRdf`.
+    /// Returns the generator used to mint blank node identifiers.
     pub fn generator(&self) -> &G {
         &self.generator
     }
@@ -1875,12 +1875,12 @@ impl<V: Vocabulary, G: rdfx::LocalGenerator> ToRdf<V, G> {
         &mut self.generator
     }
 
-    /// Consumes this `ToRdf`, returning its generator.
+    /// Consumes this value, returning the blank node generator.
     pub fn into_generator(self) -> G {
         self.generator
     }
 
-    /// Returns the document of this `ToRdf`.
+    /// Returns the expanded document being converted to RDF.
     pub fn document(&self) -> &ExpandedDocument<V::Iri, V::BlankId> {
         &self.doc
     }
@@ -1890,7 +1890,7 @@ impl<V: Vocabulary, G: rdfx::LocalGenerator> ToRdf<V, G> {
         &mut self.doc
     }
 
-    /// Consumes this `ToRdf`, returning its document.
+    /// Consumes this value, returning the expanded document.
     pub fn into_document(self) -> ExpandedDocument<V::Iri, V::BlankId> {
         self.doc
     }

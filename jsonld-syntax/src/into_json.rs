@@ -15,7 +15,8 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for IndexSet<T> {
 
 /// Values convertible into JSON through a vocabulary.
 pub trait IntoJsonWithContext<N>: Sized {
-    /// Consumes this `IntoJsonWithContext`, returning its JSON with.
+    /// Converts this value into JSON, resolving the identifiers it holds
+    /// against the given vocabulary.
     ///
     /// This conversion is infallible by design: every identifier is expected
     /// to resolve in the given context (vocabulary). Passing a vocabulary the
@@ -27,7 +28,7 @@ pub trait IntoJsonWithContext<N>: Sized {
 
 /// Values convertible into JSON.
 pub trait IntoJson: Sized {
-    /// Consumes this `IntoJson`, returning its JSON.
+    /// Converts this value into JSON.
     fn into_json(self) -> jstrict::Value;
 }
 

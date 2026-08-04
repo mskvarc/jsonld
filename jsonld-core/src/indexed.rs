@@ -44,13 +44,13 @@ impl<T> Indexed<T> {
         &mut self.value
     }
 
-    /// Drop the index and return the underlying value.
+    /// Drops the index and returns the underlying value.
     #[inline(always)]
     pub fn into_inner(self) -> T {
         self.value
     }
 
-    /// Get the index, if any.
+    /// Returns the `@index` of the value, if it has one.
     #[inline(always)]
     pub fn index(&self) -> Option<&str> {
         match &self.index {
@@ -59,13 +59,14 @@ impl<T> Indexed<T> {
         }
     }
 
-    /// Set the value index.
+    /// Sets the `@index` of the value, or removes it when given `None`.
     #[inline(always)]
     pub fn set_index(&mut self, index: Option<String>) {
         self.index = index
     }
 
-    /// Turn this indexed value into its components: inner value and index.
+    /// Consumes the indexed value, returning the inner value and its
+    /// `@index`.
     #[inline(always)]
     pub fn into_parts(self) -> (T, Option<String>) {
         (self.value, self.index)
@@ -170,23 +171,3 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Indexed<T> {
         result
     }
 }
-
-// impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> {
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		let mut json = self.value.as_json_with(meta.clone());
-
-// 		if let Some(obj) = json.as_object_mut() {
-// 			if let Some(index) = &self.index {
-// 				obj.insert(
-// 					K::new_key(Keyword::Index.into_str(), meta(None)),
-// 					index.as_json_with(meta(None)),
-// 				);
-// 			}
-// 		}
-
-// 		json
-// 	}
-// }

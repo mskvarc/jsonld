@@ -1,8 +1,14 @@
 use jstrict::Value;
 
-/// JSON-LD comparison.
+/// Comparison ignoring the order of array items and object entries.
 pub trait Compare {
-    /// Checks whether this `Compare` compare.
+    /// Checks whether the two values are equal, up to the order of array
+    /// items and object entries.
+    ///
+    /// Two arrays are equal when they have the same length and each item of
+    /// one can be paired with a distinct, `compare`-equal item of the other.
+    /// An object containing a duplicate key never compares equal, since such
+    /// a document is not valid JSON-LD.
     fn compare(&self, other: &Self) -> bool;
 }
 

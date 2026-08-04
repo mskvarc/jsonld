@@ -3,10 +3,10 @@ use iri_rs::IriRefBuf;
 
 /// Values that can be built from a JSON value.
 pub trait TryFromJson: Sized {
-    /// Error raised when the JSON value does not match.
+    /// Error raised when the JSON value does not describe a valid `Self`.
     type Error;
 
-    /// Builds this value from a JSON value.
+    /// Builds a value of this type from the given JSON value.
     fn try_from_json(value: &jstrict::Value) -> Result<Self, Self::Error>;
 }
 

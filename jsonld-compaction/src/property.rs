@@ -29,6 +29,13 @@ use jsonld_syntax::Keyword;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
+/// Compacts a list object and adds it to `nest_result` under
+/// `item_active_property`.
+///
+/// When the term's container mapping includes `@list` the list becomes a plain
+/// array assigned directly to the key. Otherwise it is wrapped back into a list
+/// object — a map holding whatever `@list` compacts to, plus `@index` when the
+/// list carried one — and added with [`add_value`].
 async fn compact_property_list<N, L>(
     vocabulary: &mut N,
     list: &List<N::Iri, N::BlankId>,
@@ -98,6 +105,19 @@ where
     Ok(())
 }
 
+/// Compacts a graph object and adds it to `nest_result` under
+/// `item_active_property`.
+///
+/// The shape depends on the term's container mapping: `@graph`+`@id` and
+/// `@graph`+`@index` turn the key into a map keyed by the graph's `@id` or
+/// `@index`; a plain `@graph` container drops the wrapper entirely (collapsing
+/// several graph entries into `@included` when they cannot be told apart);
+/// anything else rebuilds an explicit graph object with `@graph`, `@id` and
+/// `@index` entries.
+///
+/// Returns [`Error::CollidingEntry`] when a map-shaped container has to be
+/// written where an earlier item of the same property already stored a non-map
+/// value — a mix the specification defines no output for.
 async fn compact_property_graph<N, L>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
@@ -220,7 +240,9 @@ where
         // IRI compacting the value of @id in `expanded_item` using
         // false for vocab.
         if let Some(id_entry) = &node.id {
-            // `vocab=false` for `@id` keyword always yields the literal `"@id"`.
+            // The key is the literal `"@id"` rather than a `keyword_alias`
+            // lookup: this step compacts `@id` with `vocab` set to false, which
+            // bypasses the inverse context and so can only ever return `"@id"`.
             let id: Term<N::Iri, N::BlankId> = id_entry.clone().into();
             let value = compact_iri(vocabulary, active_context, &id, false, false, options)?;
             map.insert(
@@ -249,6 +271,18 @@ where
     Ok(())
 }
 
+/// Picks the object a compacted property should be written into, and returns it
+/// together with the term's container mapping and whether its values must be
+/// wrapped in an array.
+///
+/// A term with a `@nest` entry is written into a nested sub-object of `result`
+/// keyed by the nest term, created on demand; every other term is written into
+/// `result` itself. `as_array` is true when the container mapping includes
+/// `@set`, when the key is `@graph` or `@list`, or when `compact_arrays` is off.
+///
+/// Returns [`Error::InvalidNestValue`] if `@nest` names something that is not
+/// `@nest` or an alias for it, and [`Error::CollidingEntry`] if the nest key
+/// already holds a non-map value.
 fn select_nest_result<'a, I, B, E>(
     result: &'a mut jstrict::Object,
     active_context: &Context<I, B>,
@@ -317,7 +351,21 @@ where
     Ok((nest_result, container, as_array))
 }
 
-/// Compact the given property into the `result` compacted object.
+/// Compacts one expanded property and all of its values into `result`.
+///
+/// Each value is compacted independently, and may select a different term for
+/// the same expanded property — a language-tagged string and a node reference
+/// can end up under different keys. Values are then routed by the selected
+/// term's container mapping: list and graph objects to
+/// [`compact_property_list`] and [`compact_property_graph`], and `@language`,
+/// `@index`, `@id` and `@type` containers into a map keyed by the corresponding
+/// part of the value.
+///
+/// `inside_reverse` marks the property as coming from an `@reverse` entry, which
+/// restricts term selection to terms declared with `@reverse`.
+///
+/// An empty value array still produces an entry: the property is compacted
+/// against an empty node object and assigned an empty array.
 pub async fn compact_property<'a, N, L, O, T>(
     vocabulary: &mut N,
     result: &mut jstrict::Object,

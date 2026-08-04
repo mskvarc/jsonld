@@ -69,33 +69,37 @@ impl Default for Options {
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("internal error: {0}")]
-    /// Internal error: the given value.
+    #[error("HTTP request failed: {0}")]
+    /// The HTTP request could not be completed — a connection, TLS, timeout
+    /// or middleware failure.
     Reqwest(reqwest_middleware::Error),
 
     #[error("query failed: status code {0}")]
-    /// Query failed: status code the given value.
+    /// The server answered with a non-success status code.
     QueryFailed(StatusCode),
 
     #[error("invalid content type")]
-    /// Invalid content type.
+    /// The response `Content-Type` is neither `application/ld+json` nor any
+    /// other JSON media type the loader accepts.
     InvalidContentType,
 
     #[error("multiple context link headers")]
-    /// Multiple context link headers.
+    /// The response carried more than one `Link` header pointing at a
+    /// JSON-LD context, leaving the target document ambiguous.
     MultipleContextLinkHeaders,
 
     #[error("too many redirections")]
-    /// Too many redirections.
+    /// The loader followed [`Options::max_redirections`] `Link` headers
+    /// without reaching a JSON-LD document.
     TooManyRedirections,
 
     #[error("document exceeds the size limit ({0} bytes)")]
-    /// Document exceeds the configured size limit (the given value, in
-    /// bytes). See [`Options::max_document_size`].
+    /// The response body exceeded [`Options::max_document_size`]. Carries
+    /// the limit that was exceeded, in bytes.
     TooLarge(usize),
 
     #[error("JSON parse error: {0}")]
-    /// JSON parse error: the given value.
+    /// The response body is not well-formed JSON.
     Parse(jstrict::parse::Error<utf8_decode::Utf8Error>),
 }
 
@@ -103,10 +107,11 @@ pub enum Error {
 ///
 /// Only works with the [`tokio`](https://tokio.rs/) runtime.
 ///
-/// The loader will follow indirections and `Link` headers.
+/// Follows HTTP redirections and JSON-LD `Link` headers, up to
+/// [`Options::max_redirections`].
 ///
-/// Loaded documents are not cached: a new network query is made each time
-/// an URL is loaded even if it has already been queried before.
+/// Loaded documents are not cached: a new network request is made each time a
+/// URL is loaded, even if it has been fetched before.
 pub struct ReqwestLoader {
     options: Options,
     accept_header: String,
@@ -119,12 +124,12 @@ impl Default for ReqwestLoader {
 }
 
 impl ReqwestLoader {
-    /// Creates a new loader with the given parsing function.
+    /// Creates a new loader with the default options.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Creates a new leader with the given options.
+    /// Creates a new loader with the given options.
     pub fn new_using(options: Options) -> Self {
         let mut json_ld_params = String::new();
 

@@ -110,9 +110,8 @@
 //! ```
 //!
 //! Lastly, the same example replacing [`IriBuf`] with the lightweight
-//! [`rdfx::vocabulary::Index`] type.
+//! [`rdfx::vocabulary::IriIndex`] type.
 //!
-//! [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 //!
 //! ```
 //! # use iri_rs::{iri, IriBuf};
@@ -175,7 +174,7 @@
 //!
 //! ### Example
 //!
-//! Here is an example compaction an arbitrary [`RemoteDocumentReference`]
+//! Here is an example compacting an arbitrary [`RemoteDocumentReference`]
 //! using [`JsonLdProcessor::compact`].
 //!
 //! ```
@@ -217,7 +216,7 @@
 //!     This will return the list of nodes as a [`FlattenedDocument`].
 //!
 //! Flattening requires assigning an identifier to nested anonymous nodes,
-//! which is why the flattening functions take an [`rdfx::MetaGenerator`]
+//! which is why the flattening functions take an [`rdfx::LocalGenerator`]
 //! as parameter. This generator is in charge of creating new fresh identifiers
 //! (with their metadata). The most common generator is
 //! [`rdfx::generator::Blank`] that creates blank node identifiers.
@@ -227,12 +226,10 @@
 //! [`Flatten::flatten`]: crate::Flatten::flatten
 //! [`Flatten::flatten_with`]: crate::Flatten::flatten_with
 //! [`FlattenedDocument`]: crate::FlattenedDocument
-//! [`rdfx::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
-//! [`rdfx::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
 //!
 //! ### Example
 //!
-//! Here is an example compaction an arbitrary [`RemoteDocumentReference`]
+//! Here is an example flattening an arbitrary [`RemoteDocumentReference`]
 //! using [`JsonLdProcessor::flatten`].
 //!
 //! ```
@@ -313,6 +310,126 @@
 //! [`serde_json::Value`]: https://docs.rs/serde_json/latest/serde_json/enum.Value.html
 //! [`serde`]: https://docs.rs/serde
 //!
+//! ## Expanding your own types with `#[derive(Expandable)]`
+//!
+//! The algorithms above all start from a JSON document. If the data starts out
+//! as Rust structs instead, the `expandable` feature lets a type render
+//! *directly* into expanded JSON-LD, skipping both the intermediate compact
+//! JSON and the expansion algorithm.
+//!
+//! Annotate the struct with the IRIs its fields map to and derive
+//! [`Expandable`]:
+//!
+//! ```
+//! # #[cfg(feature = "expandable-serde-json")]
+//! # {
+//! use jsonld::Expandable;
+//!
+//! #[derive(Expandable)]
+//! #[jsonld(
+//!     type = "https://schema.org/Person",
+//!     prefix(schema = "https://schema.org/"),
+//!     crate = "jsonld::expandable_core"
+//! )]
+//! struct Person {
+//!     #[jsonld(id)]
+//!     id: String,
+//!
+//!     #[jsonld(property = "schema:name")]
+//!     name: String,
+//!
+//!     #[jsonld(property = "schema:age")]
+//!     age: Option<u32>,
+//! }
+//!
+//! let person = Person {
+//!     id: "https://example.com/#me".to_owned(),
+//!     name: "Ada".to_owned(),
+//!     age: Some(36),
+//! };
+//!
+//! let json: serde_json::Value = person.expand();
+//! # }
+//! ```
+//!
+//! The derive is backend-agnostic: [`Expandable::expand`] is generic over the
+//! [`JsonValue`] trait, so the same type can render into
+//! [`serde_json::Value`], `sonic_rs::Value`, or [`jstrict::Value`] depending
+//! on which backend feature is enabled. Field attributes cover `@type`
+//! coercion, language maps, nesting, flattening and more — see
+//! [`Expandable`] for the full attribute reference.
+//!
+//! **Note:** because the derive macro generates paths into its support crate,
+//! users of this umbrella crate must set
+//! `#[jsonld(crate = "jsonld::expandable_core")]`, as above.
+//!
+//! ## Compile-time vocabularies with `vocab!`
+//!
+//! Repeatedly writing full IRIs is verbose and easy to get wrong. With the
+//! `vocab` feature, the [`vocab!`] macro reads one or more JSON-LD context
+//! files at compile time and emits a constant for every term they define, so a
+//! typo becomes a compile error rather than a silently wrong IRI:
+//!
+//! ```ignore
+//! mod vocab {
+//!     jsonld::vocab! {
+//!         contexts: ["contexts/schema.jsonld"],
+//!         iri_crate: "jsonld::iri_rs"
+//!     }
+//! }
+//!
+//! // `NAME` is an `iri_rs::Iri<&'static str>` resolved at compile time.
+//! assert_eq!(vocab::NAME.as_str(), "https://schema.org/name");
+//! ```
+//!
+//! The macro also emits the compact-to-expanded term mapping, letting you go
+//! from a term to its IRI without a runtime context lookup. See [`vocab!`]
+//! for the full syntax, and note that it requires `iri-rs` with its `static`
+//! feature in the calling crate.
+//!
+//! # Feature flags
+//!
+//! No feature other than `fast-hash` is enabled by default.
+//!
+//! ## Hashing
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `fast-hash` *(default)* | Use [`foldhash`](https://docs.rs/foldhash) instead of the standard-library SipHash for the crate's internal maps and sets. Faster, but not resistant to hash-flooding from untrusted input. |
+//! | `ahash` | Use [`ahash`](https://docs.rs/ahash) as the default hasher instead. |
+//! | `gxhash` | Use [`gxhash`](https://docs.rs/gxhash) as the default hasher instead. Requires a CPU with AES intrinsics and will fail to build without them. |
+//!
+//! ## JSON interop
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `serde` | Implement [`serde::Serialize`] / `Deserialize` for the syntax and document types. |
+//! | `serde-json` | Convert between [`jstrict::Value`] and [`serde_json::Value`]; see [Interop with `serde_json`](#interop-with-serde_json). |
+//!
+//! ## Loading remote documents
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `reqwest` | Provide `loader::ReqwestLoader`, an HTTP loader for remote contexts and documents. Requires a [`tokio`](https://tokio.rs) runtime. |
+//!
+//! ## Deriving expansion
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `expandable` | Provide the [`Expandable`] derive macro and its [`JsonValue`] abstraction. Enables no JSON backend on its own. |
+//! | `expandable-serde-json` | `expandable` plus a [`JsonValue`] implementation for [`serde_json::Value`]. |
+//! | `expandable-jstrict` | `expandable` plus a [`JsonValue`] implementation for [`jstrict::Value`]. |
+//! | `expandable-sonic-rs` | `expandable` plus a [`JsonValue`] implementation for `sonic_rs::Value`. |
+//! | `expandable-chrono` | `expandable` plus rendering of [`chrono`](https://docs.rs/chrono) date and time types as their XSD lexical forms. |
+//!
+//! ## Vocabularies
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `vocab` | Provide the [`vocab!`] macro, which turns JSON-LD context files into compile-time IRI constants. |
+//!
+//! [`serde::Serialize`]: https://docs.rs/serde/latest/serde/trait.Serialize.html
+//!
 //! # Fast IRIs and Blank Node Identifiers
 //!
 //! This library gives you the opportunity to use any datatype you want to
@@ -320,24 +437,20 @@
 //! parameterized.
 //! To avoid unnecessary allocations and expensive comparisons, it is highly
 //! recommended to use a cheap, lightweight datatype such as
-//! [`rdfx::vocabulary::Index`]. This type will represent each distinct
+//! [`rdfx::vocabulary::IriIndex`]. This type will represent each distinct
 //! IRI/blank node identifier with a unique index. In this case a
-//! [`rdfx::IndexVocabulary`] that maps each index back/to its
-//! original IRI/Blank identifier representation can be passed to every
-//! function.
+//! [`rdfx::vocabulary::IndexVocabulary`] that maps each index back to its
+//! original IRI or blank node identifier can be passed to every function.
 //!
 //! You can also use your own index type, with your own
-//! [`rdfx::Vocabulary`] implementation.
+//! [`rdfx::vocabulary::Vocabulary`] implementation.
 //!
-//! [`rdfx::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
-//! [`rdfx::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
-//! [`rdfx::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
 //!
 //! ## Displaying vocabulary-dependent values
 //!
 //! Since using vocabularies separates IRIs and Blank ids from their textual
 //! representation, it complicates displaying data using them.
-//! Fortunately many types defined by `json-ld` implement the
+//! Fortunately many types defined by this crate implement the
 //! [`contextual::DisplayWithContext`] trait that allow displaying value with
 //! a "context", which here would be the vocabulary.
 //! By importing the [`contextual::WithContext`] which provides the `with`
@@ -356,6 +469,12 @@
 //!
 //! [`contextual::DisplayWithContext`]: https://docs.rs/contextual/latest/contextual/trait.DisplayWithContext.html
 //! [`contextual::WithContext`]: https://docs.rs/contextual/latest/contextual/trait.WithContext.html
+// On docs.rs, label every feature-gated item with the feature that unlocks it.
+// `doc(auto_cfg)` is still nightly-gated, and `docsrs` is set by docs.rs itself
+// (see `rustdoc-args` in Cargo.toml), so stable builds are unaffected.
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, doc(auto_cfg))]
+
 pub use jsonld_compaction as compaction;
 pub use jsonld_context_processing as context_processing;
 pub use jsonld_core::*;

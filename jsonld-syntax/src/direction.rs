@@ -26,7 +26,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    /// Returns this value as a string slice.
+    /// Returns `"ltr"` or `"rtl"`.
     pub fn as_str(&self) -> &'static str {
         match self {
             Direction::Ltr => "ltr",
@@ -34,7 +34,7 @@ impl Direction {
         }
     }
 
-    /// Consumes this `Direction`, returning its str.
+    /// Same as [`as_str`](Self::as_str), taking `self` by value.
     pub fn into_str(self) -> &'static str {
         self.as_str()
     }
@@ -51,7 +51,7 @@ impl FromStr for Direction {
 impl<'a> TryFrom<&'a str> for Direction {
     type Error = InvalidDirection<&'a str>;
 
-    /// Convert the strings `"rtl"` and `"ltr"` into a `Direction`.
+    /// Converts the strings `"ltr"` and `"rtl"` into a `Direction`.
     #[inline(always)]
     fn try_from(name: &'a str) -> Result<Direction, InvalidDirection<&'a str>> {
         match name {

@@ -18,7 +18,7 @@ pub enum PropertyRef<'a, T, B> {
 
 /// Object of a quad drawn from a JSON-LD document.
 pub enum ObjectRef<'a, T, B> {
-    /// A JSON object.
+    /// A JSON-LD object.
     Object(&'a Object<T, B>),
     /// A node object.
     Node(&'a Node<T, B>),
@@ -28,7 +28,7 @@ pub enum ObjectRef<'a, T, B> {
 
 /// Documents whose node objects can be read as quads.
 pub trait LdQuads<T, B> {
-    /// Returns the quads of this `LdQuads`.
+    /// Returns an iterator over the quads of the document.
     fn quads(&self) -> Quads<'_, T, B>;
 }
 

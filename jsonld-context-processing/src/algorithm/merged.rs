@@ -2,19 +2,34 @@ use iri_rs::IriRefBuf;
 use jsonld_syntax as syntax;
 use syntax::Nullable;
 
-/// Context definition merged with the one it imports through `@import`.
+/// A context definition viewed together with the definition it pulls in through
+/// `@import`.
+///
+/// The importing definition wins over the imported one for every entry, which is
+/// what the [specification][1] means by "merging context into import context,
+/// replacing common entries". Reading through this type lets the algorithm treat
+/// the pair as one definition without building a merged copy.
+///
+/// [1]: https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm
 pub struct Merged<'a> {
     base: &'a syntax::context::Definition,
     imported: Option<syntax::context::Context>,
 }
 
 impl<'a> Merged<'a> {
-    /// Creates a new `Merged`.
+    /// Views `base` together with the context it imports.
+    ///
+    /// `imported` is the already-dereferenced `@import` target, or `None` when
+    /// the definition has no `@import`.
     pub fn new(base: &'a syntax::context::Definition, imported: Option<syntax::context::Context>) -> Self {
         Self { base, imported }
     }
 
-    /// Returns the imported of this `Merged`.
+    /// Returns the imported context definition, if there is one.
+    ///
+    /// Yields `None` when nothing was imported, and also when what was imported
+    /// is not a single context definition object — a shape the caller has
+    /// already rejected before reaching here.
     pub fn imported(&self) -> Option<&syntax::context::Definition> {
         self.imported.as_ref().and_then(|imported| match imported {
             syntax::context::Context::One(syntax::ContextEntry::Definition(import_context)) => Some(import_context),
@@ -22,7 +37,7 @@ impl<'a> Merged<'a> {
         })
     }
 
-    /// Returns the base of this `Merged`.
+    /// Returns the `@base` entry, falling back to the imported definition's.
     pub fn base(&self) -> Option<syntax::Nullable<&IriRefBuf>> {
         self.base
             .base
@@ -31,7 +46,7 @@ impl<'a> Merged<'a> {
             .map(Nullable::as_ref)
     }
 
-    /// Returns the vocab of this `Merged`.
+    /// Returns the `@vocab` entry, falling back to the imported definition's.
     pub fn vocab(&self) -> Option<syntax::Nullable<&syntax::context::definition::Vocab>> {
         self.base
             .vocab
@@ -40,7 +55,7 @@ impl<'a> Merged<'a> {
             .map(Nullable::as_ref)
     }
 
-    /// Returns the language of this `Merged`.
+    /// Returns the `@language` entry, falling back to the imported definition's.
     pub fn language(&self) -> Option<syntax::Nullable<&syntax::LenientLangTagBuf>> {
         self.base
             .language
@@ -49,22 +64,31 @@ impl<'a> Merged<'a> {
             .map(Nullable::as_ref)
     }
 
-    /// Returns the direction of this `Merged`.
+    /// Returns the `@direction` entry, falling back to the imported
+    /// definition's.
     pub fn direction(&self) -> Option<syntax::Nullable<syntax::Direction>> {
         self.base.direction.or_else(|| self.imported().and_then(|i| i.direction))
     }
 
-    /// Returns the protected of this `Merged`.
+    /// Returns the `@protected` entry, falling back to the imported
+    /// definition's.
+    ///
+    /// This is the context-wide default applied to every term it defines, not
+    /// the flag of an individual term definition.
     pub fn protected(&self) -> Option<bool> {
         self.base.protected.or_else(|| self.imported().and_then(|i| i.protected))
     }
 
-    /// Returns the type of this `Merged`.
+    /// Returns the `@type` entry, falling back to the imported definition's.
+    ///
+    /// `@type` is the one keyword a context may redefine, to give it an `@set`
+    /// container or mark it protected.
     pub fn type_(&self) -> Option<syntax::context::definition::Type> {
         self.base.type_.or_else(|| self.imported().and_then(|i| i.type_))
     }
 
-    /// Returns the bindings of this `Merged`.
+    /// Iterates over every term definition of both definitions, without
+    /// repeating a term the importing definition overrides.
     pub fn bindings(&self) -> MergedBindings<'_> {
         MergedBindings {
             base: self.base,
@@ -73,12 +97,9 @@ impl<'a> Merged<'a> {
         }
     }
 
-    /// Returns the value bound to the given key, if any.
+    /// Returns the entry bound to `key`, preferring the importing definition's.
     pub fn get(&self, key: &syntax::context::definition::KeyOrKeyword) -> Option<syntax::context::definition::EntryValueRef<'_>> {
         self.base.get(key).or_else(|| self.imported().and_then(|i| i.get(key)))
-        // self.imported()
-        // 	.and_then(|i| i.get(key))
-        // 	.or_else(|| self.base.get(key))
     }
 }
 
@@ -88,44 +109,13 @@ impl<'a> From<&'a syntax::context::Definition> for Merged<'a> {
     }
 }
 
-// #[derive(Default)]
-// pub struct StaticMergedBindings {
-// 	base_offset: usize,
-// 	imported_offset: usize
-// }
-
-// impl StaticMergedBindings {
-// 	pub fn next<'a>(
-// 		&mut self,
-// 		context: &Merged<'a>
-// 	) -> Option<BindingRef<'a>> {
-// 		match context.base.bindings.get_entry(self.base_offset) {
-// 			Some(entry) => {
-// 				self.base_offset += 1;
-// 				Some(entry)
-// 			},
-// 			None => {
-// 				match context.imported() {
-// 					Some(imported) => {
-// 						while let Some(entry) = imported.bindings.get_entry(self.imported_offset) {
-// 							self.imported_offset += 1;
-// 							if context.base.get_binding(entry.0).is_none() {
-// 								return Some(entry)
-// 							}
-// 						}
-
-// 						None
-// 					},
-// 					None => None
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
 type BindingRef<'a> = (&'a syntax::context::definition::Key, Nullable<&'a syntax::context::TermDefinition>);
 
-/// Iterator over the bindings of a merged context definition.
+/// Iterator over the term definitions of a [`Merged`] context definition.
+///
+/// Yields the imported definition's terms first, skipping any the importing
+/// definition also defines, then the importing definition's own terms. Every
+/// term therefore appears exactly once, bound to the definition that wins.
 pub struct MergedBindings<'a> {
     base: &'a syntax::context::Definition,
     base_bindings: syntax::context::definition::BindingsIter<'a>,
