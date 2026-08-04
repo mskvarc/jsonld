@@ -9,6 +9,24 @@
 //! submodules, so a context can declare both `Property` and `property`
 //! without colliding on a single Rust constant name.
 //!
+//! # Casing assumptions
+//!
+//! The partition is a convention the specification does not mandate, the one
+//! NGSI-LD and most RDF vocabularies follow: a term whose first character is
+//! uppercase is a class, everything else is a property. Contexts that name
+//! things some other way still get a constant per term and complete lookup
+//! tables, but the module names stop describing their contents, and terms with
+//! no cased characters at all (CJK names, for instance) all count as
+//! properties.
+//!
+//! Constant names are the term in SHOUTY_SNAKE_CASE, so terms differing only in
+//! how they mark word boundaries collapse onto one name. `createdAt` and
+//! `created_at` both want `CREATED_AT`, and since the class/property split
+//! cannot separate two terms from the same side of it, that is a naming
+//! collision error rather than generated code. A context consistent about
+//! either style is fine; one that mixes both for the same concept cannot be
+//! used here.
+//!
 //! # Requirements
 //!
 //! The calling crate needs [`iri-rs`] as a dependency:

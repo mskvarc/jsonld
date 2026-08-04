@@ -34,6 +34,8 @@ The entry point is the `JsonLdProcessor` trait, which carries every transformati
 
 Fork of [`json-ld`](https://crates.io/crates/json-ld) by [Timothée Haudebourg](https://github.com/timothee-haudebourg/json-ld). The algorithms and their spec conformance are upstream's, and the W3C JSON-LD API test suite still governs this repo across the four manifests whose algorithms are implemented (expansion, compaction, flattening, and RDF serialization). The fork changes four things: what you can do with your own Rust types, the dependency stack, the performance profile, and the JSON types you can hand in and get back.
 
+*Changed performance profile* is meant literally and not as a synonym for *faster*: the work was aimed at one workload, and what makes that one faster can make others slower. See [Performance](#performance).
+
 ### The motivating workload: an NGSI-LD context broker
 
 This fork was cut while building an [NGSI-LD](https://ngsi-ld.org/) context broker, and that workload shaped every addition. A broker is not a document-conversion tool that runs JSON-LD once. It is a server whose entire request path *is* JSON-LD, and the traffic has a specific, repetitive shape:
@@ -59,10 +61,7 @@ Two additions have no upstream counterpart.
 use jsonld::Expandable;
 
 #[derive(Expandable)]
-#[jsonld(
-    type = "https://example.com/Parent",
-    crate = "jsonld::expandable_core"
-)]
+#[jsonld(type = "https://example.com/Parent")]
 pub struct Parent {
     #[jsonld(id)]
     pub id: String,
@@ -77,11 +76,9 @@ pub struct Parent {
 let expanded: serde_json::Value = parent.expand();
 ```
 
-Container attributes cover `type`, `fragment`, `prefix(...)` and `crate`; field attributes cover `id`, `type_value`, `property`, `coerce` (`@id`, `@vocab`, `@json` or a datatype IRI), `container` (`list`, `set`, `language`, `index`), `nested`, `vec`, `flatten`, `flatten_map`, `passthrough` and `skip`. The full reference is on the [`Expandable` derive](https://docs.rs/jsonld-expandable).
+Container attributes cover `type`, `fragment` and `prefix(...)`; field attributes cover `id`, `type_value`, `property`, `coerce` (`@id`, `@vocab`, `@json` or a datatype IRI), `container` (`list`, `set`, `language`, `index`), `nested`, `vec`, `flatten`, `flatten_map`, `passthrough` and `skip`. The full reference is on the [`Expandable` derive](https://docs.rs/jsonld-expandable).
 
 The derive is backend-agnostic: `expand()` is generic over the `JsonValue` trait, so one type renders into `serde_json::Value`, `sonic_rs::Value` or `jstrict::Value` depending on which backend feature is enabled, and `expandable-chrono` lets `chrono` temporal types take part without a newtype wrapper. Generic structs are not supported yet.
-
-Note the `crate = "jsonld::expandable_core"` above: the macro generates paths into its support crate, so consumers of this umbrella crate must redirect it at the re-export.
 
 #### `vocab!`
 
@@ -90,8 +87,7 @@ Note the `crate = "jsonld::expandable_core"` above: the macro generates paths in
 ```rust
 mod vocab {
     jsonld::vocab! {
-        contexts: ["contexts/core.jsonld"],
-        iri_crate: "jsonld::iri_rs",
+        contexts: ["contexts/core.jsonld"]
     }
 }
 
@@ -100,6 +96,12 @@ let iri = vocab::expanded::properties::CREATED_AT;
 ```
 
 Terms are partitioned into `classes` (TitleCase) and `properties` (lowerCase) submodules, so a context declaring both `Property` and `property` does not collide. Paths resolve against `CARGO_MANIFEST_DIR`, and the mappings between compact and expanded names are emitted alongside the constants in both directions, so a term resolves to its IRI without a runtime context lookup. Wrap each invocation in its own module, since the macro emits fixed names.
+
+That partition is a naming convention, not a rule from the JSON-LD specification, and it is the convention NGSI-LD follows: a term whose first character is uppercase becomes a class, everything else becomes a property. A context that names things some other way still gets a constant for every term and complete lookup tables, but the two module names stop describing what is inside them, and a context whose terms have no cased characters at all, CJK names for instance, puts everything under `properties`.
+
+Casing is more than cosmetic in one place. A constant name is the term in SHOUTY_SNAKE_CASE, so two terms that differ only in how they mark word boundaries collapse onto the same name and the macro refuses to generate: `createdAt` and `created_at` both want to be `CREATED_AT`, which fails with `property term naming collision: createdAt and created_at both map to CREATED_AT`. Splitting classes from properties keeps `Property` and `property` apart, but it cannot separate two terms from the same side of the split. A context that mixes camelCase and snake_case for the same concept therefore cannot be used with `vocab!`, and one that is internally consistent about either style is fine.
+
+The constants are `iri-rs` types built by that crate's `iri!` macro, which resolves `iri-rs` against your crate's manifest as it expands, so `vocab!` needs `iri-rs = "3"` among your own dependencies. The `vocab` feature turns on the `static` feature that `iri!` lives behind.
 
 ### A different dependency stack
 
@@ -119,7 +121,9 @@ The workspace is Rust 2024 with MSRV 1.96, uses `mediatype` for content negotiat
 
 ### Performance
 
-The performance work concentrates on context processing and compaction, the parts of JSON-LD that dominate a broker-shaped workload:
+The performance work concentrates on context processing and compaction, the parts of JSON-LD that dominate a broker-shaped workload. It is a re-tuning for that shape of traffic, not a general speedup, and some of it is a trade rather than a win. Memoization and interning spend memory and add bookkeeping that only pays off when the same contexts and terms recur, which is the defining feature of broker traffic and not of a batch job converting a large corpus of one-off documents. Expect regressions on workloads that look unlike NGSI-LD, and measure before assuming this fork is the faster choice for yours.
+
+What was done:
 
 - **Context memoization.** Processed contexts are cached rather than reprocessed per document, and a synchronous fast path skips the async machinery entirely when a context needs no remote loads.
 - **Inverse contexts.** The inverse context is rebuilt lazily instead of on every mutation, and its construction is cheaper.
@@ -134,7 +138,7 @@ Criterion benchmarks for expansion and compaction live in `jsonld/benches`:
 cargo bench -p jsonld
 ```
 
-No fork-versus-upstream comparison numbers are published here. The benchmarks are there so you can measure what a change does to your own corpus, instead of taking a claim on faith.
+These are a development tool, not evidence. They were written to answer narrow questions while making the changes above, of the form "did this patch move this one workload", and each measures a fixed document against a fixed context. Numbers from a micro-benchmark on a synthetic input are not something to draw conclusions from, so no fork-versus-upstream figures are published here and none should be inferred from the benchmarks themselves.
 
 Credit and history are preserved; see [Attribution](#attribution).
 
@@ -223,6 +227,7 @@ What conformance does *not* cover, and what "experimental" means in practice:
 - **The API will break.** Names, error types and trait shapes are still being shaped by the consumer that motivated the fork. Pin an exact version.
 - **The additions are new.** `Expandable` and `vocab!` are covered by their own unit and UI tests, not by any external suite, and their attribute vocabularies will grow.
 - **Three algorithms are absent.** `fromRdf`, HTML script extraction and HTTP content negotiation. If you need RDF-to-JSON-LD deserialization, this is not the crate.
+- **Performance is tuned, not uniformly better.** The work targeted a context-broker workload, so expect regressions on traffic that looks unlike it, and measure your own corpus before assuming this fork is the faster choice. See [Performance](#performance).
 - **Untrusted input deserves care.** The default hasher is fast but not resistant to hash flooding, so reach for `ahash` if that matters, and processed-context caches are unbounded, so a hostile stream of distinct contexts grows memory.
 
 ## MSRV
