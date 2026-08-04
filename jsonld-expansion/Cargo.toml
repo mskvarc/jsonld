@@ -10,7 +10,7 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD document expansion implementation"
 documentation = "https://docs.rs/jsonld-expansion"
-readme.workspace = true
+readme = "README.md"
 
 [package.metadata.docs.rs]
 all-features = true

@@ -10,7 +10,7 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD document compaction implementation"
 documentation = "https://docs.rs/jsonld-compaction"
-readme.workspace = true
+readme = "README.md"
 
 [package.metadata.docs.rs]
 all-features = true

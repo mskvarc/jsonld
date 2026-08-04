@@ -10,7 +10,7 @@ repository.workspace = true
 license.workspace = true
 description = "JSON-LD syntax"
 documentation = "https://docs.rs/jsonld-syntax"
-readme.workspace = true
+readme = "README.md"
 
 [package.metadata.docs.rs]
 all-features = true
