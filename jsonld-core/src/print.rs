@@ -1,3 +1,9 @@
+//! Pretty-printing of expanded documents through a vocabulary.
+//!
+//! Printing is infallible by design: every identifier is expected to resolve
+//! in the vocabulary the document was built against. Passing a different
+//! vocabulary is a caller bug; identifiers that fail to resolve are rendered
+//! as the literal string `"<unresolved iri>"` rather than panicking.
 pub use jstrict::print::{Options, Print, Printed};
 use jstrict::print::{
     PrecomputeSize,

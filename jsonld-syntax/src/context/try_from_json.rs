@@ -78,6 +78,17 @@ impl TryFromJson for TermDefinition {
     }
 }
 
+/// Stores an entry value into an `Option` field, failing with
+/// [`InvalidContext::DuplicateKey`] when the field was already set — the same
+/// policy applied to duplicate term bindings.
+macro_rules! set_unique {
+    ($field:expr, $value:expr) => {
+        if $field.replace($value).is_some() {
+            return Err(InvalidContext::DuplicateKey);
+        }
+    };
+}
+
 fn term_definition_try_from_json(value: &jstrict::Value, depth: usize) -> Result<TermDefinition, InvalidContext> {
     match value {
         jstrict::Value::String(s) => Ok(TermDefinition::Simple(term_definition::Simple(s.as_str().to_owned()))),
@@ -86,13 +97,13 @@ fn term_definition_try_from_json(value: &jstrict::Value, depth: usize) -> Result
 
             for jstrict::object::Entry { key, value } in o {
                 match Keyword::try_from(key.as_str()) {
-                    Ok(Keyword::Id) => def.id = Some(Nullable::try_from_json(value)?),
-                    Ok(Keyword::Type) => def.type_ = Some(Nullable::try_from_json(value)?),
-                    Ok(Keyword::Context) => def.context = Some(Box::new(context_try_from_json(value, depth + 1)?)),
-                    Ok(Keyword::Reverse) => def.reverse = Some(definition::Key::try_from_json(value)?),
-                    Ok(Keyword::Index) => def.index = Some(term_definition::Index::try_from_json(value)?),
-                    Ok(Keyword::Language) => def.language = Some(Nullable::try_from_json(value)?),
-                    Ok(Keyword::Direction) => def.direction = Some(Nullable::try_from_json(value)?),
+                    Ok(Keyword::Id) => set_unique!(def.id, Nullable::try_from_json(value)?),
+                    Ok(Keyword::Type) => set_unique!(def.type_, Nullable::try_from_json(value)?),
+                    Ok(Keyword::Context) => set_unique!(def.context, Box::new(context_try_from_json(value, depth + 1)?)),
+                    Ok(Keyword::Reverse) => set_unique!(def.reverse, definition::Key::try_from_json(value)?),
+                    Ok(Keyword::Index) => set_unique!(def.index, term_definition::Index::try_from_json(value)?),
+                    Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
+                    Ok(Keyword::Direction) => set_unique!(def.direction, Nullable::try_from_json(value)?),
                     Ok(Keyword::Container) => {
                         let container = match value {
                             jstrict::Value::Null => Nullable::Null,
@@ -102,12 +113,12 @@ fn term_definition_try_from_json(value: &jstrict::Value, depth: usize) -> Result
                             }
                         };
 
-                        def.container = Some(container)
+                        set_unique!(def.container, container)
                     }
-                    Ok(Keyword::Nest) => def.nest = Some(term_definition::Nest::try_from_json(value)?),
-                    Ok(Keyword::Prefix) => def.prefix = Some(bool::try_from_json(value)?),
-                    Ok(Keyword::Propagate) => def.propagate = Some(bool::try_from_json(value)?),
-                    Ok(Keyword::Protected) => def.protected = Some(bool::try_from_json(value)?),
+                    Ok(Keyword::Nest) => set_unique!(def.nest, term_definition::Nest::try_from_json(value)?),
+                    Ok(Keyword::Prefix) => set_unique!(def.prefix, bool::try_from_json(value)?),
+                    Ok(Keyword::Propagate) => set_unique!(def.propagate, bool::try_from_json(value)?),
+                    Ok(Keyword::Protected) => set_unique!(def.protected, bool::try_from_json(value)?),
                     _ => return Err(InvalidContext::InvalidTermDefinition),
                 }
             }
@@ -297,15 +308,15 @@ fn context_entry_try_from_json(value: &jstrict::Value, depth: usize) -> Result<C
 
             for jstrict::object::Entry { key, value } in o {
                 match Keyword::try_from(key.as_str()) {
-                    Ok(Keyword::Base) => def.base = Some(Nullable::try_from_json(value)?),
-                    Ok(Keyword::Import) => def.import = Some(IriRefBuf::try_from_json(value)?),
-                    Ok(Keyword::Language) => def.language = Some(Nullable::try_from_json(value)?),
-                    Ok(Keyword::Direction) => def.direction = Some(Nullable::try_from_json(value)?),
-                    Ok(Keyword::Propagate) => def.propagate = Some(bool::try_from_json(value)?),
-                    Ok(Keyword::Protected) => def.protected = Some(bool::try_from_json(value)?),
-                    Ok(Keyword::Type) => def.type_ = Some(definition::Type::try_from_json(value)?),
-                    Ok(Keyword::Version) => def.version = Some(definition::Version::try_from_json(value)?),
-                    Ok(Keyword::Vocab) => def.vocab = Some(Nullable::try_from_json(value)?),
+                    Ok(Keyword::Base) => set_unique!(def.base, Nullable::try_from_json(value)?),
+                    Ok(Keyword::Import) => set_unique!(def.import, IriRefBuf::try_from_json(value)?),
+                    Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
+                    Ok(Keyword::Direction) => set_unique!(def.direction, Nullable::try_from_json(value)?),
+                    Ok(Keyword::Propagate) => set_unique!(def.propagate, bool::try_from_json(value)?),
+                    Ok(Keyword::Protected) => set_unique!(def.protected, bool::try_from_json(value)?),
+                    Ok(Keyword::Type) => set_unique!(def.type_, definition::Type::try_from_json(value)?),
+                    Ok(Keyword::Version) => set_unique!(def.version, definition::Version::try_from_json(value)?),
+                    Ok(Keyword::Vocab) => set_unique!(def.vocab, Nullable::try_from_json(value)?),
                     _ => {
                         let term_def = match value {
                             jstrict::Value::Null => Nullable::Null,
@@ -359,5 +370,16 @@ mod tests {
     fn reasonable_nesting_converts() {
         let json = nested_json(MAX_CONTEXT_DEPTH - 1);
         assert!(Context::try_from_json(&json).is_ok());
+    }
+
+    /// Duplicate keyword entries fail like duplicate term bindings do,
+    /// instead of silently keeping the last value.
+    #[test]
+    fn duplicate_keyword_entries_are_rejected() {
+        let json = jstrict::Value::parse_str(r#"{"@vocab": "http://a/", "@vocab": "http://b/"}"#).unwrap().0;
+        assert!(matches!(Context::try_from_json(&json), Err(InvalidContext::DuplicateKey)));
+
+        let json = jstrict::Value::parse_str(r#"{"@id": "http://a/x", "@id": "http://b/x"}"#).unwrap().0;
+        assert!(matches!(TermDefinition::try_from_json(&json), Err(InvalidContext::DuplicateKey)));
     }
 }

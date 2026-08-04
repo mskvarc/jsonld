@@ -79,7 +79,7 @@ impl<'a, T, B> BindingRef<'a, T, B> {
 pub type DefinitionParts<T, B> = (HashMap<Key, NormalTermDefinition<T, B>>, Option<TypeTermDefinition>);
 
 /// Context term definitions.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Definitions<T, B> {
     normal: HashMap<Key, NormalTermDefinition<T, B>>,
     type_: Option<TypeTermDefinition>,
@@ -654,16 +654,16 @@ impl<T, B> NormalTermDefinition<T, B> {
             }
         }
 
-        fn type_into_syntax<T>(vocabulary: &impl IriVocabulary<Iri = T>, ty: Type<T>) -> SyntaxType {
+        fn type_into_syntax<T>(vocabulary: &impl IriVocabulary<Iri = T>, ty: Type<T>) -> Result<SyntaxType, super::InvalidContextError> {
             match ty {
-                Type::Id => SyntaxType::Keyword(TypeKeyword::Id),
-                Type::Json => SyntaxType::Keyword(TypeKeyword::Json),
-                Type::None => SyntaxType::Keyword(TypeKeyword::None),
-                Type::Vocab => SyntaxType::Keyword(TypeKeyword::Vocab),
-                Type::Iri(t) => SyntaxType::Term(match vocabulary.iri(&t) {
-                    Some(iri) => iri.to_string(),
-                    None => "<unresolved iri>".to_string(),
-                }),
+                Type::Id => Ok(SyntaxType::Keyword(TypeKeyword::Id)),
+                Type::Json => Ok(SyntaxType::Keyword(TypeKeyword::Json)),
+                Type::None => Ok(SyntaxType::Keyword(TypeKeyword::None)),
+                Type::Vocab => Ok(SyntaxType::Keyword(TypeKeyword::Vocab)),
+                Type::Iri(t) => match vocabulary.iri(&t) {
+                    Some(iri) => Ok(SyntaxType::Term(iri.to_string())),
+                    None => Err(super::InvalidContextError::UnresolvedIri),
+                },
             }
         }
 
@@ -687,7 +687,7 @@ impl<T, B> NormalTermDefinition<T, B> {
 
         Ok(jsonld_syntax::context::term_definition::Expanded {
             id,
-            type_: self.typ.map(|t| Nullable::Some(type_into_syntax(vocabulary, t))),
+            type_: self.typ.map(|t| type_into_syntax(vocabulary, t).map(Nullable::Some)).transpose()?,
             context,
             reverse,
             index: self.index.clone(),

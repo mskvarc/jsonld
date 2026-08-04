@@ -595,8 +595,14 @@ where
         let s = rel.as_str();
         // RFC 3986 relativization yields "" when target equals base;
         // JSON-LD test 0076 expects last path segment of base instead.
+        // When the base ends in `/` that segment is empty too: fall back
+        // to "./", which also resolves back to the base, instead of
+        // emitting `"@id": ""`.
         let out = if s.is_empty() {
-            base.as_str().rsplit('/').next().unwrap_or("").to_string()
+            match base.as_str().rsplit('/').next() {
+                Some(segment) if !segment.is_empty() => segment.to_string(),
+                _ => "./".to_string(),
+            }
         } else {
             s.to_string()
         };
@@ -651,5 +657,20 @@ mod tests {
 
         assert_eq!(compacted_1_1.as_deref(), Some("t"));
         assert_eq!(compacted_1_0.as_deref(), Some("http://example.com/t"));
+    }
+
+    /// Relativizing an IRI equal to a base ending in `/` must not produce
+    /// the empty string.
+    #[test]
+    fn relativization_of_base_with_trailing_slash_is_not_empty() {
+        let base = IriBuf::new("http://example.com/dir/".to_string()).unwrap();
+        let iri = IriBuf::new("http://example.com/dir/".to_string()).unwrap();
+        let term = Term::<IriBuf, BlankIdBuf>::Id(Id::Valid(ValidId::Iri(iri)));
+
+        let mut context: Context<IriBuf, BlankIdBuf> = Context::new(None);
+        context.set_base_iri(Some(base));
+
+        let compacted = compact_iri(no_vocabulary(), &context, &term, false, false, Options::default()).unwrap();
+        assert_eq!(compacted.as_deref(), Some("./"));
     }
 }

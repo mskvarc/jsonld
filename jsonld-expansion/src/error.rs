@@ -76,14 +76,6 @@ pub enum Error<E = std::convert::Infallible> {
     /// Forbidden use of `@vocab`.
     ForbiddenVocab,
 
-    #[error("IRI expansion produced no result")]
-    /// IRI expansion produced no result.
-    IdExpansionEmpty,
-
-    #[error("Empty expansion result")]
-    /// Empty expansion result.
-    EmptyExpansion,
-
     #[error("List of lists")]
     /// A list object was found among the items of another list object.
     ///
@@ -119,8 +111,6 @@ impl<E> Error<E> {
             Self::Literal(e) => e.code(),
             Self::Value(e) => e.code(),
             Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
-            Self::IdExpansionEmpty => ErrorCode::InvalidIdValue,
-            Self::EmptyExpansion => ErrorCode::InvalidIdValue,
             Self::ListOfLists => ErrorCode::ListOfLists,
         }
     }

@@ -20,28 +20,63 @@ struct Compound<'a, T, B, L> {
 
 type VocabularyCompoundLiteral<'a, N> = Compound<'a, <N as IriVocabulary>::Iri, <N as BlankIdVocabulary>::BlankId, <N as LiteralVocabulary>::Literal>;
 
+/// Warning raised while serializing a document as RDF quads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Warning {
+    /// A value could not be represented as an RDF term; the quad that would
+    /// have carried it was dropped from the stream.
+    ValueSerializationFailed,
+}
+
+impl std::fmt::Display for Warning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ValueSerializationFailed => f.write_str("value not representable as an RDF term, quad dropped"),
+        }
+    }
+}
+
 /// Iterator over the RDF Quads of a JSON-LD document.
-pub struct Quads<'a, N: Vocabulary, G: LocalGenerator> {
+pub struct Quads<'a, N: Vocabulary, G: LocalGenerator, W = ()> {
     vocabulary: &'a mut N,
     generator: &'a mut G,
     rdf_direction: Option<RdfDirection>,
     compound_value: Option<VocabularyCompoundLiteral<'a, N>>,
     quads: crate::quad::Quads<'a, N::Iri, N::BlankId>,
     produce_generalized_rdf: bool,
+    warnings: W,
 }
 
-impl<'a, N: Vocabulary, G: LocalGenerator> Quads<'a, N, G> {
+impl<'a, N: Vocabulary, G: LocalGenerator, W> Quads<'a, N, G, W> {
     /// Turns this iterator into one yielding owned quads.
-    pub fn cloned(self) -> ClonedQuads<'a, N, G> {
+    pub fn cloned(self) -> ClonedQuads<'a, N, G, W> {
         ClonedQuads { inner: self }
+    }
+
+    /// Attaches a warning handler to this iterator, replacing the current
+    /// one (`()` initially, which ignores warnings).
+    ///
+    /// The handler is called whenever a quad is dropped from the stream
+    /// because its value has no RDF representation.
+    pub fn with_warnings<V>(self, warnings: V) -> Quads<'a, N, G, V> {
+        Quads {
+            vocabulary: self.vocabulary,
+            generator: self.generator,
+            rdf_direction: self.rdf_direction,
+            compound_value: self.compound_value,
+            quads: self.quads,
+            produce_generalized_rdf: self.produce_generalized_rdf,
+            warnings,
+        }
     }
 }
 
-impl<'a, N: Vocabulary + VocabularyMut, G: LocalGenerator> Iterator for Quads<'a, N, G>
+impl<'a, N: Vocabulary + VocabularyMut, G: LocalGenerator, W> Iterator for Quads<'a, N, G, W>
 where
     N::Iri: Clone,
     N::BlankId: Clone,
     N::Literal: Clone,
+    W: crate::warning::Handler<N, Warning>,
 {
     type Item = QuadRef<'a, N::Iri, N::BlankId, N::Literal>;
 
@@ -84,15 +119,20 @@ where
                         continue;
                     }
 
-                    if let Some(compound_value) = object.rdf_value_with(self.vocabulary, self.generator, self.rdf_direction) {
-                        if let Some(rdf_value_triples) = compound_value.triples {
-                            self.compound_value = Some(Compound {
-                                graph: rdf_graph,
-                                triples: rdf_value_triples,
-                            });
-                        }
+                    match object.rdf_value_with(self.vocabulary, self.generator, self.rdf_direction) {
+                        Some(compound_value) => {
+                            if let Some(rdf_value_triples) = compound_value.triples {
+                                self.compound_value = Some(Compound {
+                                    graph: rdf_graph,
+                                    triples: rdf_value_triples,
+                                });
+                            }
 
-                        break Some(rdfx::GeneralizedQuad(Cow::Borrowed(rdf_subject), rdf_property, compound_value.value, rdf_graph));
+                            break Some(rdfx::GeneralizedQuad(Cow::Borrowed(rdf_subject), rdf_property, compound_value.value, rdf_graph));
+                        }
+                        None => {
+                            self.warnings.handle(self.vocabulary, Warning::ValueSerializationFailed);
+                        }
                     }
                 }
                 None => break None,
@@ -103,15 +143,16 @@ where
 
 /// Iterator over the RDF Quads of a JSON-LD document where borrowed values are
 /// cloned.
-pub struct ClonedQuads<'a, N: Vocabulary, G: LocalGenerator> {
-    inner: Quads<'a, N, G>,
+pub struct ClonedQuads<'a, N: Vocabulary, G: LocalGenerator, W = ()> {
+    inner: Quads<'a, N, G, W>,
 }
 
-impl<'a, N: Vocabulary + VocabularyMut, G: LocalGenerator> Iterator for ClonedQuads<'a, N, G>
+impl<'a, N: Vocabulary + VocabularyMut, G: LocalGenerator, W> Iterator for ClonedQuads<'a, N, G, W>
 where
     N::Iri: Clone,
     N::BlankId: Clone,
     N::Literal: Clone,
+    W: crate::warning::Handler<N, Warning>,
 {
     type Item = Quad<N::Iri, N::BlankId, N::Literal>;
 
@@ -168,6 +209,7 @@ impl<T, B> RdfQuads<T, B> for ExpandedDocument<T, B> {
             compound_value: None,
             quads: self.quads(),
             produce_generalized_rdf,
+            warnings: (),
         }
     }
 }
@@ -187,6 +229,7 @@ impl<T, B> RdfQuads<T, B> for FlattenedDocument<T, B> {
             compound_value: None,
             quads: self.quads(),
             produce_generalized_rdf,
+            warnings: (),
         }
     }
 }
@@ -206,6 +249,7 @@ impl<T: Eq + Hash, B: Eq + Hash> RdfQuads<T, B> for crate::flattening::NodeMap<T
             compound_value: None,
             quads: self.quads(),
             produce_generalized_rdf,
+            warnings: (),
         }
     }
 }

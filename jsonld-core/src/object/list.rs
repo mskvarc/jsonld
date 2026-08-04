@@ -202,20 +202,13 @@ impl<T, B> IntoIterator for List<T, B> {
 pub enum FragmentRef<'a, T, B> {
     /// "@list" entry.
     Entry(&'a [IndexedObject<T, B>]),
-
-    /// "@list" entry key.
-    Key,
-
-    /// "@list" value.
-    Value(&'a [IndexedObject<T, B>]),
 }
 
 impl<'a, T, B> FragmentRef<'a, T, B> {
     /// Returns the sub-fragments of this fragment: the objects of the list.
     pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
         match self {
-            Self::Entry(e) | Self::Value(e) => SubFragments(e.iter()),
-            Self::Key => SubFragments([].iter()),
+            Self::Entry(e) => SubFragments(e.iter()),
         }
     }
 }

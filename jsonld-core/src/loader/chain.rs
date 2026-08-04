@@ -11,6 +11,7 @@ use super::{Loader, RemoteDocument};
 ///
 /// Note that it is also possible to nest several [`ChainLoader`]s,
 /// to combine more than two loaders.
+#[derive(Debug, Clone)]
 pub struct ChainLoader<L1, L2>(L1, L2);
 
 impl<L1, L2> ChainLoader<L1, L2> {
@@ -39,16 +40,11 @@ where
 }
 
 /// Combined error from two chained loaders.
+///
+/// The second loader is only consulted after the first has failed, so a
+/// chain failure always carries both errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ChainError<A, B> {
-    /// First loader failed; second loader was attempted.
-    #[error("first loader failed: {0}")]
-    First(A),
-
-    /// Second loader failed.
-    #[error("second loader failed: {0}")]
-    Second(B),
-
     /// Both loaders failed.
     #[error("both loaders failed: {0}, then {1}")]
     Both(A, B),

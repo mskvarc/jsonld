@@ -304,6 +304,7 @@ impl<'a> TryFrom<&'a str> for ErrorCode {
             "protected term redefinition" => Ok(ProtectedTermRedefinition),
             "recursive context inclusion" => Ok(RecursiveContextInclusion),
             "list of lists" => Ok(ListOfLists),
+            "duplicate key" => Ok(DuplicateKey),
             _ => Err(()),
         }
     }

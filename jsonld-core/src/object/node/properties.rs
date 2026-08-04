@@ -181,7 +181,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
     /// Removes and returns all the values associated to the given property.
     #[inline(always)]
     pub fn remove<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(&mut self, prop: &Q) -> Option<PropertyObjects<T, B>> {
-        self.0.swap_remove(prop)
+        self.0.shift_remove(prop)
     }
 }
 

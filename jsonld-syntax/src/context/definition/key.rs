@@ -135,8 +135,26 @@ impl<'de> serde::Deserialize<'de> for Key {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <&str>::deserialize(deserializer)?;
-        Ok(Self::from(s))
+        struct Visitor;
+
+        impl serde::de::Visitor<'_> for Visitor {
+            type Value = Key;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a string")
+            }
+
+            // `visit_borrowed_str` and `visit_string` forward here by
+            // default; the interner only needs `&str`, so one method covers
+            // borrowing formats, owned buffers (`from_reader`, escaped
+            // keys) and serde's internal `Content` buffering
+            // (`#[serde(flatten)]`) alike.
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Key, E> {
+                Ok(Key::from(v))
+            }
+        }
+
+        deserializer.deserialize_str(Visitor)
     }
 }
 
@@ -337,5 +355,32 @@ impl KeyOrType {
 impl fmt::Display for KeyOrType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.as_str().fmt(f)
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use jstrict::Parse;
+
+    /// `#[serde(flatten)]` on `Definition::bindings` buffers entries into
+    /// serde's internal `Content` representation and replays keys through
+    /// `visit_str` (transient, not borrowed). The former
+    /// `<&str>::deserialize`-based impl failed on that path.
+    #[test]
+    fn key_deserializes_through_serde_content_buffer() {
+        let (value, _) = jstrict::Value::parse_str(r#"{"@vocab": "http://example.com/", "term": "http://example.com/term"}"#).unwrap();
+        let definition: crate::context::Definition = crate::from_value(value).unwrap();
+        assert!(definition.bindings.get(&Key::from("term")).is_some());
+    }
+
+    /// Owned-string input (`visit_string` → `visit_str`), as produced by
+    /// escaped keys and reader-based formats.
+    #[test]
+    fn key_deserializes_from_owned_string() {
+        let (value, _) = jstrict::Value::parse_str(r#""api""#).unwrap();
+        let key: Key = crate::from_value(value).unwrap();
+        assert_eq!(key.as_str(), "api");
     }
 }

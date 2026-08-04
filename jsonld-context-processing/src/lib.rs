@@ -17,6 +17,7 @@ pub use processed::*;
 pub use stack::{MAX_REMOTE_CONTEXTS, ProcessingStack};
 
 /// Warnings that can be raised during context processing.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Warning {
     /// A term looks like a keyword and was ignored.
     KeywordLikeTerm(String),
@@ -175,7 +176,7 @@ impl<E> Error<E> {
             Self::CyclicIriMapping => ErrorCode::CyclicIriMapping,
             Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
             Self::KeywordRedefinition => ErrorCode::KeywordRedefinition,
-            Self::InvalidProtectedValue => ErrorCode::InvalidPropagateValue,
+            Self::InvalidProtectedValue => ErrorCode::InvalidProtectedValue,
             Self::InvalidTypeMapping => ErrorCode::InvalidTypeMapping,
             Self::InvalidReverseProperty => ErrorCode::InvalidReverseProperty,
             Self::InvalidIriMapping => ErrorCode::InvalidIriMapping,
@@ -291,7 +292,7 @@ pub trait Process {
 }
 
 /// Options of the Context Processing Algorithm.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Options {
     /// The processing mode
     pub processing_mode: ProcessingMode,

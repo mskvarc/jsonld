@@ -50,7 +50,8 @@ pub enum RdfDirection {
     CompoundLiteral,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("invalid RDF direction: {0}")]
 /// Error raised when a string is not a valid base direction.
 pub struct InvalidRdfDirection(pub String);
 

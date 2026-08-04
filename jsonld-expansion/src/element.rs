@@ -177,17 +177,18 @@ where
                         env.loader,
                         property_scoped_base_url,
                         options.with_override(),
-                        jsonld_core::warning::Print,
+                        crate::warning::ContextWarnings(&mut *env.warnings),
                         cache,
                     ))
                     .await?
                     .into_processed(),
-                    None => Box::pin(property_scoped_context.process_with(
+                    None => Box::pin(property_scoped_context.process_full(
                         env.vocabulary,
                         active_context.as_ref(),
                         env.loader,
                         property_scoped_base_url,
                         options.with_override(),
+                        crate::warning::ContextWarnings(&mut *env.warnings),
                     ))
                     .await?
                     .into_processed(),
@@ -209,14 +210,21 @@ where
                         env.loader,
                         base_url.cloned(),
                         options.into(),
-                        jsonld_core::warning::Print,
+                        crate::warning::ContextWarnings(&mut *env.warnings),
                         cache,
                     ))
                     .await?
                     .into_processed(),
-                    None => Box::pin(local_context.process_with(env.vocabulary, active_context.as_ref(), env.loader, base_url.cloned(), options.into()))
-                        .await?
-                        .into_processed(),
+                    None => Box::pin(local_context.process_full(
+                        env.vocabulary,
+                        active_context.as_ref(),
+                        env.loader,
+                        base_url.cloned(),
+                        options.into(),
+                        crate::warning::ContextWarnings(&mut *env.warnings),
+                    ))
+                    .await?
+                    .into_processed(),
                 };
                 active_context = ContextRef::owned(processed);
             }
@@ -282,17 +290,18 @@ where
                                 env.loader,
                                 base_url,
                                 options.without_propagation(),
-                                jsonld_core::warning::Print,
+                                crate::warning::ContextWarnings(&mut *env.warnings),
                                 cache,
                             ))
                             .await?
                             .into_processed(),
-                            None => Box::pin(local_context.process_with(
+                            None => Box::pin(local_context.process_full(
                                 env.vocabulary,
                                 active_context.as_ref(),
                                 env.loader,
                                 base_url,
                                 options.without_propagation(),
+                                crate::warning::ContextWarnings(&mut *env.warnings),
                             ))
                             .await?
                             .into_processed(),
@@ -498,14 +507,21 @@ where
                         env.loader,
                         base_url,
                         options.into(),
-                        jsonld_core::warning::Print,
+                        crate::warning::ContextWarnings(&mut *env.warnings),
                         cache,
                     ))
                     .await?
                     .into_processed(),
-                    None => Box::pin(property_scoped_context.process_with(env.vocabulary, active_context, env.loader, base_url, options.into()))
-                        .await?
-                        .into_processed(),
+                    None => Box::pin(property_scoped_context.process_full(
+                        env.vocabulary,
+                        active_context,
+                        env.loader,
+                        base_url,
+                        options.into(),
+                        crate::warning::ContextWarnings(&mut *env.warnings),
+                    ))
+                    .await?
+                    .into_processed(),
                 };
                 ContextRef::owned(result)
             } else {

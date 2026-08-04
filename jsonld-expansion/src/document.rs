@@ -1,5 +1,5 @@
 use super::expand_element;
-use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
+use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
 use jsonld_core::{Context, Environment, ExpandedDocument, IndexedObject, Object};
 use jstrict::Value;
 use rdfx::vocabulary::VocabularyMut;
@@ -25,23 +25,29 @@ where
     W: WarningHandler<N>,
 {
     let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
-    if expanded.len() == 1 {
-        let obj = match expanded.into_iter().next() {
-            Some(o) => o,
-            None => return Err(Error::EmptyExpansion),
-        };
+
+    // A single expanded object gets its `@graph` unwrapped; anything else is
+    // filtered and collected as-is.
+    fn single<T: Eq + Hash, B: Eq + Hash>(obj: IndexedObject<T, B>) -> ExpandedDocument<T, B> {
         match obj.into_unnamed_graph() {
-            Ok(graph) => Ok(ExpandedDocument::from(graph)),
+            Ok(graph) => ExpandedDocument::from(graph),
             Err(obj) => {
                 let mut result = ExpandedDocument::new();
                 if filter_top_level_item(&obj) {
                     result.insert(obj);
                 }
-                Ok(result)
+                result
             }
         }
-    } else {
-        Ok(expanded.into_iter().filter(filter_top_level_item).collect())
+    }
+
+    match expanded {
+        Expanded::Null => Ok(ExpandedDocument::new()),
+        Expanded::Object(obj) => Ok(single(obj)),
+        Expanded::Array(ary) => match <[_; 1]>::try_from(ary) {
+            Ok([obj]) => Ok(single(obj)),
+            Err(ary) => Ok(ary.into_iter().filter(filter_top_level_item).collect()),
+        },
     }
 }
 

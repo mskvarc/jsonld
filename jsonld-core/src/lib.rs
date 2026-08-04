@@ -21,6 +21,7 @@ pub mod print;
 pub mod quad;
 pub mod rdf;
 mod serialization;
+pub use serialization::SerializationError;
 mod term;
 mod ty;
 pub mod utils;

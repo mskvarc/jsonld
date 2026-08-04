@@ -2,14 +2,6 @@ use std::fmt;
 
 use crate::{Keyword, context::definition::KeyOrKeyword};
 
-/// Entry key that can be expanded into a term.
-pub enum Expandable {
-    /// A JSON-LD keyword.
-    Keyword(Keyword),
-    /// A string.
-    String(String),
-}
-
 /// Borrowed entry key that can be expanded into a term.
 pub enum ExpandableRef<'a> {
     /// Keyword.
@@ -18,15 +10,6 @@ pub enum ExpandableRef<'a> {
     /// Other term.
     String(&'a str),
 }
-
-// impl<'a> From<KeyOrKeywordRef<'a>> for ExpandableRef<'a> {
-// 	fn from(k: KeyOrKeywordRef<'a>) -> Self {
-// 		match k {
-// 			KeyOrKeywordRef::Keyword(k) => Self::Keyword(k),
-// 			KeyOrKeywordRef::Key(k) => Self::String(k.as_str()),
-// 		}
-// 	}
-// }
 
 impl<'a> From<&'a KeyOrKeyword> for ExpandableRef<'a> {
     fn from(k: &'a KeyOrKeyword) -> Self {

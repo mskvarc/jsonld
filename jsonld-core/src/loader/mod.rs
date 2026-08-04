@@ -42,7 +42,7 @@ pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, jsonld_
 /// Remote document, loaded or not.
 ///
 /// Either an IRI or the actual document content.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum RemoteDocumentReference<I = IriBuf, T = jstrict::Value> {
     /// IRI to the remote document.
     Iri(I),

@@ -168,11 +168,7 @@ impl<T, B> ExpandedDocument<T, B> {
         T: Eq + Hash,
         B: Eq + Hash,
     {
-        for mut object in self.drain() {
-            object.identify_all_with(vocabulary, generator)?;
-            self.insert(object);
-        }
-        Ok(())
+        self.try_rewrite(|object| object.identify_all_with(vocabulary, generator))
     }
 
     /// Give an identifier (`@id`) to every nodes using the given generator to
@@ -202,12 +198,11 @@ impl<T, B> ExpandedDocument<T, B> {
     {
         let mut relabeling = HashMap::default();
         let mut buffer = ryu_js::Buffer::new();
-        for mut object in self.drain() {
+        self.try_rewrite(|object| {
             object.relabel_with(vocabulary, generator, &mut relabeling)?;
             object.canonicalize_with(&mut buffer);
-            self.insert(object);
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     /// Give an identifier (`@id`) to every nodes and canonicalize every
@@ -235,11 +230,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Clone + Eq + Hash,
     {
         let mut relabeling = HashMap::default();
-        for mut object in self.drain() {
-            object.relabel_with(vocabulary, generator, &mut relabeling)?;
-            self.insert(object);
-        }
-        Ok(())
+        self.try_rewrite(|object| object.relabel_with(vocabulary, generator, &mut relabeling))
     }
 
     /// Relabels nodes.
@@ -397,6 +388,30 @@ impl<T: Hash + Eq, B: Hash + Eq> ExpandedDocument<T, B> {
     fn drain(&mut self) -> std::vec::IntoIter<IndexedObject<T, B>> {
         self.buckets.clear();
         std::mem::take(&mut self.objects).into_iter()
+    }
+
+    /// Rewrites every object with `f`, draining and reinserting to rebuild
+    /// the index.
+    ///
+    /// If `f` fails, the failed object and the untouched remainder are
+    /// reinserted before the error is returned: the document is never
+    /// truncated on the error path (objects rewritten before the failure
+    /// keep their new form).
+    fn try_rewrite<E>(&mut self, mut f: impl FnMut(&mut IndexedObject<T, B>) -> Result<(), E>) -> Result<(), E> {
+        let mut objects = self.drain();
+        let mut result = Ok(());
+        for mut object in objects.by_ref() {
+            let object_result = f(&mut object);
+            self.insert(object);
+            if let Err(e) = object_result {
+                result = Err(e);
+                break;
+            }
+        }
+        for object in objects {
+            self.insert(object);
+        }
+        result
     }
 }
 

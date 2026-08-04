@@ -1,10 +1,10 @@
-use ld_core::{LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject, ResourceInterpretation};
+use ld_core::{BorrowedRdfTerm, CowRdfTerm, LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject, ResourceInterpretation};
 use rdfx::Interpretation;
 
 use crate::{
     IndexedObject,
     object::List,
-    rdf::{RDF_FIRST, RDF_REST},
+    rdf::{RDF_FIRST, RDF_NIL, RDF_REST},
 };
 
 impl<T, B, I: Interpretation> LinkedDataResource<I> for List<T, B> {
@@ -72,7 +72,13 @@ struct Rest<'a, T, B>(&'a [IndexedObject<T, B>]);
 
 impl<'a, T, B, I: Interpretation> LinkedDataResource<I> for Rest<'a, T, B> {
     fn interpretation(&self, _interpretation: &mut I) -> ResourceInterpretation<'_, I> {
-        ResourceInterpretation::Uninterpreted(None)
+        if self.0.is_empty() {
+            // The empty list is the well-known `rdf:nil` resource, not a
+            // fresh anonymous node.
+            ResourceInterpretation::Uninterpreted(Some(CowRdfTerm::Borrowed(BorrowedRdfTerm::Iri(RDF_NIL))))
+        } else {
+            ResourceInterpretation::Uninterpreted(None)
+        }
     }
 }
 

@@ -25,14 +25,19 @@ impl ProcessingMode {
     }
 }
 
-impl<'a> TryFrom<&'a str> for ProcessingMode {
-    type Error = ();
+/// Error raised when parsing an unknown processing-mode name.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown processing mode `{0}`")]
+pub struct UnknownProcessingMode(pub String);
 
-    fn try_from(name: &'a str) -> Result<ProcessingMode, ()> {
+impl<'a> TryFrom<&'a str> for ProcessingMode {
+    type Error = UnknownProcessingMode;
+
+    fn try_from(name: &'a str) -> Result<ProcessingMode, UnknownProcessingMode> {
         match name {
             "json-ld-1.0" => Ok(ProcessingMode::JsonLd1_0),
             "json-ld-1.1" => Ok(ProcessingMode::JsonLd1_1),
-            _ => Err(()),
+            _ => Err(UnknownProcessingMode(name.to_owned())),
         }
     }
 }

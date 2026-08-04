@@ -443,17 +443,18 @@ where
                                             env.loader,
                                             property_scoped_base_url,
                                             options.with_override(),
-                                            jsonld_core::warning::Print,
+                                            crate::warning::ContextWarnings(&mut *env.warnings),
                                             cache,
                                         ))
                                         .await?
                                         .into_processed(),
-                                        None => Box::pin(property_scoped_context.process_with(
+                                        None => Box::pin(property_scoped_context.process_full(
                                             env.vocabulary,
                                             active_context,
                                             env.loader,
                                             property_scoped_base_url,
                                             options.with_override(),
+                                            crate::warning::ContextWarnings(&mut *env.warnings),
                                         ))
                                         .await?
                                         .into_processed(),
@@ -715,16 +716,21 @@ where
                                             env.loader,
                                             base_url,
                                             options.into(),
-                                            jsonld_core::warning::Print,
+                                            crate::warning::ContextWarnings(&mut *env.warnings),
                                             cache,
                                         ))
                                         .await?
                                         .into_processed(),
-                                        None => {
-                                            Box::pin(local_context.process_with(env.vocabulary, map_context.as_ref(), env.loader, base_url, options.into()))
-                                                .await?
-                                                .into_processed()
-                                        }
+                                        None => Box::pin(local_context.process_full(
+                                            env.vocabulary,
+                                            map_context.as_ref(),
+                                            env.loader,
+                                            base_url,
+                                            options.into(),
+                                            crate::warning::ContextWarnings(&mut *env.warnings),
+                                        ))
+                                        .await?
+                                        .into_processed(),
                                     };
                                     map_context = ContextRef::owned(processed)
                                 }

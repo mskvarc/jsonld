@@ -304,6 +304,9 @@ impl<I, B, E> FlattenError<I, B, E> {
             Self::Expand(e) => e.code(),
             Self::Compact(e) => e.code(),
             Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
+            // `GeneratedIdError` has no counterpart in the spec's error-code
+            // registry (the spec assumes identifier generation cannot fail).
+            // `ConflictingIndexes` is the closest flattening-stage code.
             Self::GeneratedId(_) => ErrorCode::ConflictingIndexes,
             Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
             Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed,
@@ -481,8 +484,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         N: VocabularyMut<Iri = Iri>,
         Iri: Clone + Eq + Hash,
         L: Loader,
-        N::BlankId: Clone + Eq + Hash,
-        L: Loader;
+        N::BlankId: Clone + Eq + Hash;
 
     /// Compare this document against `other` with a custom vocabulary using the
     /// given `options`.
@@ -523,7 +525,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.compare_full(other, vocabulary, loader, options, ()).await
     }
@@ -566,7 +567,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.compare_with_using(other, vocabulary, loader, Options::default()).await
     }
@@ -692,8 +692,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
         N: VocabularyMut<Iri = Iri>,
         Iri: Clone + Eq + Hash,
         L: Loader,
-        N::BlankId: Clone + Eq + Hash,
-        L: Loader;
+        N::BlankId: Clone + Eq + Hash;
 
     /// Expand the document with the given `vocabulary` and `loader`, using
     /// the given `options`.
@@ -737,7 +736,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.expand_full(vocabulary, loader, options, ()).await
     }
@@ -783,7 +781,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.expand_with_using(vocabulary, loader, Options::default()).await
     }
@@ -890,7 +887,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: 'a + Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.into_document_full(vocabulary, loader, options, ()).await
     }
@@ -902,7 +898,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: 'a + Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.into_document_with_using(vocabulary, loader, Options::default()).await
     }
@@ -1023,7 +1018,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.compact_full(vocabulary, context, loader, options, ()).await
     }
@@ -1074,7 +1068,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.compact_with_using(vocabulary, context, loader, Options::default()).await
     }
@@ -1292,7 +1285,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.flatten_full(vocabulary, generator, None, loader, options, ()).await
     }
@@ -1356,7 +1348,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: 'a + Clone + Eq + Hash,
-        L: Loader,
     {
         self.flatten_with_using(vocabulary, generator, loader, Options::default()).await
     }
@@ -1536,7 +1527,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: Clone + Eq + Hash,
-        L: Loader,
         G: LocalGenerator,
     {
         let rdf_direction = options.rdf_direction;
@@ -1609,7 +1599,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: Clone + Eq + Hash,
-        L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_full(vocabulary, generator, loader, options, ()).await
@@ -1676,7 +1665,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
         Iri: Clone + Eq + Hash,
         L: Loader,
         N::BlankId: Clone + Eq + Hash,
-        L: Loader,
         G: LocalGenerator,
     {
         self.to_rdf_full(vocabulary, generator, loader, Options::default(), ()).await

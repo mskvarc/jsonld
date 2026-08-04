@@ -68,7 +68,7 @@ impl LiteralExpansionError {
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
-            Self::ForbiddenVocab => ErrorCode::InvalidTypeValue,
+            Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
             Self::IdExpansionEmpty => ErrorCode::InvalidIdValue,
             Self::NotALiteral(_) => ErrorCode::InvalidValueObject,
         }

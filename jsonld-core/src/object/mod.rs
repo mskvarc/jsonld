@@ -909,33 +909,46 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Object<T, B> {
 ///
 /// This can be raised when trying to directly convert a JSON value into an
 /// expanded JSON-LD object without using the expansion algorithm.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum InvalidExpandedJson {
     /// The value is not a JSON object.
+    #[error("invalid object")]
     InvalidObject,
     /// The `@list` entry does not hold an array.
+    #[error("invalid `@list` value")]
     InvalidList,
     /// The `@index` entry does not hold a string.
+    #[error("invalid `@index` value")]
     InvalidIndex,
     /// The `@id` entry does not hold a valid identifier.
+    #[error("invalid `@id` value")]
     InvalidId,
     /// The `@type` entry of a value object is invalid.
+    #[error("invalid `@type` value")]
     InvalidValueType,
     /// The `@value` entry does not hold a literal.
+    #[error("invalid literal")]
     InvalidLiteral,
     /// The `@language` entry does not hold a language tag.
+    #[error("invalid `@language` value")]
     InvalidLanguage,
     /// The `@direction` entry does not hold `ltr` or `rtl`.
+    #[error("invalid `@direction` value")]
     InvalidDirection,
     /// The value is not a well-formed language-tagged string.
+    #[error("invalid language-tagged string")]
     InvalidLangString,
     /// The document is not in expanded form.
+    #[error("not an expanded document")]
     NotExpanded,
     /// The object carries an entry that is not allowed here.
+    #[error("unexpected entry")]
     UnexpectedEntry,
     /// The object carries the same key twice.
+    #[error("duplicate key `{0}`")]
     DuplicateKey(jstrict::object::Key),
     /// A value of the wrong JSON kind was found.
+    #[error("unexpected {0}, expected {1}")]
     Unexpected(jstrict::Kind, jstrict::Kind),
 }
 

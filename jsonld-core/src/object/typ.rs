@@ -1,7 +1,7 @@
 use crate::{Id, ValidId};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Type of a node or value object.
 pub enum Type<T, B> {
     /// A JSON literal.
@@ -15,14 +15,6 @@ pub enum Type<T, B> {
 }
 
 impl<T, B> Type<T, B> {
-    /// Builds a type from the type of a value object.
-    pub fn from_value_type(value_ty: super::value::Type<T>) -> Self {
-        match value_ty {
-            super::value::Type::Json => Self::Json,
-            super::value::Type::Id(id) => Self::Id(id),
-        }
-    }
-
     /// Builds a type from a node identifier.
     pub fn from_reference(r: Id<T, B>) -> Self {
         match r {
@@ -87,7 +79,7 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Type<T, B> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// Borrowed type of a node or value object.
 pub enum TypeRef<'a, T, B> {
     /// A JSON literal.

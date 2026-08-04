@@ -8,24 +8,6 @@ use std::{hash::Hash, marker::PhantomData};
 
 use super::InvalidExpandedJson;
 
-/// Value type.
-pub enum Type<T> {
-    /// A JSON literal.
-    Json,
-    /// A type given by an IRI.
-    Id(T),
-}
-
-impl<T> Type<T> {
-    /// Borrows this `Type` as id, if it is one.
-    pub fn as_id(&self) -> Option<crate::id::Ref<'_, T>> {
-        match self {
-            Self::Json => None,
-            Self::Id(t) => Some(crate::id::Ref::Iri(t)),
-        }
-    }
-}
-
 /// Value type reference.
 // `bound(false)`: every variant payload is a shared reference or a `Copy` value
 // type, so this borrow type is unconditionally `Clone + Copy` regardless of `T`.

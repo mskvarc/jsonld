@@ -74,12 +74,9 @@ impl ToOwned for LenientLangTag {
     }
 }
 
-impl Borrow<str> for LenientLangTag {
-    fn borrow(&self) -> &str {
-        self.as_str()
-    }
-}
-
+// No `Borrow<str>` impl: `LenientLangTag`'s `Eq`/`Ord`/`Hash` are
+// case-insensitive while `str`'s are not, and the `Borrow` contract requires
+// them to agree. Use `AsRef<str>`/`as_str` to reach the raw string.
 impl AsRef<str> for LenientLangTag {
     fn as_ref(&self) -> &str {
         self.as_str()

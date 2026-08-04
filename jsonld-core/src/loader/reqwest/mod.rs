@@ -10,7 +10,6 @@ use reqwest::{
     header::{ACCEPT, CONTENT_TYPE, LINK},
 };
 use reqwest_middleware::ClientWithMiddleware;
-use std::string::FromUtf8Error;
 
 mod content_type;
 mod link;
@@ -154,18 +153,6 @@ impl ReqwestLoader {
             accept_header: format!("application/ld+json{json_ld_params}, application/json"),
         }
     }
-}
-
-/// HTTP body parse error.
-#[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    /// Invalid encoding.
-    #[error("invalid encoding")]
-    InvalidEncoding(FromUtf8Error),
-
-    /// JSON parse error.
-    #[error("JSON parse error: {0}")]
-    Json(jsonld_syntax::parse::Error),
 }
 
 impl Loader for ReqwestLoader {

@@ -8,7 +8,7 @@ pub struct Type {
     /// The `@container` entry, declaring how values of the term are laid out.
     pub container: TypeContainer,
 
-    #[cfg_attr(feature = "serde", serde(rename = "@protected"))]
+    #[cfg_attr(feature = "serde", serde(rename = "@protected", default, skip_serializing_if = "Option::is_none"))]
     /// The `@protected` entry, forbidding redefinition of the term.
     pub protected: Option<bool>,
 }

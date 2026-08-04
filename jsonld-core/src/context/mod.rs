@@ -647,10 +647,16 @@ impl<T, B> Context<T, B> {
             type_: type_.map(TypeTermDefinition::into_syntax_definition),
             version: None,
             vocab,
-            bindings: bindings
-                .into_iter()
-                .map(|(key, definition)| definition.into_syntax_definition(vocabulary).map(|d| (key, d)))
-                .collect::<Result<_, _>>()?,
+            bindings: {
+                // `HashMap` iteration order is nondeterministic; sort by term
+                // so the serialized definition is stable across runs.
+                let mut entries: Vec<_> = bindings.into_iter().collect();
+                entries.sort_unstable_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
+                entries
+                    .into_iter()
+                    .map(|(key, definition)| definition.into_syntax_definition(vocabulary).map(|d| (key, d)))
+                    .collect::<Result<_, _>>()?
+            },
         })
     }
 
@@ -739,6 +745,10 @@ impl<T: PartialEq, B: PartialEq> PartialEq for Context<T, B> {
             && self.vocabulary == other.vocabulary
             && self.default_language == other.default_language
             && self.default_base_direction == other.default_base_direction
+            && self.processing_mode == other.processing_mode
+            // `ptr_eq` first: clones share their `Arc<Definitions>`, making
+            // the common case free.
+            && (Arc::ptr_eq(&self.definitions, &other.definitions) || self.definitions == other.definitions)
             && self.previous_context == other.previous_context
     }
 }

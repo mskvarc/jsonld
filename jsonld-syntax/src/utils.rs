@@ -36,14 +36,31 @@ pub fn case_insensitive_cmp(a: &[u8], b: &[u8]) -> Ordering {
                 return Ordering::Equal;
             }
 
-            return Ordering::Greater;
-        } else if b.len() <= i {
+            // `a` is a strict prefix of `b`: shorter sorts first, matching
+            // lexicographic byte order.
             return Ordering::Less;
+        } else if b.len() <= i {
+            return Ordering::Greater;
         } else {
             match into_smallcase(a[i]).cmp(&into_smallcase(b[i])) {
                 Ordering::Equal => i += 1,
                 ord => return ord,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A strict prefix sorts before its extension, matching `str`'s
+    /// lexicographic order (modulo case).
+    #[test]
+    fn prefix_sorts_first() {
+        assert_eq!(case_insensitive_cmp(b"en", b"en-US"), Ordering::Less);
+        assert_eq!(case_insensitive_cmp(b"en-US", b"en"), Ordering::Greater);
+        assert_eq!(case_insensitive_cmp(b"en-us", b"EN-US"), Ordering::Equal);
+        assert_eq!(case_insensitive_cmp(b"de", b"en"), Ordering::Less);
     }
 }

@@ -3,7 +3,7 @@ use jsonld_core::ProcessingMode;
 pub use jsonld_context_processing::algorithm::Action;
 
 /// Expansion options.
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Options {
     /// Sets the processing mode.
     pub processing_mode: ProcessingMode,

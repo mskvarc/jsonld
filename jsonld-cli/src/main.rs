@@ -10,7 +10,7 @@ use jsonld::{JsonLdProcessor, LD_JSON_MEDIA_TYPE, Print, RemoteDocument, RemoteD
 use rdfx::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
-#[command(name="json-ld", author, version, about, long_about = None)]
+#[command(name = "jsonld-cli", author, version, about, long_about = None)]
 struct Args {
     /// Sets the level of verbosity.
     #[arg(short, long = "verbose", action = clap::ArgAction::Count)]
@@ -101,6 +101,18 @@ impl FromStr for IriOrPath {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // A single-letter "scheme" (`C:/foo`, `C:\foo`, `C:`) is a Windows
+        // drive path, not an IRI: route it to the file-system branch instead
+        // of parsing it as an IRI with scheme `c`.
+        let bytes = s.as_bytes();
+        let is_drive_path = bytes.len() >= 2
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes.get(2), None | Some(b'\\') | Some(b'/'));
+        if is_drive_path {
+            return Ok(Self::Path(s.into()));
+        }
+
         match IriBuf::new(s.to_owned()) {
             Ok(iri) => Ok(Self::Iri(iri)),
             Err(e) => Ok(Self::Path(e.0.into())),

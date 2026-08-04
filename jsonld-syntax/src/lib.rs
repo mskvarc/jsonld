@@ -56,3 +56,30 @@ pub use jstrict::{from_value, to_value};
 #[derive(Clone, Copy, Debug)]
 /// Error raised when a JSON value has the wrong kind.
 pub struct Unexpected(jstrict::Kind, &'static [jstrict::Kind]);
+
+impl Unexpected {
+    /// Returns the kind of the value that was found.
+    pub fn found(&self) -> jstrict::Kind {
+        self.0
+    }
+
+    /// Returns the kinds that were expected instead.
+    pub fn expected(&self) -> &'static [jstrict::Kind] {
+        self.1
+    }
+}
+
+impl std::fmt::Display for Unexpected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unexpected {}, expected ", self.0)?;
+        for (i, kind) in self.1.iter().enumerate() {
+            if i > 0 {
+                f.write_str(" or ")?;
+            }
+            write!(f, "{kind}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for Unexpected {}

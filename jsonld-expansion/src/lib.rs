@@ -6,8 +6,12 @@
 //! The expansion algorithm is provided by the [`Expand`] trait.
 use std::hash::Hash;
 
-use jsonld_context_processing::Context;
-use jsonld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
+// Re-exported because they appear in the public `Expand` signatures:
+// standalone users should not need to depend on `jsonld-core` and
+// `jsonld-context-processing` just to name them.
+pub use jsonld_context_processing::Context;
+pub use jsonld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
+
 use jstrict::Value;
 use rdfx::{
     BlankIdBuf,
@@ -27,7 +31,9 @@ mod warning;
 
 pub use error::*;
 pub use expanded::*;
+pub use literal::{LiteralExpansionError, NotALiteral};
 pub use options::*;
+pub use value::InvalidValue;
 pub use warning::*;
 
 pub(crate) use array::*;
@@ -110,7 +116,9 @@ pub trait Expand<Iri> {
     /// The given `loader` is used to load remote documents (such as contexts)
     /// imported by the input and required during expansion.
     /// The `options` are used to tweak the expansion algorithm.
-    /// The `warning_handler` is called each time a warning is emitted during expansion.
+    /// The `warning_handler` is called each time a warning is emitted during
+    /// expansion, including warnings raised while processing scoped and local
+    /// `@context`s (wrapped in [`Warning::ContextProcessing`]).
     async fn expand_full<N, L, W>(
         &self,
         vocabulary: &mut N,

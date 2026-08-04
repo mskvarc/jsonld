@@ -518,7 +518,7 @@ impl<'a, T, B> TryFrom<&'a mut Id<T, B>> for &'a mut ValidId<T, B> {
 }
 
 /// Id to a reference.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
     /// Node identifier, essentially an IRI.

@@ -106,7 +106,9 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
             .expand_full(
                 vocabulary,
                 active_context,
-                self.url().or(options.base.as_ref()),
+                // `Options::base` overrides the document's own URL, matching
+                // its documentation and the initial-context base above.
+                options.base.as_ref().or(self.url()),
                 loader,
                 options.expansion_options(),
                 warnings,

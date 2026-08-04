@@ -41,7 +41,7 @@ impl InvalidValue {
             Self::ValueObject => ErrorCode::InvalidValueObject,
             Self::ValueObjectValue => ErrorCode::InvalidValueObjectValue,
             Self::LanguageTaggedValue => ErrorCode::InvalidLanguageTaggedValue,
-            Self::ForbiddenVocab => ErrorCode::InvalidTypeValue,
+            Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
         }
     }
 }

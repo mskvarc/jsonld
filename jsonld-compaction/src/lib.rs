@@ -28,6 +28,7 @@ mod property;
 mod value;
 
 pub use document::*;
+pub use iri::IriConfusedWithPrefix;
 pub(crate) use iri::*;
 use node::*;
 use property::*;
@@ -84,12 +85,17 @@ impl<E> From<IriConfusedWithPrefix> for Error<E> {
 pub type CompactFragmentResult<E> = Result<jstrict::Value, Error<E>>;
 
 /// Compaction options.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Options {
     /// JSON-LD processing mode.
     pub processing_mode: ProcessingMode,
 
     /// Determines if IRIs are compacted relative to the provided base IRI or document location when compacting.
+    ///
+    /// This crate itself never reads this flag: IRIs are relativized whenever
+    /// the active context has a base IRI. The flag is honored by the
+    /// higher-level `jsonld` processor, which only seeds the active context's
+    /// base IRI when it is set.
     pub compact_to_relative: bool,
 
     /// If set to `true`, arrays with just one element are replaced with that element during compaction.
@@ -101,12 +107,6 @@ pub struct Options {
     pub ordered: bool,
 }
 
-impl Options {
-    /// Returns these options with ordering switched off.
-    pub fn unordered(self) -> Self {
-        Self { ordered: false, ..self }
-    }
-}
 
 impl From<Options> for jsonld_context_processing::Options {
     fn from(options: Options) -> jsonld_context_processing::Options {

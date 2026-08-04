@@ -16,6 +16,12 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for IndexSet<T> {
 /// Values convertible into JSON through a vocabulary.
 pub trait IntoJsonWithContext<N>: Sized {
     /// Consumes this `IntoJsonWithContext`, returning its JSON with.
+    ///
+    /// This conversion is infallible by design: every identifier is expected
+    /// to resolve in the given context (vocabulary). Passing a vocabulary the
+    /// value was not built against is a caller bug; implementations render
+    /// identifiers that fail to resolve as the literal string
+    /// `"<unresolved iri>"` rather than panicking.
     fn into_json_with(self, context: &N) -> jstrict::Value;
 }
 
