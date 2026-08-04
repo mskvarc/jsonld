@@ -10,9 +10,13 @@ repository.workspace = true
 license.workspace = true
 description = "Testing library for the `jsonld` library"
 readme.workspace = true
-
-[package.metadata.docs.rs]
-all-features = true
+# Not published: this is a compile-time harness that needs the W3C manifests
+# mounted in the consumer's CARGO_MANIFEST_DIR and assumes direct `jsonld` and
+# `iri-rs` dependencies — it has no crates.io audience. Keeping it private also
+# breaks the jsonld <-> jsonld-testing publish cycle. Note: this crate opts out
+# of the workspace deny-lints on purpose; panicking in a proc macro surfaces as
+# a compile-time diagnostic, not a runtime risk.
+publish = false
 
 [lib]
 proc-macro = true

@@ -9,10 +9,14 @@ keywords.workspace = true
 repository.workspace = true
 license.workspace = true
 description = "Command line interface for JSON-LD"
+documentation = "https://docs.rs/jsonld-cli"
 readme.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
+# The `gxhash` feature hard-fails without AES intrinsics; docs.rs applies
+# rustc-args as extra RUSTFLAGS, so this reaches the gxhash dependency build.
+rustc-args = ["-C", "target-cpu=native"]
 
 [features]
 default = []

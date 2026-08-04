@@ -9,7 +9,11 @@ license.workspace = true
 rust-version.workspace = true
 version.workspace = true
 description = "JSON-LD implementation"
+documentation = "https://docs.rs/jsonld"
 readme.workspace = true
+# The W3C conformance suite lives in a 34MB git submodule; shipping it would
+# blow past the crates.io package size limit (and it is W3C-licensed).
+exclude = ["tests/json-ld-api"]
 # `benches/common.rs` is a shared fixture module, not a benchmark. Auto-
 # discovery would turn it into a libtest-harness bench target, which rejects
 # the criterion flags before `expansion` or `compaction` ever run.
@@ -57,7 +61,10 @@ thiserror = "2.0.19"
 [dev-dependencies]
 criterion = "0.8.2"
 iri-rs = { version = "3.3.7", features = ["static"] }
-jsonld-testing.workspace = true
+# Path-only (no version) so `cargo package` strips this dev-dep: jsonld-testing
+# is not published, and a versioned entry would make `cargo publish` demand it
+# on crates.io (circular with this crate).
+jsonld-testing = { path = "../jsonld-testing" }
 log = "0.4.33"
 mimalloc = { version = "0.1.52", default-features = false }
 n-quads = "0.21.0"
@@ -85,6 +92,9 @@ path = "examples/profile.rs"
 
 [package.metadata.docs.rs]
 all-features = true
+# The `gxhash` feature hard-fails without AES intrinsics; docs.rs applies
+# rustc-args as extra RUSTFLAGS, so this reaches the gxhash dependency build.
+rustc-args = ["-C", "target-cpu=native"]
 
 [package.metadata.cargo-machete]
 # `criterion` is used by the `benches/*` targets, which cargo-machete does not

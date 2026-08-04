@@ -14,6 +14,9 @@ readme.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
+# The `gxhash` feature hard-fails without AES intrinsics; docs.rs applies
+# rustc-args as extra RUSTFLAGS, so this reaches the gxhash dependency build.
+rustc-args = ["-C", "target-cpu=native"]
 
 [features]
 default = ["fast-hash"]
