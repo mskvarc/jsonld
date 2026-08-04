@@ -10,7 +10,7 @@ mod try_from_json;
 
 pub use definition::Definition;
 pub use term_definition::TermDefinition;
-pub use try_from_json::InvalidContext;
+pub use try_from_json::{InvalidContext, MAX_CONTEXT_DEPTH};
 
 /// JSON-LD Context.
 ///

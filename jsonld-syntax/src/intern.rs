@@ -1,8 +1,20 @@
 //! Process-wide string interner used by [`crate::context::definition::Key`].
 //!
 //! Backed by [`lasso::ThreadedRodeo`]. Interned strings live for the lifetime
-//! of the program — acceptable because the universe of context-key strings is
-//! bounded by the contexts a process loads.
+//! of the program and are **never freed**.
+//!
+//! # Untrusted input
+//!
+//! Every term key of every parsed `@context` is interned, so the interner's
+//! memory usage grows with the number of *distinct* context keys the process
+//! ever parses — a quantity that is attacker-controlled when parsing
+//! untrusted documents. A long-running service accepting arbitrary JSON-LD
+//! should bound the size of the documents it accepts (for example via
+//! [`Options::max_document_size`] on the `reqwest` loader of the main crate,
+//! or an equivalent limit at the transport layer) to keep this growth
+//! proportional to the traffic it chooses to serve.
+//!
+//! [`Options::max_document_size`]: https://docs.rs/jsonld/latest/jsonld/loader/reqwest/struct.Options.html
 
 use lasso::ThreadedRodeo;
 use std::sync::OnceLock;

@@ -653,7 +653,12 @@ where
                             options.with_override(),
                         ))
                         .await
-                        .map_err(|_| Error::InvalidScopedContext)?;
+                        .map_err(|e| match e {
+                            // A resource-limit abort is not a context error:
+                            // let it surface instead of masking it.
+                            Error::ContextOverflow => Error::ContextOverflow,
+                            _ => Error::InvalidScopedContext,
+                        })?;
 
                         // Set the local context of definition to context, and base URL to base URL.
                         definition.context = Some(Box::new(context.clone()));

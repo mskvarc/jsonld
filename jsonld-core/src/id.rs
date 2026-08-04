@@ -241,6 +241,12 @@ impl<I, B> Id<I, B> {
     /// Parses an identifier from a string, interning it in the given
     /// vocabulary.
     pub fn from_string_in(vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>, s: String) -> Self {
+        /// Bound on the per-thread validation cache, so untrusted input
+        /// cannot grow it without limit. When full, the cache is cleared
+        /// (rather than frozen) so it keeps tracking the current working
+        /// set.
+        const MAX_VALIDATED_IRIS: usize = 1 << 14;
+
         thread_local! {
             static VALIDATED_IRIS: std::cell::RefCell<HashSet<String>> =
                 std::cell::RefCell::new(HashSet::default());
@@ -256,7 +262,13 @@ impl<I, B> Id<I, B> {
 
         match Iri::parse(s.as_str()) {
             Ok(iri) => {
-                VALIDATED_IRIS.with(|c| c.borrow_mut().insert(s.clone()));
+                VALIDATED_IRIS.with(|c| {
+                    let mut c = c.borrow_mut();
+                    if c.len() >= MAX_VALIDATED_IRIS {
+                        c.clear();
+                    }
+                    c.insert(s.clone())
+                });
                 Self::Valid(ValidId::Iri(vocabulary.insert(iri)))
             }
             Err(_) => match BlankId::new(s.as_str()) {

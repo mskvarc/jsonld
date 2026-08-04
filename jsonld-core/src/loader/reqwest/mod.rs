@@ -36,6 +36,21 @@ pub struct Options {
     /// [`client`](Self::client).
     pub max_redirections: usize,
 
+    /// Maximum size of a loaded document, in bytes.
+    ///
+    /// Responses larger than this fail with [`Error::TooLarge`] instead of
+    /// buffering unbounded amounts of memory. Defaults to 32 MiB. Set to
+    /// `None` to disable the limit.
+    pub max_document_size: Option<usize>,
+
+    /// Timeout applied to each HTTP request, from connection to the end of
+    /// the response body.
+    ///
+    /// Defaults to 60 seconds, so a hung server cannot stall loading
+    /// indefinitely. Set to `None` to defer to the [`client`](Self::client)
+    /// configuration.
+    pub timeout: Option<std::time::Duration>,
+
     /// HTTP client.
     pub client: ClientWithMiddleware,
 }
@@ -45,6 +60,8 @@ impl Default for Options {
         Self {
             request_profile: Vec::new(),
             max_redirections: 8,
+            max_document_size: Some(32 * 1024 * 1024),
+            timeout: Some(std::time::Duration::from_secs(60)),
             client: reqwest_middleware::ClientBuilder::new(reqwest::Client::default()).build(),
         }
     }
@@ -72,6 +89,11 @@ pub enum Error {
     #[error("too many redirections")]
     /// Too many redirections.
     TooManyRedirections,
+
+    #[error("document exceeds the size limit ({0} bytes)")]
+    /// Document exceeds the configured size limit (the given value, in
+    /// bytes). See [`Options::max_document_size`].
+    TooLarge(usize),
 
     #[error("JSON parse error: {0}")]
     /// JSON parse error: the given value.
@@ -158,9 +180,13 @@ impl Loader for ReqwestLoader {
             }
 
             log::debug!("downloading: {}", url);
-            let request = self.options.client.get(url.as_str()).header(ACCEPT, &self.accept_header);
+            let mut request = self.options.client.get(url.as_str()).header(ACCEPT, &self.accept_header);
 
-            let response = request.send().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e)))?;
+            if let Some(timeout) = self.options.timeout {
+                request = request.timeout(timeout);
+            }
+
+            let mut response = request.send().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e)))?;
 
             match response.status() {
                 StatusCode::OK => {
@@ -170,10 +196,8 @@ impl Loader for ReqwestLoader {
                         Some(content_type) => {
                             let mut context_url = None;
                             if *content_type.media_type() != LD_JSON_MEDIA_TYPE {
-                                for link in response.headers().get_all(LINK).into_iter() {
-                                    if let Some(link) = Link::new(link)
-                                        && link.rel() == Some(b"http://www.w3.org/ns/json-ld#context")
-                                    {
+                                for link in response.headers().get_all(LINK).into_iter().flat_map(Link::parse_header) {
+                                    if link.rel() == Some(b"http://www.w3.org/ns/json-ld#context") {
                                         if context_url.is_some() {
                                             return Err(LoadError::new(url, Error::MultipleContextLinkHeaders));
                                         }
@@ -196,7 +220,22 @@ impl Loader for ReqwestLoader {
                                 }
                             }
 
-                            let bytes = response.bytes().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e.into())))?;
+                            if let (Some(limit), Some(len)) = (self.options.max_document_size, response.content_length())
+                                && len > limit as u64
+                            {
+                                return Err(LoadError::new(url, Error::TooLarge(limit)));
+                            }
+
+                            let mut bytes = Vec::new();
+                            while let Some(chunk) = response.chunk().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e.into())))? {
+                                if let Some(limit) = self.options.max_document_size
+                                    && bytes.len() + chunk.len() > limit
+                                {
+                                    return Err(LoadError::new(url, Error::TooLarge(limit)));
+                                }
+
+                                bytes.extend_from_slice(&chunk);
+                            }
 
                             let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
                             let (document, _) = jstrict::Value::parse_utf8(decoder).map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
@@ -211,11 +250,8 @@ impl Loader for ReqwestLoader {
                         }
                         None => {
                             log::debug!("no valid media type found");
-                            for link in response.headers().get_all(LINK).into_iter() {
-                                if let Some(link) = Link::new(link)
-                                    && link.rel() == Some(b"alternate")
-                                    && link.type_() == Some(b"application/ld+json")
-                                {
+                            for link in response.headers().get_all(LINK).into_iter().flat_map(Link::parse_header) {
+                                if link.rel() == Some(b"alternate") && link.type_() == Some(b"application/ld+json") {
                                     log::debug!("link found");
                                     if let Ok(resolved) = link.href().resolved(&url)
                                         && let Ok(next) = IriBuf::try_from(resolved)

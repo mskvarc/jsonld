@@ -13,6 +13,10 @@
 //! functions after [`requires_loader`] has been verified, so this fallback
 //! should never fire in practice — it exists as a defence against pre-scan
 //! drift from the algorithm body.
+//!
+//! Unlike the async version, recursion here happens on the native stack, so
+//! it is bounded by [`MAX_SYNC_DEPTH`]; crafted deeply-nested contexts fail
+//! with [`Error::ContextOverflow`] instead of overflowing the stack.
 
 use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_legacy_vocab, resolve_iri};
 use crate::{
@@ -51,6 +55,18 @@ use jsonld_syntax::{
 };
 use rdfx::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};
+
+/// Maximum recursion depth of the synchronous context-processing fast path.
+///
+/// The async algorithm heap-allocates every recursion level through
+/// `Box::pin`; the sync mirror recurses on the native stack, so a crafted
+/// deeply-nested inline `@context` could otherwise overflow it (an abort,
+/// not UB). Exceeding the limit reports [`Error::ContextOverflow`]. Genuine
+/// contexts stay far below this bound: depth grows with the nesting of
+/// scoped contexts and chained term/prefix definitions, not with context
+/// size. The value is chosen so that even unoptimized builds (with their
+/// much larger stack frames) stay within a 2 MiB thread stack.
+const MAX_SYNC_DEPTH: usize = 128;
 
 type ExpandIriResult<N, L> =
     Result<Option<Arc<Term<<N as rdfx::vocabulary::IriVocabulary>::Iri, <N as rdfx::vocabulary::BlankIdVocabulary>::BlankId>>>, Error<<L as Loader>::Error>>;
@@ -133,6 +149,7 @@ pub fn expand_iri_with_sync<'a, N, L, W>(
     defined: &'a mut DefinedTerms,
     remote_contexts: ProcessingStack<N::Iri>,
     options: Options,
+    depth: usize,
 ) -> ExpandIriResult<N, L>
 where
     N: VocabularyMut,
@@ -163,6 +180,7 @@ where
                 None,
                 false,
                 options.with_no_override(),
+                depth + 1,
             )?;
 
             if let Some(term_definition) = active_context.get(value) {
@@ -204,6 +222,7 @@ where
                         None,
                         false,
                         options.with_no_override(),
+                        depth + 1,
                     )?;
 
                     // The `prefix` flag is JSON-LD 1.1 only; see `iri.rs`.
@@ -274,6 +293,7 @@ pub fn define_sync<'a, N, L, W>(
     base_url: Option<N::Iri>,
     protected: bool,
     options: Options,
+    depth: usize,
 ) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut,
@@ -282,6 +302,10 @@ where
     L: Loader,
     W: WarningHandler<N>,
 {
+    if depth >= MAX_SYNC_DEPTH {
+        return Err(Error::ContextOverflow);
+    }
+
     let term = term.to_owned();
     if defined.begin(&term)? {
         if term.is_empty() {
@@ -360,6 +384,7 @@ where
                             defined,
                             remote_contexts.clone(),
                             options,
+                            depth + 1,
                         )?;
 
                         if let Some(typ) = typ {
@@ -402,6 +427,7 @@ where
                             defined,
                             remote_contexts.clone(),
                             options,
+                            depth + 1,
                         )? {
                             Some(arc) if matches!(arc.as_ref(), Term::Id(m) if m.is_valid()) => definition.value = Some(arc),
                             _ => return Err(Error::InvalidIriMapping),
@@ -451,6 +477,7 @@ where
                                         defined,
                                         remote_contexts.clone(),
                                         options,
+                                        depth + 1,
                                     )? {
                                         Some(arc) if arc.as_ref() == &Term::Keyword(Keyword::Context) => {
                                             return Err(Error::InvalidKeywordAlias);
@@ -482,6 +509,7 @@ where
                                             defined,
                                             remote_contexts.clone(),
                                             options,
+                                            depth + 1,
                                         )?;
                                         if definition.value.as_deref() != expanded_term.as_deref() {
                                             return Err(Error::InvalidIriMapping);
@@ -515,6 +543,7 @@ where
                                             None,
                                             false,
                                             options.with_no_override(),
+                                            depth + 1,
                                         )?;
 
                                         if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
@@ -638,8 +667,14 @@ where
                             return Err(Error::InvalidTermDefinition);
                         }
 
-                        process_context_sync(env, active_context, context, remote_contexts.clone(), base_url.clone(), options.with_override())
-                            .map_err(|_| Error::InvalidScopedContext)?;
+                        process_context_sync(env, active_context, context, remote_contexts.clone(), base_url.clone(), options.with_override(), depth + 1).map_err(
+                            |e| match e {
+                                // A resource-limit abort is not a context
+                                // error: let it surface instead of masking it.
+                                Error::ContextOverflow => Error::ContextOverflow,
+                                _ => Error::InvalidScopedContext,
+                            },
+                        )?;
 
                         definition.context = Some(Box::new(context.clone()));
                         definition.base_url = base_url;
@@ -715,6 +750,7 @@ pub(crate) fn process_context_sync<'l: 'a, 'a, N, L, W>(
     remote_contexts: ProcessingStack<N::Iri>,
     base_url: Option<N::Iri>,
     mut options: Options,
+    depth: usize,
 ) -> ProcessContextResult<'l, N, L>
 where
     N: VocabularyMut,
@@ -864,6 +900,7 @@ where
                         base_url.clone(),
                         protected,
                         options,
+                        depth + 1,
                     )?
                 }
 
@@ -882,6 +919,7 @@ where
                         base_url.clone(),
                         protected,
                         options,
+                        depth + 1,
                     )?
                 }
             }
@@ -889,4 +927,64 @@ where
     }
 
     Ok(crate::Processed::new(local_context, result))
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use jsonld_core::NoLoader;
+    use jsonld_syntax::{Parse, TryFromJson};
+
+    /// Builds `levels` nestings of `{"a": {"@id": ..., "@context": ...}}`.
+    fn nested_context(levels: usize) -> syntax::context::Context {
+        let mut json = String::new();
+        for _ in 0..levels {
+            json.push_str("{\"a\":{\"@id\":\"http://example.com/a\",\"@context\":");
+        }
+        json.push_str("{}");
+        for _ in 0..levels {
+            json.push_str("}}");
+        }
+
+        let (value, _) = jsonld_syntax::Value::parse_str(&json).unwrap();
+        syntax::context::Context::try_from_json(&value).unwrap()
+    }
+
+    fn process(levels: usize) -> Result<(), crate::ErrorCode> {
+        let local = nested_context(levels);
+        let active: Context<iri_rs::IriBuf, rdfx::BlankIdBuf> = Context::new(None);
+        let mut warnings = ();
+
+        process_context_sync(
+            Environment {
+                vocabulary: rdfx::vocabulary::no_vocabulary_mut(),
+                loader: &NoLoader,
+                warnings: &mut warnings,
+            },
+            &active,
+            &local,
+            ProcessingStack::default(),
+            None,
+            crate::Options::default(),
+            0,
+        )
+        .map(|_| ())
+        .map_err(|e| e.code())
+    }
+
+    /// A crafted deeply-nested inline `@context` must fail with a context
+    /// overflow instead of exhausting the native stack.
+    #[test]
+    fn deeply_nested_inline_context_overflows_gracefully() {
+        // 100 nesting levels ≈ 200 recursion depth — past MAX_SYNC_DEPTH but
+        // below `jsonld_syntax`'s own MAX_CONTEXT_DEPTH so the scaffolding
+        // can build the context at all.
+        assert_eq!(process(100), Err(crate::ErrorCode::ContextOverflow));
+    }
+
+    #[test]
+    fn reasonable_nesting_is_unaffected() {
+        assert!(process(20).is_ok());
+    }
 }

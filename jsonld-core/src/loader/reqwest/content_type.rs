@@ -98,7 +98,12 @@ impl ContentType {
     }
 
     pub fn is_json_ld(&self) -> bool {
-        self.media_type == JSON_MEDIA_TYPE || self.media_type == LD_JSON_MEDIA_TYPE
+        // JSON-LD 1.1 accepts `application/ld+json`, `application/json` and
+        // any media type with a `+json` structured syntax suffix (RFC 6839),
+        // e.g. `application/activity+json`.
+        self.media_type == JSON_MEDIA_TYPE
+            || self.media_type == LD_JSON_MEDIA_TYPE
+            || self.media_type.suffix().is_some_and(|suffix| suffix.as_str().eq_ignore_ascii_case("json"))
     }
 
     pub fn media_type(&self) -> &MediaTypeBuf {
@@ -182,5 +187,17 @@ mod tests {
     fn parse_content_type_8() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
+    }
+
+    #[test]
+    fn structured_json_suffix_is_json_ld() {
+        let content_type = ContentType::new(&HeaderValue::from_str("application/activity+json").unwrap()).unwrap();
+        assert!(content_type.is_json_ld());
+    }
+
+    #[test]
+    fn non_json_media_type_is_not_json_ld() {
+        let content_type = ContentType::new(&HeaderValue::from_str("text/html").unwrap()).unwrap();
+        assert!(!content_type.is_json_ld());
     }
 }

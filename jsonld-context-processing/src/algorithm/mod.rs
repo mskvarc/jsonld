@@ -58,6 +58,7 @@ impl Process for syntax::context::Context {
                 ProcessingStack::default(),
                 base_url,
                 options,
+                0,
             );
         }
 
@@ -111,6 +112,7 @@ impl Process for syntax::context::Context {
                 ProcessingStack::default(),
                 base_url,
                 options,
+                0,
             )?
         } else {
             process_context(

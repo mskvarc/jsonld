@@ -59,13 +59,33 @@ impl FsLoader {
     }
 
     /// Returns the local file path associated to the given `url` if any.
+    ///
+    /// The URL must match a mount point at a path boundary (mounting
+    /// `http://example.com/a` does not capture `http://example.com/abc`),
+    /// and the resolved path can never escape the mounted directory:
+    /// URLs containing `.` or `..` segments (or segments the platform would
+    /// split further, like `\` on Windows) return `None`.
     pub fn filepath(&self, url: Iri<&str>) -> Option<PathBuf> {
         for (path, target_url) in &self.mount_points {
             if let Some(suffix) = url.as_str().strip_prefix(target_url.as_str()) {
+                // Require a path boundary right after the matched prefix.
+                if !(suffix.is_empty() || suffix.starts_with('/') || target_url.as_str().ends_with('/')) {
+                    continue;
+                }
+
                 let mut filepath = path.clone();
                 for seg in suffix.trim_start_matches('/').split('/') {
-                    if !seg.is_empty() {
-                        filepath.push(seg)
+                    if seg.is_empty() {
+                        continue;
+                    }
+
+                    // Only a single normal component may reach the file
+                    // system: `.`, `..` or anything the platform parses as
+                    // several components could escape the mount directory.
+                    let mut components = Path::new(seg).components();
+                    match (components.next(), components.next()) {
+                        (Some(std::path::Component::Normal(_)), None) => filepath.push(seg),
+                        _ => return None,
                     }
                 }
 
@@ -92,5 +112,33 @@ impl Loader for FsLoader {
             }
             None => Err(LoadError::new(url.into(), Error::NoMountPoint)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    fn loader() -> FsLoader {
+        let mut loader = FsLoader::new();
+        loader.mount(IriBuf::new("http://example.com/mount".to_string()).unwrap(), "/srv/data");
+        loader
+    }
+
+    #[test]
+    fn filepath_resolves_inside_mount() {
+        assert_eq!(loader().filepath(Iri::parse("http://example.com/mount/a/b.json").unwrap()), Some(PathBuf::from("/srv/data/a/b.json")));
+    }
+
+    #[test]
+    fn filepath_rejects_parent_segments() {
+        assert_eq!(loader().filepath(Iri::parse("http://example.com/mount/../../etc/secret").unwrap()), None);
+        assert_eq!(loader().filepath(Iri::parse("http://example.com/mount/a/./b").unwrap()), None);
+    }
+
+    #[test]
+    fn filepath_requires_prefix_boundary() {
+        assert_eq!(loader().filepath(Iri::parse("http://example.com/mounted/a").unwrap()), None);
     }
 }

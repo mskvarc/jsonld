@@ -9,6 +9,10 @@ use std::{borrow::Borrow, cmp::Ordering, fmt, hash::Hash};
 /// directly, so [`Key::as_str`] is a single load and equality on equal logical
 /// strings short-circuits via pointer equality (the interner guarantees a
 /// unique allocation per interned string).
+///
+/// Interned strings are never freed: memory usage grows with the number of
+/// distinct keys the process parses. See the [`crate::intern`] module
+/// documentation for the implications when parsing untrusted input.
 #[derive(Clone, Copy, Debug)]
 pub struct Key(&'static str);
 
