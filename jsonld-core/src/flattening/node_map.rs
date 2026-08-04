@@ -55,6 +55,7 @@ pub struct NodeMap<T, B> {
 
 impl<T, B> NodeMap<T, B> {
     /// Creates a new `NodeMap`.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             graphs: IndexMap::default(),
@@ -63,12 +64,14 @@ impl<T, B> NodeMap<T, B> {
     }
 
     /// Consumes the node map, returning its default graph and named graphs.
+    #[must_use]
     pub fn into_parts(self) -> Parts<T, B> {
         (self.default_graph, self.graphs)
     }
 
     /// Returns an iterator over the graphs of the node map: the default
     /// graph first, then the named graphs in declaration order.
+    #[must_use]
     pub fn iter(&self) -> Iter<'_, T, B> {
         Iter {
             default_graph: Some(&self.default_graph),
@@ -77,6 +80,7 @@ impl<T, B> NodeMap<T, B> {
     }
 
     /// Returns an iterator over the named graphs only, in declaration order.
+    #[must_use]
     pub fn iter_named(&self) -> indexmap::map::Iter<'_, Id<T, B>, NodeMapGraph<T, B>> {
         self.graphs.iter()
     }
@@ -85,6 +89,7 @@ impl<T, B> NodeMap<T, B> {
 impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
     /// Returns the graph of the given name, or the default graph for `None`,
     /// if it is declared.
+    #[must_use]
     pub fn graph(&self, id: Option<&Id<T, B>>) -> Option<&NodeMapGraph<T, B>> {
         match id {
             Some(id) => self.graphs.get(id),
@@ -110,6 +115,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
     /// Merge all the graphs into a single `NodeMapGraph`.
     ///
     /// Graphs are merged into the default graph in declaration order.
+    #[must_use]
     pub fn merge(self) -> NodeMapGraph<T, B>
     where
         T: Clone,
@@ -118,7 +124,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMap<T, B> {
         let mut result = self.default_graph;
 
         for (_, graph) in self.graphs {
-            result.merge_with(graph)
+            result.merge_with(graph);
         }
 
         result
@@ -195,6 +201,7 @@ pub struct NodeMapGraph<T, B> {
 
 impl<T, B> NodeMapGraph<T, B> {
     /// Creates a new `NodeMapGraph`.
+    #[must_use]
     pub fn new() -> Self {
         Self { nodes: IndexMap::default() }
     }
@@ -221,6 +228,10 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
 
     /// Declares a node in this graph, failing if `index` contradicts the index
     /// already recorded for it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the node is already declared with a conflicting index, or when the generator runs out of identifiers.
     pub fn declare_node(&mut self, id: Id<T, B>, index: Option<&str>) -> DeclareNodeResult<'_, T, B>
     where
         T: Clone,
@@ -256,7 +267,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         B: Clone,
     {
         for (_, node) in other {
-            self.merge_node(node)
+            self.merge_node(node);
         }
     }
 
@@ -280,7 +291,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
                 indexmap::map::Entry::Occupied(occupied) => {
                     let entry = occupied.into_mut();
                     if let Some(index) = index {
-                        entry.set_index(Some(index))
+                        entry.set_index(Some(index));
                     }
                     entry
                 }
@@ -302,12 +313,14 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
     }
 
     /// Returns an iterator over the nodes of the graph, in declaration order.
+    #[must_use]
     pub fn nodes(&self) -> NodeMapGraphNodes<'_, T, B> {
         self.nodes.values()
     }
 
     /// Consumes the graph, returning an iterator over its nodes in
     /// declaration order.
+    #[must_use]
     pub fn into_nodes(self) -> IntoNodeMapGraphNodes<T, B> {
         self.nodes.into_values()
     }
@@ -327,6 +340,14 @@ impl<T, B> IntoIterator for NodeMapGraph<T, B> {
     }
 }
 
+impl<T, B> NodeMapGraph<T, B> {
+    /// Iterates over the nodes of this graph, keyed by identifier.
+    #[must_use]
+    pub fn iter(&self) -> indexmap::map::Iter<'_, Id<T, B>, IndexedNode<T, B>> {
+        self.nodes.iter()
+    }
+}
+
 impl<'a, T, B> IntoIterator for &'a NodeMapGraph<T, B> {
     type Item = (&'a Id<T, B>, &'a IndexedNode<T, B>);
     type IntoIter = indexmap::map::Iter<'a, Id<T, B>, IndexedNode<T, B>>;
@@ -339,6 +360,10 @@ impl<'a, T, B> IntoIterator for &'a NodeMapGraph<T, B> {
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> ExpandedDocument<T, B> {
     /// Builds the node map of this document using the given vocabulary and
     /// blank node generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers, or when two nodes disagree on an `@index`.
     pub fn generate_node_map_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &self,
         vocabulary: &mut V,
@@ -421,7 +446,7 @@ where
         node_map.declare_graph(id.clone());
 
         let mut flat_graph: Vec<_> = Vec::new();
-        for object in graph_entry.iter() {
+        for object in graph_entry {
             let flat_object = extend_node_map(env, node_map, object, Some(&id))?;
             flat_graph.push(flat_object);
         }
@@ -455,11 +480,11 @@ where
         // SAFETY: `id` was declared in this graph above.
         unsafe { node_map.graph_mut(active_graph).unwrap_unchecked().get_mut(&id).unwrap_unchecked() }
             .properties_mut()
-            .insert_all_unique(property, flat_objects)
+            .insert_all_unique(property, flat_objects);
     }
 
     if let Some(reverse_properties) = node.reverse_properties_entry() {
-        for (property, nodes) in reverse_properties.iter() {
+        for (property, nodes) in reverse_properties {
             for subject in nodes {
                 let flat_subject = extend_node_map_from_node(env, node_map, subject.inner(), subject.index(), active_graph)?;
 
@@ -472,7 +497,7 @@ where
 
                 flat_subject
                     .properties_mut()
-                    .insert_unique(property.clone(), Indexed::none(Object::node(Node::with_id(id.clone()))))
+                    .insert_unique(property.clone(), Indexed::none(Object::node(Node::with_id(id.clone()))));
             }
         }
     }

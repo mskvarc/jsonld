@@ -97,6 +97,7 @@ impl<T, B> Default for ExpandedDocument<T, B> {
 impl<T, B> ExpandedDocument<T, B> {
     #[inline(always)]
     /// Creates a new `ExpandedDocument`.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -107,27 +108,31 @@ impl<T, B> ExpandedDocument<T, B> {
     /// Worth reaching for whenever the object count is known up front: growing
     /// the set re-hashes every object already in it, and hashing an object
     /// walks its whole subtree.
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             objects: Vec::with_capacity(capacity),
-            buckets: HashMap::with_capacity_and_hasher(capacity, Default::default()),
+            buckets: HashMap::with_capacity_and_hasher(capacity, crate::hash::DefaultBuildHasher::default()),
         }
     }
 
     #[inline(always)]
     /// Returns the number of top-level objects in the document.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.objects.len()
     }
 
     #[inline(always)]
     /// Checks whether the document has no top-level objects.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.objects.is_empty()
     }
 
     #[inline(always)]
     /// Returns the top-level objects of the document, in insertion order.
+    #[must_use]
     pub fn objects(&self) -> &[IndexedObject<T, B>] {
         &self.objects
     }
@@ -135,6 +140,7 @@ impl<T, B> ExpandedDocument<T, B> {
     #[inline(always)]
     /// Consumes the document, returning its top-level objects in insertion
     /// order.
+    #[must_use]
     pub fn into_objects(self) -> Vec<IndexedObject<T, B>> {
         self.objects
     }
@@ -149,6 +155,7 @@ impl<T, B> ExpandedDocument<T, B> {
     #[inline(always)]
     /// Returns an iterator that visits every fragment of the document: each
     /// top-level object and, recursively, everything it contains.
+    #[must_use]
     pub fn traverse(&self) -> Traverse<'_, T, B> {
         Traverse::new(self.iter().map(|o| FragmentRef::IndexedObject(o)))
     }
@@ -161,6 +168,10 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Gives an identifier (`@id`) to every node, using the given generator
     /// to create fresh identifiers for anonymous nodes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     #[inline(always)]
     pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
@@ -176,6 +187,10 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Gives an identifier (`@id`) to every node, using the given generator
     /// to create fresh identifiers for anonymous nodes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     #[inline(always)]
     pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
@@ -188,6 +203,10 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Relabels every node identifier with a fresh one from the given
     /// generator and puts every literal into canonical form.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     #[inline(always)]
     pub fn relabel_and_canonicalize_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
@@ -209,6 +228,10 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Relabels every node identifier with a fresh one from the given
     /// generator and puts every literal into canonical form.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     #[inline(always)]
     pub fn relabel_and_canonicalize<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
@@ -221,6 +244,10 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Relabels every node identifier with a fresh one from the given
     /// generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     #[inline(always)]
     pub fn relabel_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
@@ -237,6 +264,10 @@ impl<T, B> ExpandedDocument<T, B> {
 
     /// Relabels every node identifier with a fresh one from the given
     /// generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     #[inline(always)]
     pub fn relabel<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
@@ -267,7 +298,7 @@ impl<T, B> ExpandedDocument<T, B> {
         B: Eq + Hash,
     {
         let mut buffer = ryu_js::Buffer::new();
-        self.canonicalize_with(&mut buffer)
+        self.canonicalize_with(&mut buffer);
     }
 
     /// Rewrites every IRI and identifier of the document (recursively) with
@@ -284,6 +315,7 @@ impl<T, B> ExpandedDocument<T, B> {
     }
 
     /// Returns the set of all blank identifiers in the given document.
+    #[must_use]
     pub fn blank_ids(&self) -> HashSet<&B>
     where
         B: Eq + Hash,
@@ -295,6 +327,7 @@ impl<T, B> ExpandedDocument<T, B> {
     ///
     /// The main node is the unique top level (root) node object. If multiple
     /// node objects are on the root, `None` is returned.
+    #[must_use]
     pub fn main_node(&self) -> Option<&Node<T, B>> {
         let mut result = None;
 
@@ -304,7 +337,7 @@ impl<T, B> ExpandedDocument<T, B> {
                     return None;
                 }
 
-                result = Some(&**node)
+                result = Some(&**node);
             }
         }
 
@@ -315,6 +348,7 @@ impl<T, B> ExpandedDocument<T, B> {
     ///
     /// The main node is the unique top level (root) node object. If multiple
     /// node objects are on the root, `None` is returned.
+    #[must_use]
     pub fn into_main_node(self) -> Option<Node<T, B>> {
         let mut result = None;
 
@@ -324,7 +358,7 @@ impl<T, B> ExpandedDocument<T, B> {
                     return None;
                 }
 
-                result = Some(*node)
+                result = Some(*node);
             }
         }
 
@@ -578,6 +612,7 @@ where
 {
     /// Converts the expanded document into a [`serde_json::Value`] using the
     /// default no-vocabulary.
+    #[must_use]
     pub fn into_serde_json(self) -> serde_json::Value {
         self.into_serde_json_with(rdfx::vocabulary::no_vocabulary())
     }
@@ -603,6 +638,7 @@ where
 {
     /// Converts the expanded document into a [`sonic_rs::Value`] using the
     /// default no-vocabulary.
+    #[must_use]
     pub fn into_sonic_rs(self) -> sonic_rs::Value {
         self.into_sonic_rs_with(rdfx::vocabulary::no_vocabulary())
     }

@@ -50,7 +50,7 @@ impl ContentType {
                     Some(b' ') => (),
                     Some(b) => {
                         current_key.push(b);
-                        state = State::Key
+                        state = State::Key;
                     }
                     None => return None,
                 },
@@ -71,7 +71,7 @@ impl ContentType {
                     Some(b'"') => {
                         params.insert(std::mem::take(&mut current_key), std::mem::take(&mut current_value));
 
-                        state = State::NextParam
+                        state = State::NextParam;
                     }
                     Some(b) => current_value.push(b),
                     None => return None,
@@ -80,7 +80,7 @@ impl ContentType {
                     Some(b';') => {
                         params.insert(std::mem::take(&mut current_key), std::mem::take(&mut current_value));
 
-                        state = State::BeginKey
+                        state = State::BeginKey;
                     }
                     Some(b) => current_value.push(b),
                     None => {
@@ -128,14 +128,14 @@ mod tests {
     fn parse_content_type_1() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json;profile=http://www.w3.org/ns/json-ld#expanded").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
-        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
+        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()));
     }
 
     #[test]
     fn parse_content_type_2() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json; profile=http://www.w3.org/ns/json-ld#expanded").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
-        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
+        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()));
     }
 
     #[test]
@@ -143,7 +143,7 @@ mod tests {
         let content_type =
             ContentType::new(&HeaderValue::from_str("application/ld+json; profile=http://www.w3.org/ns/json-ld#expanded; q=1").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
-        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
+        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()));
     }
 
     #[test]
@@ -151,14 +151,14 @@ mod tests {
         let content_type =
             ContentType::new(&HeaderValue::from_str("application/ld+json; profile=\"http://www.w3.org/ns/json-ld#expanded\"; q=1").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
-        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
+        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()));
     }
 
     #[test]
     fn parse_content_type_5() {
         let content_type = ContentType::new(&HeaderValue::from_str("application/ld+json; profile=\"http://www.w3.org/ns/json-ld#expanded\"").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
-        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
+        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()));
     }
 
     #[test]
@@ -166,7 +166,7 @@ mod tests {
         let content_type =
             ContentType::new(&HeaderValue::from_str("application/ld+json;profile=\"http://www.w3.org/ns/json-ld#expanded\"; q=1").unwrap()).unwrap();
         assert_eq!(content_type.media_type().as_str(), "application/ld+json");
-        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()))
+        assert_eq!(content_type.profile(), Some(b"http://www.w3.org/ns/json-ld#expanded".as_slice()));
     }
 
     #[test]
@@ -180,7 +180,7 @@ mod tests {
         assert_eq!(
             content_type.profile(),
             Some(b"http://www.w3.org/ns/json-ld#flattened http://www.w3.org/ns/json-ld#compacted".as_slice())
-        )
+        );
     }
 
     #[test]

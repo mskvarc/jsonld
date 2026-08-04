@@ -5,7 +5,7 @@
 //! `iri_rs::Iri<&'static str>` constants together with string lookup tables.
 //!
 //! Terms are partitioned by JSON-LD casing convention into
-//! `classes` (TitleCase) and `properties` (lowerCase)
+//! `classes` (`TitleCase`) and `properties` (lowerCase)
 //! submodules, so a context can declare both `Property` and `property`
 //! without colliding on a single Rust constant name.
 //!
@@ -19,7 +19,7 @@
 //! no cased characters at all (CJK names, for instance) all count as
 //! properties.
 //!
-//! Constant names are the term in SHOUTY_SNAKE_CASE, so terms differing only in
+//! Constant names are the term in `SHOUTY_SNAKE_CASE`, so terms differing only in
 //! how they mark word boundaries collapse onto one name. `createdAt` and
 //! `created_at` both want `CREATED_AT`, and since the class/property split
 //! cannot separate two terms from the same side of it, that is a naming
@@ -113,13 +113,13 @@ fn iri_path(span: Span) -> syn::Result<proc_macro2::TokenStream> {
 pub fn generate(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as MacroInput);
 
-    expand(input).unwrap_or_else(syn::Error::into_compile_error).into()
+    expand(&input).unwrap_or_else(syn::Error::into_compile_error).into()
 }
 
-fn expand(input: MacroInput) -> syn::Result<proc_macro2::TokenStream> {
-    let contexts = InputContexts::resolve(&input)?;
+fn expand(input: &MacroInput) -> syn::Result<proc_macro2::TokenStream> {
+    let contexts = InputContexts::resolve(input)?;
     let resolved = load_contexts(&contexts)?;
     let iri_crate = iri_path(input.contexts_span)?;
 
-    generate_tokens(&resolved, &iri_crate)
+    Ok(generate_tokens(&resolved, &iri_crate))
 }

@@ -27,12 +27,14 @@ pub enum TermDefinition {
 
 impl TermDefinition {
     /// Checks whether this definition is in expanded form.
+    #[must_use]
     pub fn is_expanded(&self) -> bool {
         matches!(self, Self::Expanded(_))
     }
 
     /// Checks whether this definition is written as a JSON object, which is the
     /// case exactly when it is in expanded form.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         self.is_expanded()
     }
@@ -41,6 +43,7 @@ impl TermDefinition {
     ///
     /// A simple definition is presented as an expanded one whose only entry is
     /// the `@id` it maps to.
+    #[must_use]
     pub fn as_expanded(&self) -> ExpandedRef<'_> {
         match self {
             Self::Simple(term) => ExpandedRef {
@@ -63,28 +66,33 @@ pub struct Simple(pub(crate) String);
 
 impl Simple {
     /// Parses this definition as an IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0.as_str()).ok()
     }
 
     /// Parses this definition as a compact IRI, returning `None` if it is not
     /// one.
+    #[must_use]
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(&self.0).ok()
     }
 
     /// Parses this definition as a blank node identifier, returning `None` if
     /// it is not one.
+    #[must_use]
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         BlankId::new(&self.0).ok()
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Unwraps the underlying string.
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -182,12 +190,14 @@ pub struct Expanded {
 
 impl Expanded {
     /// Creates an expanded term definition with no entry set.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Checks whether this definition is equivalent to `null`, which unsets the
     /// term: no entry is set, except possibly an `@id` explicitly set to `null`.
+    #[must_use]
     pub fn is_null(&self) -> bool {
         matches!(&self.id, None | Some(Nullable::Null))
             && self.type_.is_none()
@@ -205,6 +215,7 @@ impl Expanded {
 
     /// Checks whether this definition can be written in simple form: `@id` is
     /// set to a non-null value and no other entry is set.
+    #[must_use]
     pub fn is_simple_definition(&self) -> bool {
         matches!(&self.id, Some(Nullable::Some(_)))
             && self.type_.is_none()
@@ -223,6 +234,7 @@ impl Expanded {
     /// Reduces this definition to the shortest equivalent form: `null` when it
     /// unsets the term, a simple string definition when it carries nothing but
     /// an `@id`, and the expanded form otherwise.
+    #[must_use]
     pub fn simplify(self) -> Nullable<TermDefinition> {
         if self.is_null() {
             return Nullable::Null;
@@ -382,6 +394,7 @@ pub enum EntryRef<'a> {
 
 impl<'a> EntryRef<'a> {
     /// Returns the key of this entry, taking `self` by value.
+    #[must_use]
     pub fn into_key(self) -> EntryKey {
         match self {
             Self::Id(_) => EntryKey::Id,
@@ -400,6 +413,7 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the key of this entry.
+    #[must_use]
     pub fn key(&self) -> EntryKey {
         match self {
             Self::Id(_) => EntryKey::Id,
@@ -418,11 +432,13 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the value of this entry, taking `self` by value.
+    #[must_use]
     pub fn into_value(self) -> EntryValueRef<'a> {
         self.value()
     }
 
     /// Returns the value of this entry.
+    #[must_use]
     pub fn value(&self) -> EntryValueRef<'a> {
         match self {
             Self::Id(e) => EntryValueRef::Id(*e),
@@ -441,11 +457,13 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the key and value of this entry, taking `self` by value.
+    #[must_use]
     pub fn into_key_value(self) -> (EntryKey, EntryValueRef<'a>) {
         self.key_value()
     }
 
     /// Returns the key and value of this entry.
+    #[must_use]
     pub fn key_value(&self) -> (EntryKey, EntryValueRef<'a>) {
         match self {
             Self::Id(e) => (EntryKey::Id, EntryValueRef::Id(*e)),
@@ -497,6 +515,7 @@ pub enum EntryKey {
 
 impl EntryKey {
     /// Returns the keyword naming this entry.
+    #[must_use]
     pub fn keyword(&self) -> Keyword {
         match self {
             Self::Id => Keyword::Id,
@@ -515,6 +534,7 @@ impl EntryKey {
     }
 
     /// Returns the keyword naming this entry as a string, such as `"@id"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.keyword().into_str()
     }
@@ -551,9 +571,10 @@ pub enum EntryValueRef<'a> {
     Protected(bool),
 }
 
-impl<'a> EntryValueRef<'a> {
+impl EntryValueRef<'_> {
     /// Checks whether this value is a JSON object, which only the scoped
     /// `@context` can be.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         match self {
             Self::Context(c) => c.is_object(),
@@ -563,6 +584,7 @@ impl<'a> EntryValueRef<'a> {
 
     /// Checks whether this value is a JSON array, which only a multi-valued
     /// `@container` can be.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         match self {
             Self::Container(Nullable::Some(c)) => c.is_array(),
@@ -578,51 +600,51 @@ impl<'a> Iterator for Entries<'a> {
         let mut len = 0;
 
         if self.id.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.type_.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.context.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.reverse.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.index.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.language.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.direction.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.container.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.nest.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.prefix.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.propagate.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.protected.is_some() {
-            len += 1
+            len += 1;
         }
 
         (len, Some(len))
@@ -666,7 +688,7 @@ impl<'a> Iterator for Entries<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for Entries<'a> {}
+impl ExactSizeIterator for Entries<'_> {}
 
 /// Fragment of a term definition.
 pub enum FragmentRef<'a> {
@@ -685,16 +707,19 @@ pub enum FragmentRef<'a> {
 
 impl<'a> FragmentRef<'a> {
     /// Checks whether this fragment is an entry key.
+    #[must_use]
     pub fn is_key(&self) -> bool {
         matches!(self, Self::Key(_))
     }
 
     /// Checks whether this fragment is an entry, key and value together.
+    #[must_use]
     pub fn is_entry(&self) -> bool {
         matches!(self, Self::Entry(_))
     }
 
     /// Checks whether this fragment is a JSON array.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         match self {
             Self::Value(v) => v.is_array(),
@@ -703,6 +728,7 @@ impl<'a> FragmentRef<'a> {
     }
 
     /// Checks whether this fragment is a JSON object.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_object(),
@@ -711,6 +737,7 @@ impl<'a> FragmentRef<'a> {
     }
 
     /// Returns an iterator over the fragments directly contained in this one.
+    #[must_use]
     pub fn sub_fragments(&self) -> SubFragments<'a> {
         match self {
             Self::Value(EntryValueRef::Container(Nullable::Some(c))) => SubFragments::Container(c.sub_fragments()),

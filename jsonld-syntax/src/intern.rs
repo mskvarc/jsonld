@@ -34,6 +34,7 @@ pub fn interner() -> &'static ThreadedRodeo {
 /// Panics if the interner's key space overflows (more than `u32::MAX - 1`
 /// distinct strings interned over the process lifetime).
 #[inline]
+#[must_use]
 pub fn intern(s: &str) -> Spur {
     interner().get_or_intern(s)
 }
@@ -47,6 +48,7 @@ pub fn intern(s: &str) -> Spur {
 /// was never handed out is a caller bug. Use [`try_resolve`] to get `None`
 /// instead.
 #[inline]
+#[must_use]
 pub fn resolve(spur: Spur) -> &'static str {
     interner().resolve(&spur)
 }
@@ -55,6 +57,7 @@ pub fn resolve(spur: Spur) -> &'static str {
 /// key was never handed out by [`intern`] (e.g. forged via
 /// [`lasso::Key::try_from_usize`]).
 #[inline]
+#[must_use]
 pub fn try_resolve(spur: Spur) -> Option<&'static str> {
     interner().try_resolve(&spur)
 }
@@ -66,6 +69,7 @@ pub fn try_resolve(spur: Spur) -> Option<&'static str> {
 /// Panics if the interner's key space overflows (more than `u32::MAX - 1`
 /// distinct strings interned over the process lifetime).
 #[inline]
+#[must_use]
 pub fn intern_static(s: &str) -> &'static str {
     let interner = interner();
     let spur = interner.get_or_intern(s);

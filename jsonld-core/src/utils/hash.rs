@@ -7,7 +7,7 @@ use std::hash::{BuildHasher, Hash, Hasher};
 /// for set types. This can be used instead.
 ///
 /// Note that this function is not particularly strong and does
-/// not protect against DoS attacks.
+/// not protect against `DoS` attacks.
 pub fn hash_set<S: IntoIterator, H: Hasher>(set: S, hasher: &mut H)
 where
     S::Item: Hash,
@@ -36,7 +36,7 @@ where
     S::Item: Hash,
 {
     if let Some(set) = set_opt {
-        hash_set(set, hasher)
+        hash_set(set, hasher);
     }
 }
 
@@ -46,7 +46,7 @@ where
 /// for unordered map types. This can be used instead.
 ///
 /// Note that this function is not particularly strong and does
-/// not protect against DoS attacks.
+/// not protect against `DoS` attacks.
 pub fn hash_map<'a, K: 'a + Hash, V: 'a + Hash, H: Hasher>(map: impl 'a + IntoIterator<Item = (&'a K, &'a V)>, hasher: &mut H) {
     let inner = FixedState::default();
     let mut hash = 0u64;

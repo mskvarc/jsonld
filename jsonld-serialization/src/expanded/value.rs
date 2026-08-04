@@ -54,14 +54,11 @@ fn xsd_to_value<V: IriVocabularyMut>(vocabulary: &mut V, value: xsd_rs::Value) -
         }
     };
 
-    match jstrict::Number::new(&number) {
-        Ok(_) => {
-            let n = unsafe { jstrict::NumberBuf::new_unchecked(number.into_bytes().into()) };
-            Value::Literal(Literal::Number(n), None)
-        }
-        Err(_) => {
-            let ty = vocabulary.insert(ty.iri());
-            Value::Literal(Literal::String(number.into()), Some(ty))
-        }
+    if jstrict::Number::new(&number).is_ok() {
+        let n = unsafe { jstrict::NumberBuf::new_unchecked(number.into_bytes().into()) };
+        Value::Literal(Literal::Number(n), None)
+    } else {
+        let ty = vocabulary.insert(ty.iri());
+        Value::Literal(Literal::String(number.into()), Some(ty))
     }
 }

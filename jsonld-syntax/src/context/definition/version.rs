@@ -17,6 +17,7 @@ pub enum Version {
 
 impl Version {
     /// Returns the decimal spelling of this version as bytes: `b"1.1"`.
+    #[must_use]
     pub fn into_bytes(self) -> &'static [u8] {
         match self {
             Self::V1_1 => b"1.1",
@@ -24,6 +25,7 @@ impl Version {
     }
 
     /// Returns the decimal spelling of this version: `"1.1"`.
+    #[must_use]
     pub fn into_str(self) -> &'static str {
         match self {
             Self::V1_1 => "1.1",
@@ -31,12 +33,14 @@ impl Version {
     }
 
     /// Returns this version as a borrowed JSON number.
+    #[must_use]
     pub fn into_json_number(self) -> &'static jstrict::Number {
         // SAFETY: `into_bytes` only returns `b"1.1"`, a valid JSON number.
         unsafe { jstrict::Number::new_unchecked(self.into_bytes()) }
     }
 
     /// Returns this version as an owned JSON number.
+    #[must_use]
     pub fn into_json_number_buf(self) -> jstrict::NumberBuf {
         // SAFETY: `into_bytes` only returns `b"1.1"`, a valid JSON number.
         unsafe { jstrict::NumberBuf::new_unchecked(self.into_bytes().into()) }
@@ -53,7 +57,7 @@ impl Eq for Version {}
 
 impl Hash for Version {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.into_str().hash(state)
+        self.into_str().hash(state);
     }
 }
 
@@ -92,6 +96,10 @@ impl FromStr for Version {
 impl TryFrom<f32> for Version {
     type Error = UnknownVersion;
 
+    // Exact comparison is the intent: `@version` is the literal `1.1` and
+    // nothing else, and a JSON `1.1` parses to exactly this float. An epsilon
+    // window would accept values the specification does not define.
+    #[allow(clippy::float_cmp)]
     fn try_from(value: f32) -> Result<Self, Self::Error> {
         if value == 1.1 {
             Ok(Version::V1_1)
@@ -104,6 +112,7 @@ impl TryFrom<f32> for Version {
 impl TryFrom<f64> for Version {
     type Error = UnknownVersion;
 
+    #[allow(clippy::float_cmp)]
     fn try_from(value: f64) -> Result<Self, Self::Error> {
         if value == 1.1 {
             Ok(Version::V1_1)

@@ -28,7 +28,7 @@ impl<'a, I, V: Vocabulary> SerializeGraph<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::GraphVisitor<I> for SerializeGraph<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::GraphVisitor<I> for SerializeGraph<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,

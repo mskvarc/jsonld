@@ -29,10 +29,10 @@ impl IndexTerm {
         Self::Iri(i)
     }
 
-    pub fn from_id(id: ValidId<IriIndex, BlankIdIndex>) -> Self {
+    pub fn from_id(id: &ValidId<IriIndex, BlankIdIndex>) -> Self {
         match id {
-            ValidId::Iri(i) => Self::Iri(i),
-            ValidId::Blank(b) => Self::Blank(b),
+            ValidId::Iri(i) => Self::Iri(*i),
+            ValidId::Blank(b) => Self::Blank(*b),
         }
     }
 }

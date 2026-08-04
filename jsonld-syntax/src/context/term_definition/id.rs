@@ -18,6 +18,7 @@ pub enum Id {
 
 impl Id {
     /// Parses this value as an IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         match self {
             Self::Term(t) => Iri::parse(t.as_str()).ok(),
@@ -27,6 +28,7 @@ impl Id {
 
     /// Parses this value as a blank node identifier, returning `None` if it is
     /// not one.
+    #[must_use]
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         match self {
             Self::Term(t) => BlankId::new(t).ok(),
@@ -35,6 +37,7 @@ impl Id {
     }
 
     /// Parses this value as a compact IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         match self {
             Self::Term(t) => CompactIri::new(t).ok(),
@@ -43,6 +46,7 @@ impl Id {
     }
 
     /// Returns the keyword, or `None` if this value is not one.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -51,6 +55,7 @@ impl Id {
     }
 
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t.as_str(),
@@ -60,6 +65,7 @@ impl Id {
 
     /// Converts this value into an owned `String`, allocating if it is a
     /// keyword.
+    #[must_use]
     pub fn into_string(self) -> String {
         match self {
             Self::Term(t) => t,
@@ -68,17 +74,20 @@ impl Id {
     }
 
     /// Checks whether this value is a JSON-LD keyword.
+    #[must_use]
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
 
     /// Checks whether this value is keyword-like: an `@` followed by ASCII
     /// letters. See [`crate::is_keyword_like`].
+    #[must_use]
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }
 
     /// Returns a borrowed view of this value.
+    #[must_use]
     pub fn as_id_ref(&self) -> IdRef<'_> {
         match self {
             Self::Term(t) => IdRef::Term(t),
@@ -101,7 +110,7 @@ impl Eq for Id {}
 
 impl Hash for Id {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
+        self.as_str().hash(state);
     }
 }
 
@@ -142,8 +151,9 @@ pub enum IdRef<'a> {
     Keyword(Keyword),
 }
 
-impl<'a> IdRef<'a> {
+impl IdRef<'_> {
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t,
@@ -152,12 +162,14 @@ impl<'a> IdRef<'a> {
     }
 
     /// Checks whether this value is a JSON-LD keyword.
+    #[must_use]
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
 
     /// Checks whether this value is keyword-like: an `@` followed by ASCII
     /// letters. See [`crate::is_keyword_like`].
+    #[must_use]
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }
@@ -181,7 +193,7 @@ impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
     }
 }
 
-impl<'a> fmt::Display for IdRef<'a> {
+impl fmt::Display for IdRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_str().fmt(f)
     }

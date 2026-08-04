@@ -35,7 +35,7 @@ impl<'a, I, V: Vocabulary> SerializeList<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeList<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeList<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
@@ -118,7 +118,7 @@ impl<'a, I, V: Vocabulary> SerializeListFirst<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeListFirst<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeListFirst<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
@@ -157,7 +157,7 @@ impl<'a, I, V: Vocabulary> SerializeListRest<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeListRest<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::PredicateObjectsVisitor<I> for SerializeListRest<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,

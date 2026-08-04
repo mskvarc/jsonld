@@ -7,6 +7,7 @@ pub struct InvalidDirection<T>(pub T);
 
 impl<T: ?Sized + ToOwned> InvalidDirection<&T> {
     /// Converts this `InvalidDirection` into an owned one.
+    #[must_use]
     pub fn into_owned(self) -> InvalidDirection<T::Owned> {
         InvalidDirection(self.0.to_owned())
     }
@@ -27,6 +28,7 @@ pub enum Direction {
 
 impl Direction {
     /// Returns `"ltr"` or `"rtl"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
             Direction::Ltr => "ltr",
@@ -35,6 +37,7 @@ impl Direction {
     }
 
     /// Same as [`as_str`](Self::as_str), taking `self` by value.
+    #[must_use]
     pub fn into_str(self) -> &'static str {
         self.as_str()
     }
@@ -90,7 +93,7 @@ impl<'de> serde::Deserialize<'de> for Direction {
     {
         struct Visitor;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
+        impl serde::de::Visitor<'_> for Visitor {
             type Value = Direction;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

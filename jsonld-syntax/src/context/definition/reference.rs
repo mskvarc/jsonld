@@ -45,39 +45,39 @@ impl<'a> Iterator for Entries<'a> {
         let mut len = self.bindings.len();
 
         if self.base.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.import.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.language.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.direction.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.propagate.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.protected.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.type_.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.version.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.vocab.is_some() {
-            len += 1
+            len += 1;
         }
 
         (len, Some(len))
@@ -115,7 +115,7 @@ impl<'a> Iterator for Entries<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for Entries<'a> {}
+impl ExactSizeIterator for Entries<'_> {}
 
 /// Value of a context definition entry.
 pub enum EntryValueRef<'a> {
@@ -145,6 +145,7 @@ pub enum EntryValueRef<'a> {
 impl<'a> EntryValueRef<'a> {
     /// Checks whether this value is a JSON object: the `@type` entry, or an
     /// expanded term definition.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         match self {
             Self::Type(_) => true,
@@ -154,6 +155,7 @@ impl<'a> EntryValueRef<'a> {
     }
 
     /// Returns an iterator over the fragments held by this value.
+    #[must_use]
     pub fn sub_items(&self) -> EntryValueSubItems<'a> {
         match self {
             Self::Definition(Nullable::Some(TermDefinition::Expanded(e))) => EntryValueSubItems::TermDefinitionFragment(Box::new(e.iter())),
@@ -216,6 +218,7 @@ pub enum EntryKeyRef<'a> {
 impl<'a> EntryKeyRef<'a> {
     /// Returns this key as it is spelled in the context, such as `"@vocab"` or
     /// the term itself.
+    #[must_use]
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Base => "@base",
@@ -234,6 +237,7 @@ impl<'a> EntryKeyRef<'a> {
 
 impl<'a> EntryRef<'a> {
     /// Returns the key of this entry, taking `self` by value.
+    #[must_use]
     pub fn into_key(self) -> EntryKeyRef<'a> {
         match self {
             Self::Base(_) => EntryKeyRef::Base,
@@ -250,6 +254,7 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the key of this entry.
+    #[must_use]
     pub fn key(&self) -> EntryKeyRef<'a> {
         match self {
             Self::Base(_) => EntryKeyRef::Base,
@@ -266,6 +271,7 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the value of this entry, taking `self` by value.
+    #[must_use]
     pub fn into_value(self) -> EntryValueRef<'a> {
         match self {
             Self::Base(v) => EntryValueRef::Base(v),
@@ -282,6 +288,7 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the value of this entry.
+    #[must_use]
     pub fn value(&self) -> EntryValueRef<'a> {
         match self {
             Self::Base(v) => EntryValueRef::Base(*v),
@@ -298,11 +305,13 @@ impl<'a> EntryRef<'a> {
     }
 
     /// Returns the key and value of this entry, taking `self` by value.
+    #[must_use]
     pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
         self.key_value()
     }
 
     /// Returns the key and value of this entry.
+    #[must_use]
     pub fn key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
         match self {
             Self::Base(v) => (EntryKeyRef::Base, EntryValueRef::Base(*v)),

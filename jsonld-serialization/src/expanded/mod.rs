@@ -39,7 +39,7 @@ impl<'a, I, V: Vocabulary> SerializeExpandedDocument<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::Visitor<I> for SerializeExpandedDocument<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::Visitor<I> for SerializeExpandedDocument<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,

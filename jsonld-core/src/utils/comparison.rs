@@ -4,13 +4,14 @@ use jstrict::Value;
 /// multisets (any order, duplicates counted), except the value of an `@list`
 /// entry whose order is significant; objects must bind the same keys to
 /// equivalent values; everything else must be strictly equal.
+#[must_use]
 pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
             let mut selected = Vec::with_capacity(a.len());
             selected.resize(a.len(), false);
 
-            'a_items: for item in a.iter() {
+            'a_items: for item in a {
                 for (i, sel) in selected.iter_mut().enumerate() {
                     // SAFETY: `i < selected.len() == a.len() == b.len()`.
                     let other = unsafe { b.get(i).unwrap_unchecked() };
@@ -26,7 +27,7 @@ pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
             true
         }
         (Value::Object(a), Value::Object(b)) if a.len() == b.len() => {
-            for entry in a.iter() {
+            for entry in a {
                 let key = &entry.key;
                 let value_a = &entry.value;
                 if let Some(value_b) = b.get(key).next() {

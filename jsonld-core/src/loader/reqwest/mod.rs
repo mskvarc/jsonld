@@ -14,8 +14,8 @@ use reqwest_middleware::ClientWithMiddleware;
 mod content_type;
 mod link;
 
-use content_type::*;
-use link::*;
+use content_type::ContentType;
+use link::Link;
 
 /// Loader options.
 pub struct Options {
@@ -60,7 +60,7 @@ impl Default for Options {
             request_profile: Vec::new(),
             max_redirections: 8,
             max_document_size: Some(32 * 1024 * 1024),
-            timeout: Some(std::time::Duration::from_secs(60)),
+            timeout: Some(std::time::Duration::from_mins(1)),
             client: reqwest_middleware::ClientBuilder::new(reqwest::Client::default()).build(),
         }
     }
@@ -125,11 +125,13 @@ impl Default for ReqwestLoader {
 
 impl ReqwestLoader {
     /// Creates a new loader with the default options.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Creates a new loader with the given options.
+    #[must_use]
     pub fn new_using(options: Options) -> Self {
         let mut json_ld_params = String::new();
 
@@ -171,7 +173,7 @@ impl Loader for ReqwestLoader {
                 return Err(LoadError::new(url.clone(), Error::TooManyRedirections));
             }
 
-            log::debug!("downloading: {}", url);
+            log::debug!("downloading: {url}");
             let mut request = self.options.client.get(url.as_str()).header(ACCEPT, &self.accept_header);
 
             if let Some(timeout) = self.options.timeout {
@@ -184,80 +186,76 @@ impl Loader for ReqwestLoader {
                 StatusCode::OK => {
                     let mut content_types = response.headers().get_all(CONTENT_TYPE).into_iter().filter_map(ContentType::new);
 
-                    match content_types.find(ContentType::is_json_ld) {
-                        Some(content_type) => {
-                            let mut context_url = None;
-                            if *content_type.media_type() != LD_JSON_MEDIA_TYPE {
-                                for link in response.headers().get_all(LINK).into_iter().flat_map(Link::parse_header) {
-                                    if link.rel() == Some(b"http://www.w3.org/ns/json-ld#context") {
-                                        if context_url.is_some() {
-                                            return Err(LoadError::new(url, Error::MultipleContextLinkHeaders));
-                                        }
+                    if let Some(content_type) = content_types.find(ContentType::is_json_ld) {
+                        let mut context_url = None;
+                        if *content_type.media_type() != LD_JSON_MEDIA_TYPE {
+                            for link in response.headers().get_all(LINK).into_iter().flat_map(Link::parse_header) {
+                                if link.rel() == Some(b"http://www.w3.org/ns/json-ld#context") {
+                                    if context_url.is_some() {
+                                        return Err(LoadError::new(url, Error::MultipleContextLinkHeaders));
+                                    }
 
-                                        if let Ok(resolved) = link.href().resolved(&url)
-                                            && let Ok(iri) = IriBuf::try_from(resolved)
-                                        {
-                                            context_url = Some(iri);
-                                        }
+                                    if let Ok(resolved) = link.href().resolved(&url)
+                                        && let Ok(iri) = IriBuf::try_from(resolved)
+                                    {
+                                        context_url = Some(iri);
                                     }
                                 }
                             }
+                        }
 
-                            let mut profile = HashSet::default();
-                            for p in content_type.profile().into_iter().flat_map(|p| p.split(|b| *b == b' ')) {
-                                if let Ok(p) = std::str::from_utf8(p)
-                                    && let Ok(iri) = Iri::parse(p)
-                                {
-                                    profile.insert(Profile::new(iri));
-                                }
+                        let mut profile = HashSet::default();
+                        for p in content_type.profile().into_iter().flat_map(|p| p.split(|b| *b == b' ')) {
+                            if let Ok(p) = std::str::from_utf8(p)
+                                && let Ok(iri) = Iri::parse(p)
+                            {
+                                profile.insert(Profile::new(iri));
                             }
+                        }
 
-                            if let (Some(limit), Some(len)) = (self.options.max_document_size, response.content_length())
-                                && len > limit as u64
+                        if let (Some(limit), Some(len)) = (self.options.max_document_size, response.content_length())
+                            && len > limit as u64
+                        {
+                            return Err(LoadError::new(url, Error::TooLarge(limit)));
+                        }
+
+                        let mut bytes = Vec::new();
+                        while let Some(chunk) = response.chunk().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e.into())))? {
+                            if let Some(limit) = self.options.max_document_size
+                                && bytes.len() + chunk.len() > limit
                             {
                                 return Err(LoadError::new(url, Error::TooLarge(limit)));
                             }
 
-                            let mut bytes = Vec::new();
-                            while let Some(chunk) = response.chunk().await.map_err(|e| LoadError::new(url.clone(), Error::Reqwest(e.into())))? {
-                                if let Some(limit) = self.options.max_document_size
-                                    && bytes.len() + chunk.len() > limit
-                                {
-                                    return Err(LoadError::new(url, Error::TooLarge(limit)));
-                                }
-
-                                bytes.extend_from_slice(&chunk);
-                            }
-
-                            let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
-                            let (document, _) = jstrict::Value::parse_utf8(decoder).map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
-
-                            break Ok(RemoteDocument::new_full(
-                                Some(url),
-                                Some(content_type.into_media_type()),
-                                context_url,
-                                profile,
-                                document,
-                            ));
+                            bytes.extend_from_slice(&chunk);
                         }
-                        None => {
-                            log::debug!("no valid media type found");
-                            for link in response.headers().get_all(LINK).into_iter().flat_map(Link::parse_header) {
-                                if link.rel() == Some(b"alternate") && link.type_() == Some(b"application/ld+json") {
-                                    log::debug!("link found");
-                                    if let Ok(resolved) = link.href().resolved(&url)
-                                        && let Ok(next) = IriBuf::try_from(resolved)
-                                    {
-                                        url = next;
-                                        redirection_number += 1;
-                                        continue 'next_url;
-                                    }
-                                }
-                            }
 
-                            break Err(LoadError::new(url, Error::InvalidContentType));
+                        let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
+                        let (document, _) = jstrict::Value::parse_utf8(decoder).map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
+
+                        break Ok(RemoteDocument::new_full(
+                            Some(url),
+                            Some(content_type.into_media_type()),
+                            context_url,
+                            profile,
+                            document,
+                        ));
+                    }
+                    log::debug!("no valid media type found");
+                    for link in response.headers().get_all(LINK).into_iter().flat_map(Link::parse_header) {
+                        if link.rel() == Some(b"alternate") && link.type_() == Some(b"application/ld+json") {
+                            log::debug!("link found");
+                            if let Ok(resolved) = link.href().resolved(&url)
+                                && let Ok(next) = IriBuf::try_from(resolved)
+                            {
+                                url = next;
+                                redirection_number += 1;
+                                continue 'next_url;
+                            }
                         }
                     }
+
+                    break Err(LoadError::new(url, Error::InvalidContentType));
                 }
                 code => break Err(LoadError::new(url, Error::QueryFailed(code))),
             }

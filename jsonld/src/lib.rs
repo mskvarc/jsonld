@@ -434,7 +434,7 @@
 //! class, everything else becomes a property. Contexts that name things some
 //! other way still get a constant per term and complete lookup tables, but the
 //! module names stop describing their contents. Casing matters more than that in
-//! one place: constant names are the term in SHOUTY_SNAKE_CASE, so `createdAt`
+//! one place: constant names are the term in `SHOUTY_SNAKE_CASE`, so `createdAt`
 //! and `created_at` both want `CREATED_AT` and collide, which is an error rather
 //! than generated code. A context consistent about one style is fine, one that
 //! mixes both for the same concept is not. See [`vocab!`] for the details.

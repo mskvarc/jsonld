@@ -59,12 +59,14 @@ pub struct ProcessingStack<I> {
 
 impl<I> ProcessingStack<I> {
     /// Creates an empty stack, meaning no remote context is being processed.
+    #[must_use]
     pub fn new() -> Self {
         Self { head: None }
     }
 
     /// Checks whether no remote context has been entered, i.e. the context being
     /// processed is not itself remote.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.head.is_none()
     }
@@ -72,6 +74,7 @@ impl<I> ProcessingStack<I> {
     /// Returns the number of remote contexts on the stack.
     ///
     /// Walks the chain, so this is linear in the stack depth.
+    #[must_use]
     pub fn len(&self) -> usize {
         let mut len = 0;
         let mut node = &self.head;

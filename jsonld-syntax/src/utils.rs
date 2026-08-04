@@ -29,7 +29,7 @@ pub fn case_insensitive_eq(a: &[u8], b: &[u8]) -> bool {
 
 pub fn case_insensitive_hash<H: Hasher>(bytes: &[u8], hasher: &mut H) {
     for b in bytes {
-        into_smallcase(*b).hash(hasher)
+        into_smallcase(*b).hash(hasher);
     }
 }
 
@@ -47,11 +47,10 @@ pub fn case_insensitive_cmp(a: &[u8], b: &[u8]) -> Ordering {
             return Ordering::Less;
         } else if b.len() <= i {
             return Ordering::Greater;
-        } else {
-            match into_smallcase(a[i]).cmp(&into_smallcase(b[i])) {
-                Ordering::Equal => i += 1,
-                ord => return ord,
-            }
+        }
+        match into_smallcase(a[i]).cmp(&into_smallcase(b[i])) {
+            Ordering::Equal => i += 1,
+            ord => return ord,
         }
     }
 }

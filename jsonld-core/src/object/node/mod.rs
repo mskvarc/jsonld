@@ -30,7 +30,7 @@ pub use reverse_properties::ReverseProperties;
 /// Switched from `IndexSet` to `Vec` because all writes are insertion-only
 /// and reads only iterate (no `contains`, no hash-based lookup). The original
 /// `IndexSet` paid for `Hash` on each insert — and that hash recursively walked
-/// the entire `IndexedObject` tree (Properties → Multiset → IndexedObject…),
+/// the entire `IndexedObject` tree (Properties → Multiset → `IndexedObject`…),
 /// which dominates expansion of nested or repeated-term documents.
 ///
 /// JSON-LD does not require dedup of identical sub-objects in `@graph` /
@@ -93,6 +93,7 @@ impl<T, B> Default for Node<T, B> {
 impl<T, B> Node<T, B> {
     /// Creates a new empty node.
     #[inline(always)]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             id: None,
@@ -147,6 +148,10 @@ impl<T, B> Node<T, B> {
 
     /// Assigns an identifier to this node and every other node included in this
     /// one using the given `generator`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
@@ -157,7 +162,7 @@ impl<T, B> Node<T, B> {
         B: Eq + Hash,
     {
         if self.id.is_none() {
-            self.id = Some(crate::id::generator_next_id(vocabulary, generator)?.into())
+            self.id = Some(crate::id::generator_next_id(vocabulary, generator)?.into());
         }
 
         if let Some(graph) = self.graph_mut() {
@@ -190,6 +195,10 @@ impl<T, B> Node<T, B> {
     }
 
     /// Assigns an identifier to this node and every other node included in this one using the given `generator`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
@@ -204,14 +213,14 @@ impl<T, B> Node<T, B> {
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
         for (_, objects) in self.properties_mut() {
             for object in objects {
-                object.canonicalize_with(buffer)
+                object.canonicalize_with(buffer);
             }
         }
 
         if let Some(reverse_properties) = self.reverse_properties_mut() {
             for (_, nodes) in reverse_properties.iter_mut() {
                 for node in nodes {
-                    node.canonicalize_with(buffer)
+                    node.canonicalize_with(buffer);
                 }
             }
         }
@@ -220,7 +229,7 @@ impl<T, B> Node<T, B> {
     /// Puts every literal of the node into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
-        self.canonicalize_with(&mut buffer)
+        self.canonicalize_with(&mut buffer);
     }
 
     /// Returns the node's identifier as an IRI, if the node has one and it
@@ -356,7 +365,7 @@ impl<T, B> Node<T, B> {
     /// Sets the `@graph` entry of the node, or removes it when given `None`.
     #[inline(always)]
     pub fn set_graph_entry(&mut self, graph: Option<Graph<T, B>>) {
-        self.graph = graph
+        self.graph = graph;
     }
 
     /// Returns the set of nodes included by this node.
@@ -389,7 +398,7 @@ impl<T, B> Node<T, B> {
     /// `None`.
     #[inline(always)]
     pub fn set_included(&mut self, included: Option<Included<T, B>>) {
-        self.included = included
+        self.included = included;
     }
 
     /// Returns a reference to the properties of the node.
@@ -427,7 +436,7 @@ impl<T, B> Node<T, B> {
 
     /// Sets the reverse properties of this `Node`.
     pub fn set_reverse_properties(&mut self, reverse_properties: Option<ReverseProperties<T, B>>) {
-        self.reverse_properties = reverse_properties
+        self.reverse_properties = reverse_properties;
     }
 
     /// Tests if the node is an unnamed graph object.
@@ -448,6 +457,10 @@ impl<T, B> Node<T, B> {
     ///
     /// The unnamed graph is returned as a set of indexed objects.
     /// Fails and returns itself if the node is *not* an unnamed graph.
+    ///
+    /// # Errors
+    ///
+    /// Returns `self` unchanged when the object is not a graph object, or is a named graph.
     #[inline(always)]
     pub fn into_unnamed_graph(self: Box<Self>) -> Result<Graph<T, B>, Box<Self>> {
         if self.is_unnamed_graph() {
@@ -584,7 +597,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
     /// Associates the given object with the node through the given property.
     #[inline(always)]
     pub fn insert(&mut self, prop: Id<T, B>, value: IndexedObject<T, B>) {
-        self.properties.insert(prop, value)
+        self.properties.insert(prop, value);
     }
 
     /// Associates all the given objects with the node through the given
@@ -594,7 +607,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
     /// appended to them. Duplicate objects are not removed.
     #[inline(always)]
     pub fn insert_all<Objects: Iterator<Item = IndexedObject<T, B>>>(&mut self, prop: Id<T, B>, values: Objects) {
-        self.properties.insert_all(prop, values)
+        self.properties.insert_all(prop, values);
     }
 
     /// Mutably borrows the reverse properties, inserting `props` if there are
@@ -692,7 +705,7 @@ impl<T, B> Relabel<T, B> for Node<T, B> {
                     property => property,
                 };
 
-                for object in objects.iter_mut() {
+                for object in &mut objects {
                     object.relabel_with(vocabulary, generator, relabeling)?;
                 }
 
@@ -772,6 +785,7 @@ pub enum EntryKeyRef<'a, T, B> {
 
 impl<'a, T, B> EntryKeyRef<'a, T, B> {
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Id => Some(Keyword::Id),
@@ -784,11 +798,13 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
     }
 
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
     /// Returns the key as a string slice.
+    #[must_use]
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -805,6 +821,7 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &'a str
     where
         T: AsRef<str>,
@@ -847,11 +864,13 @@ pub enum EntryValueRef<'a, T, B> {
 
 impl<'a, T, B> EntryValueRef<'a, T, B> {
     /// Checks whether this entry value renders as a JSON array.
+    #[must_use]
     pub fn is_json_array(&self) -> bool {
         matches!(self, Self::Type(_) | Self::Graph(_) | Self::Included(_) | Self::Property(_))
     }
 
     /// Checks whether this entry value renders as a JSON object.
+    #[must_use]
     pub fn is_json_object(&self) -> bool {
         matches!(self, Self::Reverse(_))
     }
@@ -863,7 +882,7 @@ impl<'a, T, B> EntryValueRef<'a, T, B> {
             Self::Included(i) => SubFragments::Included(i.iter()),
             Self::Reverse(r) => SubFragments::Reverse(r.iter()),
             Self::Property(p) => SubFragments::Property(p.iter()),
-            _ => SubFragments::None,
+            Self::Id(_) => SubFragments::None,
         }
     }
 }
@@ -888,6 +907,7 @@ pub enum EntryRef<'a, T, B> {
 
 impl<'a, T, B> EntryRef<'a, T, B> {
     /// Consumes this `EntryRef`, returning its key.
+    #[must_use]
     pub fn into_key(self) -> EntryKeyRef<'a, T, B> {
         match self {
             Self::Id(_) => EntryKeyRef::Id,
@@ -900,11 +920,13 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 
     /// Returns the key of this `EntryRef`.
+    #[must_use]
     pub fn key(&self) -> EntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
     /// Consumes this `EntryRef`, returning its value.
+    #[must_use]
     pub fn into_value(self) -> EntryValueRef<'a, T, B> {
         match self {
             Self::Id(v) => EntryValueRef::Id(v),
@@ -917,11 +939,13 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 
     /// Returns the value of this `EntryRef`.
+    #[must_use]
     pub fn value(&self) -> EntryValueRef<'a, T, B> {
         self.into_value()
     }
 
     /// Consumes this `EntryRef`, returning its key and value.
+    #[must_use]
     pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         match self {
             Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
@@ -934,6 +958,7 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 
     /// Returns the key and value of this entry.
+    #[must_use]
     pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         match self {
             Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(*v)),
@@ -965,23 +990,23 @@ impl<'a, T, B> Iterator for Entries<'a, T, B> {
         let mut len = self.properties.len();
 
         if self.id.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.type_.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.graph.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.included.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.reverse.is_some() {
-            len += 1
+            len += 1;
         }
 
         (len, Some(len))
@@ -1003,7 +1028,7 @@ impl<'a, T, B> Iterator for Entries<'a, T, B> {
     }
 }
 
-impl<'a, T, B> ExactSizeIterator for Entries<'a, T, B> {}
+impl<T, B> ExactSizeIterator for Entries<'_, T, B> {}
 
 #[derive(Educe)]
 #[educe(Clone)]
@@ -1029,7 +1054,7 @@ impl<'a, T, B> Iterator for IndexedEntries<'a, T, B> {
     }
 }
 
-impl<'a, T, B> ExactSizeIterator for IndexedEntries<'a, T, B> {}
+impl<T, B> ExactSizeIterator for IndexedEntries<'_, T, B> {}
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone(bound(false)), Copy(bound(false)))]
@@ -1043,6 +1068,7 @@ pub enum IndexedEntryKeyRef<'a, T, B> {
 
 impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Index => Some(Keyword::Index),
@@ -1051,11 +1077,13 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
     }
 
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
     /// Returns the key as a string slice.
+    #[must_use]
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -1068,6 +1096,7 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &'a str
     where
         T: AsRef<str>,
@@ -1108,6 +1137,7 @@ pub enum IndexedEntryRef<'a, T, B> {
 
 impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     /// Consumes this `IndexedEntryRef`, returning its key.
+    #[must_use]
     pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B> {
         match self {
             Self::Index(_) => IndexedEntryKeyRef::Index,
@@ -1116,11 +1146,13 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     }
 
     /// Returns the key of this `IndexedEntryRef`.
+    #[must_use]
     pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
     /// Consumes this `IndexedEntryRef`, returning its value.
+    #[must_use]
     pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B> {
         match self {
             Self::Index(v) => IndexedEntryValueRef::Index(v),
@@ -1129,11 +1161,13 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     }
 
     /// Returns the value of this `IndexedEntryRef`.
+    #[must_use]
     pub fn value(&self) -> IndexedEntryValueRef<'a, T, B> {
         self.into_value()
     }
 
     /// Consumes this `IndexedEntryRef`, returning its key and value.
+    #[must_use]
     pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         match self {
             Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
@@ -1145,6 +1179,7 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     }
 
     /// Returns the key and value of this entry.
+    #[must_use]
     pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         self.into_key_value()
     }
@@ -1167,6 +1202,7 @@ pub enum FragmentRef<'a, T, B> {
 
 impl<'a, T, B> FragmentRef<'a, T, B> {
     /// Returns the identifier this fragment stands for, if it is one.
+    #[must_use]
     pub fn into_id(self) -> Option<&'a Id<T, B>> {
         match self {
             Self::Key(EntryKeyRef::Property(id)) => Some(id),
@@ -1177,6 +1213,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Returns the identifier this fragment stands for, if it is one.
+    #[must_use]
     pub fn as_id(&self) -> Option<&'a Id<T, B>> {
         match self {
             Self::Key(EntryKeyRef::Property(id)) => Some(id),
@@ -1187,6 +1224,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Checks whether this fragment renders as a JSON array.
+    #[must_use]
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::Value(v) => v.is_json_array(),
@@ -1195,6 +1233,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Checks whether this fragment renders as a JSON object.
+    #[must_use]
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_json_object(),
@@ -1203,6 +1242,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Returns an iterator over the fragments directly contained in this one.
+    #[must_use]
     pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
         match self {
             Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
@@ -1276,7 +1316,7 @@ impl<T: Hash, B: Hash> Hash for Node<T, B> {
         utils::hash_set_opt(self.graph.as_ref(), h);
         utils::hash_set_opt(self.included.as_ref(), h);
         self.properties.hash(h);
-        self.reverse_properties.hash(h)
+        self.reverse_properties.hash(h);
     }
 }
 
@@ -1336,8 +1376,8 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
             types,
             graph,
             included,
-            reverse_properties,
             properties,
+            reverse_properties,
         })
     }
 }

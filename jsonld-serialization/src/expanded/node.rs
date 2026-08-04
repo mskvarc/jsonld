@@ -17,6 +17,10 @@ use super::{
 
 /// Serialize the given Linked-Data value into a JSON-LD node object using a
 /// custom vocabulary and interpretation.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expressed as a JSON-LD node object.
 pub fn serialize_node_with<I, V, T>(vocabulary: &mut V, interpretation: &mut I, value: &T) -> Result<Node<V::Iri, V::BlankId>, Error>
 where
     V: Vocabulary + rdfx::vocabulary::VocabularyMut,
@@ -58,7 +62,7 @@ impl<'a, I, V: Vocabulary> SerializeNode<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeNode<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeNode<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,

@@ -105,7 +105,7 @@ impl FromStr for IriOrPath {
         // drive path, not an IRI: route it to the file-system branch instead
         // of parsing it as an IRI with scheme `c`.
         let bytes = s.as_bytes();
-        let is_drive_path = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes.get(2), None | Some(b'\\') | Some(b'/'));
+        let is_drive_path = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes.get(2), None | Some(b'\\' | b'/'));
         if is_drive_path {
             return Ok(Self::Path(s.into()));
         }
@@ -262,8 +262,8 @@ fn get_remote_context(
         IriOrPath::Path(path) => {
             use jsonld::ExtractContext;
             let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
-            let content = std::fs::read_to_string(path)?;
-            let (document, _) = jsonld::syntax::Value::parse_str(&content)?;
+            let text = std::fs::read_to_string(path)?;
+            let (document, _) = jsonld::syntax::Value::parse_str(&text)?;
             let context = document.into_ld_context()?;
             Ok(jsonld::RemoteContextReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()), context)))
         }

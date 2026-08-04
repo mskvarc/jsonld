@@ -11,7 +11,7 @@ use std::hash::Hash;
 /// IRI compaction returns `None` for a null term, which the specification
 /// requires to be written out as `null` rather than omitted.
 fn optional_string(s: Option<&str>) -> jstrict::Value {
-    s.map(|s| jstrict::Value::String(s.into())).unwrap_or(jstrict::Value::Null)
+    s.map_or(jstrict::Value::Null, |s| jstrict::Value::String(s.into()))
 }
 
 /// Compacts a node object, following the [compaction algorithm][1]'s node
@@ -51,7 +51,7 @@ where
     if !(node.is_empty() && node.id.is_some()) {
         // does not consist of a single @id entry
         if let Some(previous_context) = active_context.previous_context() {
-            active_context = previous_context
+            active_context = previous_context;
         }
     }
 
@@ -78,7 +78,7 @@ where
                 )
                 .await?
                 .into_processed(),
-        )
+        );
     }
 
     let mut result = jstrict::Object::default();
@@ -91,7 +91,7 @@ where
         let mut compacted_types = Vec::new();
         for ty in node.types() {
             let compacted_ty = compact_iri(vocabulary, type_scoped_context, &ty.clone().into_term(), true, false, options)?;
-            compacted_types.push(compacted_ty)
+            compacted_types.push(compacted_ty);
         }
 
         compacted_types.sort_by(|a, b| a.as_deref().cmp(&b.as_deref()));
@@ -112,7 +112,7 @@ where
                         )
                         .await?
                         .into_processed(),
-                )
+                );
             }
         }
     }
@@ -211,7 +211,7 @@ where
                     )
                     .await?
                     .into_processed(),
-            )
+            );
         }
 
         // Every property compacts into one shared object, deliberately. Giving
@@ -226,7 +226,7 @@ where
         // consulting the active context per key to decide between a recursive
         // merge and `add_value`.
         let mut reverse_result = jstrict::Object::default();
-        for (expanded_property, expanded_value) in reverse_properties.iter() {
+        for (expanded_property, expanded_value) in reverse_properties {
             compact_property(
                 vocabulary,
                 &mut reverse_result,
@@ -242,7 +242,7 @@ where
 
         // For each property and value in compacted value:
         let mut reverse_map = jstrict::Object::default();
-        for (property, mapped_value) in reverse_result.iter_mut() {
+        for (property, mapped_value) in &mut reverse_result {
             let mut value = jstrict::Value::Null;
             std::mem::swap(&mut value, &mut *mapped_value);
 
@@ -305,7 +305,7 @@ where
             false,
             options,
         )
-        .await?
+        .await?;
     }
 
     for (expanded_property, expanded_value) in expanded_entries {
@@ -319,7 +319,7 @@ where
             false,
             options,
         )
-        .await?
+        .await?;
     }
 
     if let Some(included_entry) = node.included_entry() {
@@ -333,7 +333,7 @@ where
             false,
             options,
         )
-        .await?
+        .await?;
     }
 
     Ok(result.into())
@@ -375,14 +375,14 @@ where
             let mut compacted_value = Vec::with_capacity(types.len());
 
             // For each item expanded type in expanded value:
-            for ty in types.iter() {
+            for ty in types {
                 let ty = ty.clone().into_term();
 
                 // Set term by IRI compacting expanded type using type-scoped context for active context.
                 let compacted_ty = compact_iri(vocabulary, type_scoped_context, &ty, true, false, options)?;
 
                 // Append term, to compacted value.
-                compacted_value.push(optional_string(compacted_ty.as_deref()))
+                compacted_value.push(optional_string(compacted_ty.as_deref()));
             }
 
             jstrict::Value::Array(compacted_value.into_iter().collect())
@@ -401,7 +401,7 @@ where
         let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerKind::Set)) || !options.compact_arrays;
 
         // Use add value to add compacted value to the alias entry in result using as array.
-        add_value(result, alias, compacted_value, as_array)
+        add_value(result, alias, compacted_value, as_array);
     }
 
     Ok(())

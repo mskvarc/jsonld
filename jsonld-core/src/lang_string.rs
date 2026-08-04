@@ -35,6 +35,10 @@ pub struct MissingLangQualifier;
 
 impl LangString {
     /// Create a new language string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the input is not valid for this type.
     pub fn new(data: jsonld_syntax::String, language: Option<LenientLangTagBuf>, direction: Option<Direction>) -> Result<Self, InvalidLangString> {
         if language.is_some() || direction.is_some() {
             Ok(Self { data, language, direction })
@@ -45,6 +49,7 @@ impl LangString {
 
     /// Total constructor: build a language string with a known language tag.
     #[inline]
+    #[must_use]
     pub fn with_language(data: jsonld_syntax::String, language: LenientLangTagBuf) -> Self {
         Self {
             data,
@@ -55,6 +60,7 @@ impl LangString {
 
     /// Total constructor: build a language string with a known direction.
     #[inline]
+    #[must_use]
     pub fn with_direction(data: jsonld_syntax::String, direction: Direction) -> Self {
         Self {
             data,
@@ -65,6 +71,7 @@ impl LangString {
 
     /// Total constructor: build a language string with both a language tag and a direction.
     #[inline]
+    #[must_use]
     pub fn with_language_and_direction(data: jsonld_syntax::String, language: LenientLangTagBuf, direction: Direction) -> Self {
         Self {
             data,
@@ -75,31 +82,39 @@ impl LangString {
 
     /// Consumes the language string, returning its string data, language tag
     /// and base direction.
+    #[must_use]
     pub fn into_parts(self) -> (jsonld_syntax::String, Option<LenientLangTagBuf>, Option<Direction>) {
         (self.data, self.language, self.direction)
     }
 
     /// Returns the string data, language tag and base direction.
+    #[must_use]
     pub fn parts(&self) -> (&str, Option<&LenientLangTagBuf>, Option<&Direction>) {
         (&self.data, self.language.as_ref(), self.direction.as_ref())
     }
 
     /// Reference to the underlying `str`.
     #[inline(always)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         self.data.as_ref()
     }
 
     /// Gets the associated language tag, if any.
     #[inline(always)]
+    #[must_use]
     pub fn language(&self) -> Option<&LenientLangTag> {
-        self.language.as_ref().map(|tag| tag.as_lenient_lang_tag_ref())
+        self.language.as_ref().map(jsonld_syntax::LenientLangTagBuf::as_lenient_lang_tag_ref)
     }
 
     /// Sets the associated language tag.
     ///
     /// If `None` is given, the direction must be set,
     /// otherwise this function will fail with a [`MissingLangQualifier`] error.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when removing the language would leave a string with a direction but no language, which is not a valid language-tagged string.
     pub fn set_language(&mut self, language: Option<LenientLangTagBuf>) -> Result<(), MissingLangQualifier> {
         if self.direction.is_some() || language.is_some() {
             self.language = language;
@@ -111,6 +126,7 @@ impl LangString {
 
     /// Gets the associated direction, if any.
     #[inline(always)]
+    #[must_use]
     pub fn direction(&self) -> Option<Direction> {
         self.direction
     }
@@ -119,6 +135,10 @@ impl LangString {
     ///
     /// If `None` is given, a language tag must be set,
     /// otherwise this function will fail with a [`MissingLangQualifier`] error.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when removing the direction would leave a string with neither language nor direction.
     pub fn set_direction(&mut self, direction: Option<Direction>) -> Result<(), MissingLangQualifier> {
         if direction.is_some() || self.language.is_some() {
             self.direction = direction;
@@ -132,6 +152,10 @@ impl LangString {
     ///
     /// If both `language` and `direction` are `None`,
     /// this function will fail with a [`MissingLangQualifier`] error.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when neither a language nor a direction is given, which no longer describes a language-tagged string.
     pub fn set(&mut self, language: Option<LenientLangTagBuf>, direction: Option<Direction>) -> Result<(), MissingLangQualifier> {
         if direction.is_some() || language.is_some() {
             self.language = language;
@@ -143,6 +167,7 @@ impl LangString {
     }
 
     /// Returns a reference to this lang string as a [`LangStr`].
+    #[must_use]
     pub fn as_lang_str(&self) -> LangStr<'_> {
         LangStr {
             data: &self.data,
@@ -236,6 +261,10 @@ pub struct LangStr<'a> {
 
 impl<'a> LangStr<'a> {
     /// Create a new language string reference.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the input is not valid for this type.
     pub fn new(data: &'a str, language: Option<&'a LenientLangTag>, direction: Option<Direction>) -> Result<Self, MissingLangQualifier> {
         if language.is_some() || direction.is_some() {
             Ok(Self { data, language, direction })
@@ -246,24 +275,28 @@ impl<'a> LangStr<'a> {
 
     /// Consumes the language string, returning its string data, language tag
     /// and base direction.
+    #[must_use]
     pub fn into_parts(self) -> (&'a str, Option<&'a LenientLangTag>, Option<Direction>) {
         (self.data, self.language, self.direction)
     }
 
     /// Reference to the underlying `str`.
     #[inline(always)]
+    #[must_use]
     pub fn as_str(&self) -> &'a str {
         self.data
     }
 
     /// Gets the associated language tag, if any.
     #[inline(always)]
+    #[must_use]
     pub fn language(&self) -> Option<&'a LenientLangTag> {
         self.language
     }
 
     /// Gets the associated direction, if any.
     #[inline(always)]
+    #[must_use]
     pub fn direction(&self) -> Option<Direction> {
         self.direction
     }

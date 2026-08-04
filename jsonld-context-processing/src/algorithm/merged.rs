@@ -21,6 +21,7 @@ impl<'a> Merged<'a> {
     ///
     /// `imported` is the already-dereferenced `@import` target, or `None` when
     /// the definition has no `@import`.
+    #[must_use]
     pub fn new(base: &'a syntax::context::Definition, imported: Option<syntax::context::Context>) -> Self {
         Self { base, imported }
     }
@@ -30,6 +31,7 @@ impl<'a> Merged<'a> {
     /// Yields `None` when nothing was imported, and also when what was imported
     /// is not a single context definition object — a shape the caller has
     /// already rejected before reaching here.
+    #[must_use]
     pub fn imported(&self) -> Option<&syntax::context::Definition> {
         self.imported.as_ref().and_then(|imported| match imported {
             syntax::context::Context::One(syntax::ContextEntry::Definition(import_context)) => Some(import_context),
@@ -66,6 +68,7 @@ impl<'a> Merged<'a> {
 
     /// Returns the `@direction` entry, falling back to the imported
     /// definition's.
+    #[must_use]
     pub fn direction(&self) -> Option<syntax::Nullable<syntax::Direction>> {
         self.base.direction.or_else(|| self.imported().and_then(|i| i.direction))
     }
@@ -75,6 +78,7 @@ impl<'a> Merged<'a> {
     ///
     /// This is the context-wide default applied to every term it defines, not
     /// the flag of an individual term definition.
+    #[must_use]
     pub fn protected(&self) -> Option<bool> {
         self.base.protected.or_else(|| self.imported().and_then(|i| i.protected))
     }
@@ -83,12 +87,14 @@ impl<'a> Merged<'a> {
     ///
     /// `@type` is the one keyword a context may redefine, to give it an `@set`
     /// container or mark it protected.
+    #[must_use]
     pub fn type_(&self) -> Option<syntax::context::definition::Type> {
         self.base.type_.or_else(|| self.imported().and_then(|i| i.type_))
     }
 
     /// Iterates over every term definition of both definitions, without
     /// repeating a term the importing definition overrides.
+    #[must_use]
     pub fn bindings(&self) -> MergedBindings<'_> {
         MergedBindings {
             base: self.base,
@@ -98,6 +104,7 @@ impl<'a> Merged<'a> {
     }
 
     /// Returns the entry bound to `key`, preferring the importing definition's.
+    #[must_use]
     pub fn get(&self, key: &syntax::context::definition::KeyOrKeyword) -> Option<syntax::context::definition::EntryValueRef<'_>> {
         self.base.get(key).or_else(|| self.imported().and_then(|i| i.get(key)))
     }

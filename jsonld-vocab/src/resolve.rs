@@ -21,7 +21,7 @@ use std::{
 
 /// Read, merge, and resolve the input contexts into a canonical vocabulary model.
 pub fn load_contexts(inputs: &InputContexts) -> syn::Result<ResolvedModel> {
-    let documents = inputs.iter().cloned().map(read_document).collect::<syn::Result<Vec<_>>>()?;
+    let documents = inputs.iter().map(read_document).collect::<syn::Result<Vec<_>>>()?;
 
     let mut model = ContextModel::default();
     for document in &documents {
@@ -29,7 +29,7 @@ pub fn load_contexts(inputs: &InputContexts) -> syn::Result<ResolvedModel> {
     }
 
     let prefixes = resolve_prefixes(model.prefixes)?;
-    let (class_terms, property_terms) = partition_terms(model.terms, &prefixes)?;
+    let (class_terms, property_terms) = partition_terms(&model.terms, &prefixes)?;
     let include_paths = documents
         .iter()
         .map(|document| path_to_string(&document.input.resolved_path, document.input.span))
@@ -43,10 +43,10 @@ pub fn load_contexts(inputs: &InputContexts) -> syn::Result<ResolvedModel> {
     })
 }
 
-fn read_document(input: InputContextFile) -> syn::Result<ParsedDocument> {
+fn read_document(input: &InputContextFile) -> syn::Result<ParsedDocument> {
     let input = InputContextFile {
-        resolved_path: std::fs::canonicalize(&input.resolved_path).unwrap_or(input.resolved_path.clone()),
-        ..input
+        resolved_path: std::fs::canonicalize(&input.resolved_path).unwrap_or_else(|_| input.resolved_path.clone()),
+        ..input.clone()
     };
     let json = std::fs::read_to_string(&input.resolved_path)
         .map_err(|error| syn::Error::new(input.span, format!("cannot read context file {}: {error}", input.resolved_path.display())))?;
@@ -240,7 +240,7 @@ fn resolve_prefixes(prefixes: BTreeMap<String, PrefixDefinition>) -> syn::Result
     Ok(resolved)
 }
 
-/// Turn a compact name into a valid SHOUTY_SNAKE_CASE constant name.
+/// Turn a compact name into a valid `SHOUTY_SNAKE_CASE` constant name.
 ///
 /// Digit-leading names (schema.org defines `3DModel`) get a `_` prefix;
 /// anything that still fails to parse as a Rust identifier becomes a spanned
@@ -259,7 +259,7 @@ fn const_name(compact: &str, span: Span) -> syn::Result<String> {
     Ok(name)
 }
 
-fn partition_terms(terms: BTreeMap<String, TermDefinition>, prefixes: &[ResolvedPrefix]) -> syn::Result<(Vec<ResolvedTerm>, Vec<ResolvedTerm>)> {
+fn partition_terms(terms: &BTreeMap<String, TermDefinition>, prefixes: &[ResolvedPrefix]) -> syn::Result<(Vec<ResolvedTerm>, Vec<ResolvedTerm>)> {
     let prefix_map = prefixes
         .iter()
         .map(|prefix| (prefix.compact.as_str(), prefix.expanded.as_str()))
@@ -271,9 +271,9 @@ fn partition_terms(terms: BTreeMap<String, TermDefinition>, prefixes: &[Resolved
     let mut class_names = HashMap::<String, String>::new();
     let mut property_names = HashMap::<String, String>::new();
 
-    for (compact, definition) in &terms {
+    for (compact, definition) in terms {
         let span = definition.source.span;
-        let expanded = resolve_term(compact, &terms, &prefix_map, &mut cache, &mut Vec::new(), &mut HashSet::new(), span)?;
+        let expanded = resolve_term(compact, terms, &prefix_map, &mut cache, &mut Vec::new(), &mut HashSet::new(), span)?;
         let const_name = const_name(compact, span)?;
 
         if starts_with_uppercase(compact) {
@@ -455,7 +455,7 @@ mod tests {
     fn resolve(json: &str) -> syn::Result<(Vec<ResolvedTerm>, Vec<ResolvedTerm>)> {
         let model = model_from(json)?;
         let prefixes = resolve_prefixes(model.prefixes)?;
-        partition_terms(model.terms, &prefixes)
+        partition_terms(&model.terms, &prefixes)
     }
 
     use std::path::PathBuf;
@@ -520,27 +520,27 @@ mod tests {
 
     #[test]
     fn explicit_prefix_true_is_honored() {
-        let model = model_from(r##"{"schema": {"@id": "http://schema.org", "@prefix": true}}"##).unwrap();
+        let model = model_from(r#"{"schema": {"@id": "http://schema.org", "@prefix": true}}"#).unwrap();
         assert!(model.prefixes.contains_key("schema"));
         assert!(model.terms.is_empty());
     }
 
     #[test]
     fn unknown_prefix_is_reported() {
-        let error = resolve(r##"{"Thing": "myns:Thing"}"##).unwrap_err();
+        let error = resolve(r#"{"Thing": "myns:Thing"}"#).unwrap_err();
         assert!(error.to_string().contains("unknown prefix myns"), "{error}");
     }
 
     #[test]
     fn unresolved_local_reference_is_reported() {
-        let error = resolve(r##"{"alias": "missingTerm"}"##).unwrap_err();
+        let error = resolve(r#"{"alias": "missingTerm"}"#).unwrap_err();
         let rendered = error.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
         assert!(rendered.contains("unresolved local term reference: missingTerm"), "{rendered}");
     }
 
     #[test]
     fn cycles_are_reported_with_the_cycle_path() {
-        let error = resolve(r##"{"a": "b", "b": "a"}"##).unwrap_err();
+        let error = resolve(r#"{"a": "b", "b": "a"}"#).unwrap_err();
         let rendered = error.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
         assert!(rendered.contains("cycle detected while resolving local term references"), "{rendered}");
         assert!(rendered.contains("a -> b -> a"), "{rendered}");

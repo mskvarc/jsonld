@@ -20,7 +20,7 @@ impl<T, B> IdentifyAll<T, B> for FlattenedDocument<T, B> {
         B: Eq + Hash,
     {
         for node in self {
-            node.identify_all_with(vocabulary, generator)?
+            node.identify_all_with(vocabulary, generator)?;
         }
         Ok(())
     }
@@ -38,7 +38,7 @@ impl<T, B> Relabel<T, B> for FlattenedDocument<T, B> {
         B: Clone + Eq + Hash,
     {
         for node in self {
-            node.relabel_with(vocabulary, generator, relabeling)?
+            node.relabel_with(vocabulary, generator, relabeling)?;
         }
         Ok(())
     }

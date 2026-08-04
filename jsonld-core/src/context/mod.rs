@@ -37,7 +37,7 @@ pub enum ContextRef<'a, T = IriBuf, B = BlankIdBuf> {
     Owned(Box<Context<T, B>>),
 }
 
-impl<'a, T, B> ContextRef<'a, T, B> {
+impl<T, B> ContextRef<'_, T, B> {
     /// Takes ownership of `context`, boxing it.
     #[inline(always)]
     pub fn owned(context: Context<T, B>) -> Self {
@@ -51,6 +51,7 @@ impl<'a, T, B> ContextRef<'a, T, B> {
     // trait impl would force type annotations at every call site.
     #[allow(clippy::should_implement_trait)]
     #[inline(always)]
+    #[must_use]
     pub fn as_ref(&self) -> &Context<T, B> {
         match self {
             Self::Borrowed(context) => context,
@@ -63,12 +64,13 @@ impl<'a, T, B> ContextRef<'a, T, B> {
     /// Expansion uses this to detect that scoped-context processing replaced
     /// the active context, and that cached key expansions must be recomputed.
     #[inline(always)]
+    #[must_use]
     pub fn is_owned(&self) -> bool {
         matches!(self, Self::Owned(_))
     }
 }
 
-impl<'a, T, B> std::ops::Deref for ContextRef<'a, T, B> {
+impl<T, B> std::ops::Deref for ContextRef<'_, T, B> {
     type Target = Context<T, B>;
 
     #[inline(always)]
@@ -123,7 +125,7 @@ pub type CompactIriKey<T, B> = (Term<T, B>, bool, bool, ProcessingMode);
 /// owned tuple, so `HashMap::get` finds the same bucket.
 pub struct CompactIriKeyRef<'a, T, B>(pub &'a Term<T, B>, pub bool, pub bool, pub ProcessingMode);
 
-impl<'a, T: std::hash::Hash, B: std::hash::Hash> std::hash::Hash for CompactIriKeyRef<'a, T, B> {
+impl<T: std::hash::Hash, B: std::hash::Hash> std::hash::Hash for CompactIriKeyRef<'_, T, B> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
@@ -133,7 +135,7 @@ impl<'a, T: std::hash::Hash, B: std::hash::Hash> std::hash::Hash for CompactIriK
     }
 }
 
-impl<'a, T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> for CompactIriKeyRef<'a, T, B> {
+impl<T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> for CompactIriKeyRef<'_, T, B> {
     #[inline]
     fn equivalent(&self, key: &CompactIriKey<T, B>) -> bool {
         self.0 == &key.0 && self.1 == key.1 && self.2 == key.2 && self.3 == key.3
@@ -154,6 +156,7 @@ pub struct KeywordAliases {
 
 impl KeywordAliases {
     /// Creates a new `KeywordAliases`.
+    #[must_use]
     pub fn new(aliases: [Box<str>; 13]) -> Self {
         Self { aliases }
     }
@@ -163,6 +166,7 @@ impl KeywordAliases {
     /// initialization; for any other keyword returns its literal name
     /// (e.g. `"@base"`).
     #[inline]
+    #[must_use]
     pub fn get(&self, k: Keyword) -> &str {
         match keyword_alias_index(k) {
             Some(i) => self.aliases[i].as_ref(),
@@ -319,6 +323,7 @@ impl<T, B> Context<T, B> {
     /// they stay valid. The same reasoning covers the inverse context.
     ///
     /// [c]: Self::term_resolution_cache
+    #[must_use]
     pub fn with_private_caches(&self) -> Context<T, B>
     where
         T: Clone,
@@ -352,7 +357,7 @@ impl<T, B> Context<T, B> {
     /// Sets the processing mode of this context.
     #[inline(always)]
     pub fn set_processing_mode(&mut self, mode: ProcessingMode) {
-        self.processing_mode = mode
+        self.processing_mode = mode;
     }
 
     /// Returns a reference to the given `term` definition, if any.
@@ -409,7 +414,7 @@ impl<T, B> Context<T, B> {
 
     /// Returns the default `@language` value.
     pub fn default_language(&self) -> Option<&LenientLangTag> {
-        self.default_language.as_ref().map(|tag| tag.as_lenient_lang_tag_ref())
+        self.default_language.as_ref().map(jsonld_syntax::LenientLangTagBuf::as_lenient_lang_tag_ref)
     }
 
     /// Returns the default `@direction` value.
@@ -437,7 +442,7 @@ impl<T, B> Context<T, B> {
     /// Returns the address of the `Arc` backing the previous context, or null
     /// when there is none. See [`Self::definitions_arc_ptr`].
     pub fn previous_context_arc_ptr(&self) -> *const Self {
-        self.previous_context.as_ref().map(Arc::as_ptr).unwrap_or(std::ptr::null())
+        self.previous_context.as_ref().map_or(std::ptr::null(), Arc::as_ptr)
     }
 
     /// Returns the number of terms defined.
@@ -532,7 +537,7 @@ impl<T, B> Context<T, B> {
     /// Replaces each cache `Arc` with a fresh empty one.
     ///
     /// We can't `take()` from a shared `Arc<OnceCell<_>>` (it requires `&mut`
-    /// access to the OnceCell, which the Arc doesn't grant). Replacing the
+    /// access to the `OnceCell`, which the Arc doesn't grant). Replacing the
     /// `Arc` itself diverges this context's caches from any sharers — which
     /// is exactly what we want: other holders had a context with the
     /// pre-mutation state and their caches are still valid for that state.
@@ -586,7 +591,7 @@ impl<T, B> Context<T, B> {
     /// Sets the base IRI.
     pub fn set_base_iri(&mut self, iri: Option<T>) {
         self.invalidate_iri_caches();
-        self.base_iri = iri
+        self.base_iri = iri;
     }
 
     /// Sets the `@vocab` value.
@@ -610,10 +615,14 @@ impl<T, B> Context<T, B> {
     /// Sets the previous context.
     pub fn set_previous_context(&mut self, previous: Self) {
         self.invalidate_iri_caches();
-        self.previous_context = Some(Arc::new(previous))
+        self.previous_context = Some(Arc::new(previous));
     }
 
     /// Converts this context into its syntactic definition.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a term in the context cannot be represented in syntax form, which happens if the vocabulary has no IRI for an identifier it holds.
     pub fn into_syntax_definition(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Definition, InvalidContextError>
     where
         T: Clone,
@@ -699,6 +708,10 @@ pub trait IntoSyntax<T = IriBuf, B = BlankIdBuf> {
     /// Consumes this value, returning the equivalent syntactic context. The
     /// given vocabulary must be the one the context was built with, so its
     /// IRI handles can be resolved back to actual IRIs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a term in the context cannot be represented in syntax form.
     fn into_syntax(self, vocabulary: &impl Vocabulary<Iri = T, BlankId = B>) -> Result<jsonld_syntax::context::Context, InvalidContextError>;
 }
 

@@ -94,13 +94,17 @@ struct MemoKey<'a, T> {
     selection: Selection<'a, T>,
 }
 
-impl<'a, T> CompactIriMemo<'a, T> {
+impl<T> CompactIriMemo<'_, T> {
     pub fn new() -> Self {
         Self { key: None, result: None }
     }
 }
 
 impl<'a, T: PartialEq> CompactIriMemo<'a, T> {
+    // The two layers mean different things: the outer `None` is a memo miss,
+    // the inner `None` is a remembered "no compact IRI applies". Collapsing them
+    // would recompute the negative case on every lookup.
+    #[allow(clippy::option_option)]
     fn get(&self, containers: &[Container], selection: &Selection<'a, T>) -> Option<Option<Arc<str>>> {
         let key = self.key.as_ref()?;
         (key.containers.as_slice() == containers && key.selection == *selection).then(|| self.result.clone())
@@ -298,7 +302,7 @@ where
                     let mut common_lang_dir = None;
 
                     if list.is_empty() {
-                        common_lang_dir = Some(Nullable::Some((active_context.default_language(), active_context.default_base_direction())))
+                        common_lang_dir = Some(Nullable::Some((active_context.default_language(), active_context.default_base_direction())));
                     } else {
                         for item in list {
                             let mut item_type = None;
@@ -319,15 +323,15 @@ where
                             }
 
                             if common_lang_dir.is_none() {
-                                common_lang_dir = item_lang_dir
+                                common_lang_dir = item_lang_dir;
                             } else if is_value && common_lang_dir != item_lang_dir {
-                                common_lang_dir = Some(Nullable::Some((None, None)))
+                                common_lang_dir = Some(Nullable::Some((None, None)));
                             }
 
                             if common_type.is_none() {
-                                common_type = Some(item_type)
+                                common_type = Some(item_type);
                             } else if common_type.as_ref().is_some_and(|t| *t != item_type) {
-                                common_type = Some(None)
+                                common_type = Some(None);
                             }
 
                             if common_lang_dir == Some(Nullable::Some((None, None))) && common_type == Some(None) {
@@ -340,9 +344,9 @@ where
                     let common_type = common_type.unwrap_or(None);
 
                     if let Some(common_type) = common_type {
-                        type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
+                        type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)));
                     } else {
-                        type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
+                        type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)));
                     }
                 }
                 Some(object::Ref::Node(node)) if node.is_graph() => {
@@ -385,21 +389,21 @@ where
                     containers.push(Container::Index);
                     containers.push(Container::IndexSet);
 
-                    type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
+                    type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
                 }
                 Some(object::Ref::Value(v)) => {
                     // If value is a value object:
                     if (v.direction().is_some() || v.language().is_some()) && !has_index {
                         type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(Nullable::Some((v.language(), v.direction())))));
                         containers.push(Container::Language);
-                        containers.push(Container::LanguageSet)
+                        containers.push(Container::LanguageSet);
                     } else if let Some(ty) = v.typ() {
-                        type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.as_syntax_type().cloned())))
+                        type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.as_syntax_type().cloned())));
                     } else {
-                        is_simple_value = v.direction().is_none() && v.language().is_none() && !has_index
+                        is_simple_value = v.direction().is_none() && v.language().is_none() && !has_index;
                     }
 
-                    containers.push(Container::Set)
+                    containers.push(Container::Set);
                 }
                 _ => {
                     // Otherwise, set type/language to @type and set type/language value
@@ -410,7 +414,7 @@ where
                     containers.push(Container::Type);
                     containers.push(Container::SetType);
 
-                    containers.push(Container::Set)
+                    containers.push(Container::Set);
                 }
             }
         }
@@ -419,12 +423,12 @@ where
 
         if options.processing_mode != ProcessingMode::JsonLd1_0 && !has_index {
             containers.push(Container::Index);
-            containers.push(Container::IndexSet)
+            containers.push(Container::IndexSet);
         }
 
         if options.processing_mode != ProcessingMode::JsonLd1_0 && is_simple_value {
             containers.push(Container::Language);
-            containers.push(Container::LanguageSet)
+            containers.push(Container::LanguageSet);
         }
 
         let mut is_empty_list = false;
@@ -644,13 +648,11 @@ where
         && let Some(base_iri) = active_context.base_iri()
         && let Some(iri) = var.as_iri()
     {
-        let iri = match vocabulary.iri(iri) {
-            Some(i) => i,
-            None => return Ok(None),
+        let Some(iri) = vocabulary.iri(iri) else {
+            return Ok(None);
         };
-        let base = match vocabulary.iri(base_iri) {
-            Some(b) => b,
-            None => return Ok(None),
+        let Some(base) = vocabulary.iri(base_iri) else {
+            return Ok(None);
         };
         let rel = iri.relative_to(&base);
         let s = rel.as_str();

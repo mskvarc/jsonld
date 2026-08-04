@@ -78,7 +78,7 @@ impl<T> InverseType<T> {
     where
         T: Clone + Hash + Eq,
     {
-        self.set(&Type::None, term)
+        self.set(&Type::None, term);
     }
 
     fn set(&mut self, ty: &Type<T>, term: &Key)
@@ -92,7 +92,7 @@ impl<T> InverseType<T> {
             Entry::Occupied(mut o) if term_lt(term, o.get()) => {
                 o.insert(*term);
             }
-            _ => {}
+            Entry::Occupied(_) => {}
         }
     }
 }
@@ -110,7 +110,7 @@ struct LangDirRef<'a>(Nullable<(Option<&'a LenientLangTag>, Option<Direction>)>)
 impl Hash for LangDirRef<'_> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.hash(state);
     }
 }
 
@@ -159,11 +159,11 @@ impl InverseLang {
     }
 
     fn set_none(&mut self, term: &Key) {
-        self.set(Nullable::Some((None, None)), term)
+        self.set(Nullable::Some((None, None)), term);
     }
 
     fn set(&mut self, lang_dir: Nullable<(Option<&LenientLangTag>, Option<Direction>)>, term: &Key) {
-        let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
+        let lang_dir = lang_dir.map(|(l, d)| (l.map(std::borrow::ToOwned::to_owned), d));
         match self.map.entry(lang_dir) {
             Entry::Vacant(v) => {
                 v.insert(*term);
@@ -171,7 +171,7 @@ impl InverseLang {
             Entry::Occupied(mut o) if term_lt(term, o.get()) => {
                 o.insert(*term);
             }
-            _ => {}
+            Entry::Occupied(_) => {}
         }
     }
 }
@@ -213,23 +213,24 @@ impl<T> InverseDefinition<T> {
         InverseDefinition { map: HashMap::default() }
     }
 
-    fn get(&self, container: &Container) -> Option<&InverseContainer<T>> {
-        self.map.get(container)
+    fn get(&self, container: Container) -> Option<&InverseContainer<T>> {
+        self.map.get(&container)
     }
 
-    fn reference_mut<F: FnOnce() -> InverseContainer<T>>(&mut self, container: &Container, insert: F) -> &mut InverseContainer<T> {
-        self.map.entry(*container).or_insert_with(insert)
+    fn reference_mut<F: FnOnce() -> InverseContainer<T>>(&mut self, container: Container, insert: F) -> &mut InverseContainer<T> {
+        self.map.entry(container).or_insert_with(insert)
     }
 
     /// Selects the term to compact with: containers are tried in the given
     /// preference order, and within the first one that has entries the term
     /// matching `selection` is returned.
+    #[must_use]
     pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
     where
         T: Clone + Hash + Eq,
     {
         for container in containers {
-            if let Some(type_lang_map) = self.get(container) {
+            if let Some(type_lang_map) = self.get(*container) {
                 match selection {
                     Selection::Any => return Some(&type_lang_map.any.none),
                     Selection::Type(preferred_values) => {
@@ -270,7 +271,7 @@ pub enum Selection<'a, T> {
     Lang(Vec<LangSelection<'a>>),
 }
 
-impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
+impl<T: fmt::Debug> fmt::Debug for Selection<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Selection::Any => write!(f, "Any"),
@@ -282,6 +283,7 @@ impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
 
 impl<T, B> InverseContext<T, B> {
     /// Creates an empty inverse context.
+    #[must_use]
     pub fn new() -> Self {
         InverseContext { map: HashMap::default() }
     }
@@ -345,13 +347,13 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
         // No upfront sort: instead, every slot keeps the smaller term
         // (length-then-lex) on collision. Same end-state as the old sort-then-
         // first-wins approach, without the O(P log P) cost.
-        for binding in context.definitions().iter() {
+        for binding in context.definitions() {
             if let BindingRef::Normal(term, term_definition) = binding
                 && let Some(var) = term_definition.value.as_ref()
             {
                 let container = &term_definition.container;
                 let container_map = result.reference_mut(var, InverseDefinition::new);
-                let type_lang_map = container_map.reference_mut(container, || InverseContainer::new(term));
+                let type_lang_map = container_map.reference_mut(*container, || InverseContainer::new(term));
 
                 // `any.none` is initialized on first insert by
                 // `InverseContainer::new`; subsequent bindings still need
@@ -373,7 +375,7 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
                         }
                         Some(typ) => {
                             // Otherwise, if term definition has a type mapping:
-                            type_map.set(typ, term)
+                            type_map.set(typ, term);
                         }
                         None => {
                             match (&term_definition.language, &term_definition.direction) {
@@ -382,10 +384,10 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>> for
                                     // and a direction mapping:
                                     match (language, direction) {
                                         (Nullable::Some(language), Nullable::Some(direction)) => {
-                                            lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), Some(*direction))), term)
+                                            lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), Some(*direction))), term);
                                         }
                                         (Nullable::Some(language), Nullable::Null) => {
-                                            lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), None)), term)
+                                            lang_map.set(Nullable::Some((Some(language.as_lenient_lang_tag_ref()), None)), term);
                                         }
                                         (Nullable::Null, Nullable::Some(direction)) => lang_map.set(Nullable::Some((None, Some(*direction))), term),
                                         (Nullable::Null, Nullable::Null) => lang_map.set(Nullable::Null, term),

@@ -32,6 +32,10 @@ use super::{
 
 /// Serialize the given Linked-Data value into a JSON-LD object using a
 /// custom vocabulary and interpretation.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expressed as a JSON-LD object.
 pub fn serialize_object_with<I, V, T>(vocabulary: &mut V, interpretation: &mut I, value: &T) -> Result<Object<V::Iri, V::BlankId>, Error>
 where
     V: Vocabulary + rdfx::vocabulary::VocabularyMut,
@@ -93,7 +97,7 @@ impl<'a, I, V: Vocabulary> SerializeObject<'a, I, V> {
     }
 }
 
-impl<'a, I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeObject<'a, I, V>
+impl<I: Interpretation, V: Vocabulary> ld_core::SubjectVisitor<I> for SerializeObject<'_, I, V>
 where
     V: rdfx::vocabulary::VocabularyMut,
     V::Iri: Clone + Eq + Hash,
@@ -202,7 +206,7 @@ where
             if let Some(item) = self.first {
                 let iri = self.vocabulary.insert(RDF_FIRST);
                 self.properties
-                    .insert(jsonld_core::Id::Valid(jsonld_core::ValidId::Iri(iri)), Indexed::none(item))
+                    .insert(jsonld_core::Id::Valid(jsonld_core::ValidId::Iri(iri)), Indexed::none(item));
             }
 
             if let Some(rest) = self.rest {
@@ -210,13 +214,13 @@ where
                 self.properties.insert(
                     jsonld_core::Id::Valid(jsonld_core::ValidId::Iri(iri)),
                     Indexed::none(Object::List(List::new(rest))),
-                )
+                );
             }
 
             let mut node = Node::new();
 
             if !self.types.is_empty() {
-                node.types = Some(self.types)
+                node.types = Some(self.types);
             }
 
             *node.properties_mut() = self.properties;

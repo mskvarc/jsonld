@@ -80,8 +80,8 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
                 )
                 .await
                 .map_err(ExpandError::ContextProcessing)?
-                .into_processed()
-        };
+                .into_processed();
+        }
 
         if let Some(context_url) = self.context_url() {
             active_context = RemoteDocumentReference::Iri(context_url.clone())
@@ -99,7 +99,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
                 )
                 .await
                 .map_err(ExpandError::ContextProcessing)?
-                .into_processed()
+                .into_processed();
         }
 
         self.document()

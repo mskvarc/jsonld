@@ -39,7 +39,7 @@ where
         is_list = definition.container().contains(ContainerKind::List);
     }
 
-    for item in element.iter() {
+    for item in element {
         // Initialize `expanded_item` to the result of using this algorithm
         // recursively, passing `active_context`, `active_property`, `item` as element,
         // `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.

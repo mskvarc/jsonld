@@ -31,6 +31,10 @@ pub enum Type<I = IriBuf> {
 
 impl<I> Type<I> {
     /// Turns this type into an IRI if possible.
+    ///
+    /// # Errors
+    ///
+    /// Returns `self` unchanged when the value is not an IRI.
     pub fn into_iri(self) -> Result<I, Type<I>> {
         match self {
             Type::Iri(id) => Ok(id),
@@ -52,6 +56,7 @@ impl<I> Type<I> {
 
 impl<I: Clone> Type<&I> {
     /// Clones the referenced IRI.
+    #[must_use]
     pub fn cloned(self) -> Type<I> {
         match self {
             Type::Id => Type::Id,

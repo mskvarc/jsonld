@@ -18,43 +18,51 @@ pub struct Key(&'static str);
 
 impl Key {
     /// Parses this key as an IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0).ok()
     }
 
     /// Parses this key as a compact IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(self.0).ok()
     }
 
     /// Parses this key as a blank node identifier, returning `None` if it is
     /// not one.
+    #[must_use]
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         BlankId::new(self.0).ok()
     }
 
     /// Returns the interned string of this key.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.0
     }
 
     /// Returns the length of this key, in bytes.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Checks whether this key is the empty string.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Copies this key into a newly allocated `String`.
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0.to_owned()
     }
 
     /// Checks whether this key is keyword-like: an `@` followed by ASCII
     /// letters. See [`crate::is_keyword_like`].
+    #[must_use]
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.0)
     }
@@ -93,7 +101,7 @@ impl Hash for Key {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // Hash via the underlying string so that `Borrow<str>` lookups
         // (e.g. `HashMap::get(&"foo")`) stay equivalent.
-        self.0.hash(state)
+        self.0.hash(state);
     }
 }
 
@@ -166,22 +174,26 @@ pub struct KeyRef<'a>(&'a str);
 
 impl<'a> KeyRef<'a> {
     /// Checks whether this key is the empty string.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Checks whether this key is keyword-like: an `@` followed by ASCII
     /// letters. See [`crate::is_keyword_like`].
+    #[must_use]
     pub fn is_keyword_like(&self) -> bool {
         crate::is_keyword_like(self.as_str())
     }
 
     /// Returns the borrowed string of this key.
+    #[must_use]
     pub fn as_str(&self) -> &'a str {
         self.0
     }
 
     /// Interns this key and returns the owned [`Key`].
+    #[must_use]
     pub fn to_owned(self) -> Key {
         Key::from(self.0)
     }
@@ -199,7 +211,7 @@ impl<'a> From<&'a Key> for KeyRef<'a> {
     }
 }
 
-impl<'a> fmt::Display for KeyRef<'a> {
+impl fmt::Display for KeyRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
@@ -216,6 +228,7 @@ pub enum KeyOrKeyword {
 
 impl KeyOrKeyword {
     /// Checks whether this is the empty key. A keyword is never empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match self {
             Self::Keyword(_) => false,
@@ -224,6 +237,7 @@ impl KeyOrKeyword {
     }
 
     /// Returns the keyword, or `None` if this is a term key.
+    #[must_use]
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(k),
@@ -232,6 +246,7 @@ impl KeyOrKeyword {
     }
 
     /// Returns the term key, or `None` if this is a keyword.
+    #[must_use]
     pub fn into_key(self) -> Option<Key> {
         match self {
             Self::Keyword(_) => None,
@@ -240,6 +255,7 @@ impl KeyOrKeyword {
     }
 
     /// Returns the keyword, or `None` if this is a term key.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<Keyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -248,6 +264,7 @@ impl KeyOrKeyword {
     }
 
     /// Borrows the term key, or returns `None` if this is a keyword.
+    #[must_use]
     pub fn as_key(&self) -> Option<&Key> {
         match self {
             Self::Keyword(_) => None,
@@ -256,6 +273,7 @@ impl KeyOrKeyword {
     }
 
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Keyword(k) => k.into_str(),
@@ -267,7 +285,7 @@ impl KeyOrKeyword {
 #[allow(clippy::derived_hash_with_manual_eq)]
 impl Hash for KeyOrKeyword {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
+        self.as_str().hash(state);
     }
 }
 
@@ -291,6 +309,7 @@ pub enum KeyOrKeywordRef<'a> {
 
 impl<'a> KeyOrKeywordRef<'a> {
     /// Interns the term key, if any, and returns the owned [`KeyOrKeyword`].
+    #[must_use]
     pub fn to_owned(self) -> KeyOrKeyword {
         match self {
             Self::Keyword(k) => KeyOrKeyword::Keyword(k),
@@ -299,6 +318,7 @@ impl<'a> KeyOrKeywordRef<'a> {
     }
 
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Keyword(k) => k.into_str(),
@@ -347,6 +367,7 @@ pub enum KeyOrType {
 
 impl KeyOrType {
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Key(k) => k.as_str(),

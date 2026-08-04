@@ -125,8 +125,9 @@ impl<K: AsRef<str>, T: AsRef<str>> ExpandableLanguageMap for std::collections::B
 /// depends on this one.
 #[cfg(feature = "codegen")]
 #[doc(hidden)]
-pub fn derive_expandable(input: syn::DeriveInput, runtime: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    match codegen::generate(&input, runtime) {
+#[must_use]
+pub fn derive_expandable(input: &syn::DeriveInput, runtime: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    match codegen::generate(input, runtime) {
         Ok(ts) => ts,
         Err(err) => err.to_compile_error(),
     }

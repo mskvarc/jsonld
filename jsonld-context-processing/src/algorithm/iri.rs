@@ -49,6 +49,10 @@ pub type ExpandIriResult<T, B, E> = Result<Option<Arc<Term<T, B>>>, Error<E>>;
 /// and reported through the warning handler, rather than failing.
 ///
 /// [1]: https://www.w3.org/TR/json-ld11-api/#iri-expansion
+///
+/// # Errors
+///
+/// Returns an error when a term definition needed for the expansion is invalid, or when loading a remote context fails.
 pub async fn expand_iri_with<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -116,7 +120,7 @@ where
                 }
             }
 
-            if value.find(':').map(|i| i > 0).unwrap_or(false) {
+            if value.find(':').is_some_and(|i| i > 0) {
                 if let Ok(blank_id) = BlankId::new(value) {
                     return Ok(Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id))))));
                 }
@@ -245,6 +249,7 @@ pub enum Action {
 impl Action {
     /// Checks whether this action aborts processing rather than accepting or
     /// dropping the term.
+    #[must_use]
     pub fn is_reject(&self) -> bool {
         matches!(self, Self::Reject)
     }
@@ -263,7 +268,10 @@ pub struct RejectVocab;
 /// `Ok(None)` means the term was dropped under [`Action::Drop`], as opposed to
 /// expanding to [`Term::Null`].
 pub type IriExpansionResult<N> = Result<Option<Arc<Term<<N as IriVocabulary>::Iri, <N as BlankIdVocabulary>::BlankId>>>, RejectVocab>;
-
+// `needless_pass_by_value`: `ProcessingStack` is a single `Arc` handle and
+// `Nullable<ExpandableRef>` wraps a borrow, so by-value is the cheaper calling
+// convention here, and callers `.clone()` the stack deliberately to fork it per
+// branch. Taking references would add an indirection and push the clones inside.
 /// Expands `value` into an IRI using only the term definitions `active_context`
 /// already has.
 ///
@@ -280,6 +288,11 @@ pub type IriExpansionResult<N> = Result<Option<Arc<Term<<N as IriVocabulary>::Ir
 /// Results are memoized per active context for the dominant call shape — a
 /// string value with `vocab: Some(Action::Keep)` and `document_relative` off —
 /// which is what makes repeated keys across the nodes of a document cheap.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expanded into an IRI with the definitions already in the active context.
+#[allow(clippy::needless_pass_by_value)]
 pub fn expand_iri_simple<W, N, L, H>(
     env: &mut Environment<N, L, H>,
     active_context: &Context<N::Iri, N::BlankId>,
@@ -325,6 +338,7 @@ where
 }
 
 /// The body of [`expand_iri_simple`], without the memoization wrapper.
+#[allow(clippy::needless_pass_by_value)]
 fn expand_iri_simple_inner<W, N, L, H>(
     env: &mut Environment<N, L, H>,
     active_context: &Context<N::Iri, N::BlankId>,
@@ -366,7 +380,7 @@ where
                 }
             }
 
-            if value.find(':').map(|i| i > 0).unwrap_or(false) {
+            if value.find(':').is_some_and(|i| i > 0) {
                 if let Ok(blank_id) = BlankId::new(value) {
                     return Ok(Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id))))));
                 }

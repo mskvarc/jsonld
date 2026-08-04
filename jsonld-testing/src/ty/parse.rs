@@ -25,7 +25,7 @@ pub fn parse(ty: syn::Type) -> Result<Parsed, UnknownType> {
         syn::Type::Path(p) => match path_into_option(p) {
             Ok(ty) => parse_optional(ty),
             Err(p) => Ok(Parsed {
-                ty: parse_path(p)?,
+                ty: parse_path(&p)?,
                 required: true,
                 multiple: false,
             }),
@@ -49,7 +49,7 @@ fn parse_optional(ty: syn::Type) -> Result<Parsed, UnknownType> {
             }),
         },
         syn::Type::Path(p) => Ok(Parsed {
-            ty: parse_path(p)?,
+            ty: parse_path(&p)?,
             required: false,
             multiple: false,
         }),
@@ -60,7 +60,7 @@ fn parse_optional(ty: syn::Type) -> Result<Parsed, UnknownType> {
 fn parse_multiple(ty: syn::Type) -> Result<Type, UnknownType> {
     match ty {
         syn::Type::Reference(r) => parse_reference(r),
-        syn::Type::Path(p) => parse_path(p),
+        syn::Type::Path(p) => parse_path(&p),
         _ => Err(UnknownType),
     }
 }
@@ -97,14 +97,14 @@ fn reference_into_multiple(r: syn::TypeReference) -> Result<syn::Type, syn::Type
     Err(r)
 }
 
-fn parse_path(p: syn::TypePath) -> Result<Type, UnknownType> {
-    if is_bool_path(&p) {
+fn parse_path(p: &syn::TypePath) -> Result<Type, UnknownType> {
+    if is_bool_path(p) {
         Ok(Type::Bool)
-    } else if is_processing_mode_path(&p) {
+    } else if is_processing_mode_path(p) {
         Ok(Type::ProcessingMode)
-    } else if is_rdf_direction_path(&p) {
+    } else if is_rdf_direction_path(p) {
         Ok(Type::RdfDirection)
-    } else if is_static_iri_path(&p) {
+    } else if is_static_iri_path(p) {
         Ok(Type::Iri)
     } else if p.path.leading_colon.is_none() && p.path.segments.len() == 1 && p.path.segments[0].arguments.is_empty() {
         Ok(Type::Ref(p.path.segments[0].ident.clone()))

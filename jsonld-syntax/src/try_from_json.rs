@@ -7,6 +7,10 @@ pub trait TryFromJson: Sized {
     type Error;
 
     /// Builds a value of this type from the given JSON value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the JSON value does not describe a valid value of this type.
     fn try_from_json(value: &jstrict::Value) -> Result<Self, Self::Error>;
 }
 
@@ -83,7 +87,7 @@ impl TryFromJson for Container {
                 let mut container = Vec::new();
 
                 for item in a {
-                    container.push(ContainerKind::try_from_json(item)?)
+                    container.push(ContainerKind::try_from_json(item)?);
                 }
 
                 Ok(Self::Many(container))

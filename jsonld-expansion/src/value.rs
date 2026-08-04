@@ -49,6 +49,7 @@ pub enum InvalidValue {
 
 impl InvalidValue {
     /// Returns the JSON-LD error code this error is reported under.
+    #[must_use]
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::LanguageTaggedString => ErrorCode::InvalidLanguageTaggedString,
@@ -97,7 +98,7 @@ where
     N::BlankId: Clone + PartialEq,
     W: WarningHandler<N>,
 {
-    let mut is_json = input_type.map(|t| *t == Term::Keyword(Keyword::Json)).unwrap_or(false);
+    let mut is_json = input_type.is_some_and(|t| *t == Term::Keyword(Keyword::Json));
     let mut ty = None;
     let mut index = None;
     let mut language = None;
@@ -148,7 +149,7 @@ where
                 // If value is not a string, an invalid @index value error has
                 // been detected and processing is aborted.
                 if let Some(value) = value.as_str() {
-                    index = Some(value.to_string())
+                    index = Some(value.to_string());
                 } else {
                     return Err(InvalidValue::IndexValue);
                 }
@@ -164,7 +165,7 @@ where
                         }
                         Some(Term::Id(Id::Valid(ValidId::Iri(expanded_ty)))) => {
                             is_json = false;
-                            ty = Some(expanded_ty.clone())
+                            ty = Some(expanded_ty.clone());
                         }
                         _ => return Err(InvalidValue::TypedValue),
                     }
@@ -235,7 +236,7 @@ where
                     let (language, error) = LenientLangTagBuf::new(language);
 
                     if let Some(error) = error {
-                        env.warnings.handle(env.vocabulary, Warning::MalformedLanguageTag(language.to_string(), error))
+                        env.warnings.handle(env.vocabulary, Warning::MalformedLanguageTag(language.to_string(), error));
                     }
 
                     Some(language)
@@ -247,9 +248,8 @@ where
                 Ok(result) => Ok(Some(Indexed::new(Object::Value(Value::LangString(result)), index))),
                 Err(_) => Err(InvalidValue::LanguageTaggedValue),
             };
-        } else {
-            return Err(InvalidValue::LanguageTaggedValue);
         }
+        return Err(InvalidValue::LanguageTaggedValue);
     }
 
     // The specification also drops free-floating value objects here, when the

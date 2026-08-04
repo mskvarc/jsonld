@@ -118,13 +118,14 @@ fn main() -> ExitCode {
         }
     };
     let iters: usize = match args.get(3) {
-        Some(s) => match s.parse() {
-            Ok(n) => n,
-            Err(_) => {
+        Some(s) => {
+            if let Ok(n) = s.parse() {
+                n
+            } else {
                 eprintln!("iters must be a positive integer");
                 return ExitCode::from(2);
             }
-        },
+        }
         None => DEFAULT_ITERS,
     };
 

@@ -57,6 +57,7 @@ pub const MAX_CONTEXT_DEPTH: usize = 128;
 
 impl InvalidContext {
     /// Returns the JSON-LD error code this error reports as.
+    #[must_use]
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidIriRef(_) => ErrorCode::InvalidIriMapping,
@@ -119,7 +120,7 @@ fn term_definition_try_from_json(value: &jstrict::Value, depth: usize) -> Result
                             }
                         };
 
-                        set_unique!(def.container, container)
+                        set_unique!(def.container, container);
                     }
                     Ok(Keyword::Nest) => set_unique!(def.nest, term_definition::Nest::try_from_json(value)?),
                     Ok(Keyword::Prefix) => set_unique!(def.prefix, bool::try_from_json(value)?),
@@ -285,7 +286,7 @@ fn context_try_from_json(value: &jstrict::Value, depth: usize) -> Result<Context
             let mut many = Vec::with_capacity(a.len());
 
             for item in a {
-                many.push(context_entry_try_from_json(item, depth)?)
+                many.push(context_entry_try_from_json(item, depth)?);
             }
 
             Ok(Context::Many(many))

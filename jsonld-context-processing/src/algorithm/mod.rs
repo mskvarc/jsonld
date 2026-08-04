@@ -137,21 +137,7 @@ impl Process for syntax::context::Context {
         let entry_active = active_context.clone();
         let entry_base_url = base_url.clone();
 
-        let processed = if !requires_loader(self) {
-            process_context_sync(
-                Environment {
-                    vocabulary,
-                    loader,
-                    warnings: &mut warnings,
-                },
-                active_context,
-                self,
-                ProcessingStack::default(),
-                base_url,
-                options,
-                0,
-            )?
-        } else {
+        let processed = if requires_loader(self) {
             process_context(
                 Environment {
                     vocabulary,
@@ -165,6 +151,20 @@ impl Process for syntax::context::Context {
                 options,
             )
             .await?
+        } else {
+            process_context_sync(
+                Environment {
+                    vocabulary,
+                    loader,
+                    warnings: &mut warnings,
+                },
+                active_context,
+                self,
+                ProcessingStack::default(),
+                base_url,
+                options,
+                0,
+            )?
         };
 
         cache.insert(key, entry_active, self.clone(), entry_base_url, options, Arc::new(processed.processed.clone()));
@@ -180,17 +180,14 @@ fn resolve_iri<V, I>(vocabulary: &mut V, iri_ref: iri_rs::IriRef<&str>, base_iri
 where
     V: rdfx::vocabulary::IriVocabularyMut<Iri = I>,
 {
-    match base_iri {
-        Some(base_iri) => {
-            let base = vocabulary.iri(base_iri)?;
-            let resolved = iri_ref.resolved(&base).ok()?;
-            let iri_buf = IriBuf::try_from(resolved).ok()?;
-            Some(vocabulary.insert_owned(iri_buf))
-        }
-        None => {
-            let iri = Iri::try_from(iri_ref).ok()?;
-            Some(vocabulary.insert(iri))
-        }
+    if let Some(base_iri) = base_iri {
+        let base = vocabulary.iri(base_iri)?;
+        let resolved = iri_ref.resolved(&base).ok()?;
+        let iri_buf = IriBuf::try_from(resolved).ok()?;
+        Some(vocabulary.insert_owned(iri_buf))
+    } else {
+        let iri = Iri::try_from(iri_ref).ok()?;
+        Some(vocabulary.insert(iri))
     }
 }
 
@@ -237,7 +234,7 @@ where
             return Err(Error::InvalidContextEntry);
         }
 
-        options.propagate = propagate
+        options.propagate = propagate;
     }
 
     // 3) If propagate is false, and result does not have a previous context,
@@ -257,23 +254,22 @@ where
                 // is aborted.
                 if !options.override_protected && result.has_protected_items() {
                     return Err(Error::InvalidContextNullification);
-                } else {
-                    // Otherwise, initialize result as a newly-initialized active context, setting
-                    // previous_context in result to the previous value of result if propagate is
-                    // false. Continue with the next context.
-                    let previous_result = result;
+                }
+                // Otherwise, initialize result as a newly-initialized active context, setting
+                // previous_context in result to the previous value of result if propagate is
+                // false. Continue with the next context.
+                let previous_result = result;
 
-                    // Initialize `result` as a newly-initialized active context, setting both
-                    // `base_iri` and `original_base_url` to the value of `original_base_url` in
-                    // active context, ...
-                    result = Context::new(active_context.original_base_url().cloned());
-                    result.set_processing_mode(options.processing_mode);
+                // Initialize `result` as a newly-initialized active context, setting both
+                // `base_iri` and `original_base_url` to the value of `original_base_url` in
+                // active context, ...
+                result = Context::new(active_context.original_base_url().cloned());
+                result.set_processing_mode(options.processing_mode);
 
-                    // ... and, if `propagate` is `false`, `previous_context` in `result` to the
-                    // previous value of `result`.
-                    if !options.propagate {
-                        result.set_previous_context(previous_result);
-                    }
+                // ... and, if `propagate` is `false`, `previous_context` in `result` to the
+                // previous value of `result`.
+                if !options.propagate {
+                    result.set_previous_context(previous_result);
                 }
             }
 
@@ -426,13 +422,14 @@ where
                                 // If value is null, remove the base IRI of result.
                                 result.set_base_iri(None);
                             }
-                            syntax::Nullable::Some(iri_ref) => match Iri::try_from(iri_ref.as_ref()) {
-                                Ok(iri) => result.set_base_iri(Some(env.vocabulary.insert(iri))),
-                                Err(_) => {
+                            syntax::Nullable::Some(iri_ref) => {
+                                if let Ok(iri) = Iri::try_from(iri_ref.as_ref()) {
+                                    result.set_base_iri(Some(env.vocabulary.insert(iri)));
+                                } else {
                                     let resolved = resolve_iri(env.vocabulary, iri_ref.as_ref(), result.base_iri()).ok_or(Error::InvalidBaseIri)?;
-                                    result.set_base_iri(Some(resolved))
+                                    result.set_base_iri(Some(resolved));
                                 }
-                            },
+                            }
                         }
                     }
                 }
@@ -534,7 +531,7 @@ where
                         protected,
                         options,
                     )
-                    .await?
+                    .await?;
                 }
 
                 for (key, _binding) in context.bindings() {
@@ -553,7 +550,7 @@ where
                         protected,
                         options,
                     )
-                    .await?
+                    .await?;
                 }
             }
         }

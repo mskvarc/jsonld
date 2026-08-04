@@ -70,7 +70,7 @@ impl expand::Test {
             .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(self.async_run()))
             .unwrap();
 
-        child.join().unwrap()
+        child.join().unwrap();
     }
 
     async fn async_run(self) {
@@ -80,7 +80,7 @@ impl expand::Test {
         }
 
         for comment in self.comments {
-            println!("{}", comment)
+            println!("{comment}");
         }
 
         let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
@@ -89,10 +89,10 @@ impl expand::Test {
 
         let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
         if self.options.spec_version == Some("json-ld-1.0") {
-            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0
+            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0;
         }
         if let Some(p) = self.options.processing_mode {
-            options.processing_mode = p
+            options.processing_mode = p;
         }
 
         options.base = self.options.base.map(|iri| vocabulary.insert(iri));
@@ -117,7 +117,7 @@ impl expand::Test {
                     eprintln!("expected=\n{}", expected.with(&vocabulary).pretty_print());
                 }
 
-                assert!(success)
+                assert!(success);
             }
             expand::Description::Negative { expected_error_code } => {
                 let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
@@ -126,7 +126,7 @@ impl expand::Test {
                 match result {
                     Ok(expanded) => {
                         eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-                        panic!("expansion succeeded when it should have failed with `{}`", expected_error_code)
+                        panic!("expansion succeeded when it should have failed with `{expected_error_code}`")
                     }
                     Err(_e) => {
                         // The test only asserts that expansion failed, not that

@@ -65,7 +65,7 @@ where
                         Some(CowRdfTerm::from_str(value, ty_iri.unwrap_or(XSD_BOOLEAN)))
                     }
                     Literal::Number(n) => {
-                        let (value, default_ty) = if n.is_i64() && ty_iri.map(|iri| iri != XSD_DOUBLE).unwrap_or(true) {
+                        let (value, default_ty) = if n.is_i64() && (ty_iri != Some(XSD_DOUBLE)) {
                             (n.to_string(), XSD_INTEGER)
                         } else {
                             (pretty_dtoa::dtoa(n.as_f64_lossy(), XSD_CANONICAL_FLOAT), XSD_DOUBLE)

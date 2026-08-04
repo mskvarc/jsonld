@@ -16,7 +16,7 @@ impl<N, W> Handler<N, W> for () {
 
 impl<N, W, H: Handler<N, W>> Handler<N, W> for &mut H {
     fn handle(&mut self, vocabulary: &N, warning: W) {
-        H::handle(*self, vocabulary, warning)
+        H::handle(*self, vocabulary, warning);
     }
 }
 
@@ -26,7 +26,7 @@ pub struct Print;
 
 impl<N, W: std::fmt::Display> Handler<N, W> for Print {
     fn handle(&mut self, _vocabulary: &N, warning: W) {
-        eprintln!("{warning}")
+        eprintln!("{warning}");
     }
 }
 
@@ -35,7 +35,7 @@ pub struct PrintWith;
 
 impl<N, W: DisplayWithContext<N>> Handler<N, W> for PrintWith {
     fn handle(&mut self, vocabulary: &N, warning: W) {
-        eprintln!("{}", warning.with(vocabulary))
+        eprintln!("{}", warning.with(vocabulary));
     }
 }
 
@@ -54,6 +54,7 @@ impl<W> Default for WarningBuf<W> {
 
 impl<W> WarningBuf<W> {
     /// Creates a new `WarningBuf`.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -61,6 +62,6 @@ impl<W> WarningBuf<W> {
 
 impl<N, W> Handler<N, W> for WarningBuf<W> {
     fn handle(&mut self, _vocabulary: &N, warning: W) {
-        self.0.push(warning)
+        self.0.push(warning);
     }
 }

@@ -138,6 +138,7 @@ impl<E> Error<E> {
 impl<E> Error<E> {
     /// Builds an [`Error::DuplicateKey`] from the pair of colliding entries
     /// `jstrict` reports, keeping the key of the first one.
+    #[must_use]
     pub fn duplicate_key_ref(jstrict::object::Duplicate(a, _b): jstrict::object::Duplicate<&jstrict::object::Entry>) -> Self {
         Self::DuplicateKey(a.key.clone())
     }

@@ -27,6 +27,10 @@ impl<I, B> Term<I, B> {
     /// Turns this term into an IRI if possible.
     ///
     /// If it is not an IRI, returns the term itself.
+    ///
+    /// # Errors
+    ///
+    /// Returns `self` unchanged when the value is not an IRI.
     pub fn into_iri(self) -> Result<I, Self> {
         match self {
             Term::Id(Id::Valid(ValidId::Iri(id))) => Ok(id),

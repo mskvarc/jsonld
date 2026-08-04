@@ -7,7 +7,7 @@ use syn::Ident;
 ///
 /// `iri_crate` is the path the generated code uses to reach the `iri_rs` crate,
 /// resolved from the calling crate's manifest.
-pub fn generate_tokens(model: &ResolvedModel, iri_crate: &TokenStream) -> syn::Result<TokenStream> {
+pub fn generate_tokens(model: &ResolvedModel, iri_crate: &TokenStream) -> TokenStream {
     let include_paths = model
         .include_paths
         .iter()
@@ -63,7 +63,7 @@ pub fn generate_tokens(model: &ResolvedModel, iri_crate: &TokenStream) -> syn::R
         .map(|(expanded, compact)| quote! { (#expanded, #compact) })
         .collect::<Vec<_>>();
 
-    Ok(quote! {
+    quote! {
         #(#include_paths)*
 
         /// Namespace prefix constants.
@@ -125,7 +125,7 @@ pub fn generate_tokens(model: &ResolvedModel, iri_crate: &TokenStream) -> syn::R
                 .ok()
                 .map(|index| EXPANDED_TO_COMPACT[index].1)
         }
-    })
+    }
 }
 
 fn expanded_iri_consts(terms: &[ResolvedTerm], iri_crate: &TokenStream) -> Vec<TokenStream> {

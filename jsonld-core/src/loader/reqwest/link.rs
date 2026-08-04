@@ -57,7 +57,7 @@ impl Link {
         loop {
             match state {
                 State::BeginHref => match bytes.next().copied() {
-                    Some(b' ') | Some(b',') => (),
+                    Some(b' ' | b',') => (),
                     Some(b'<') => state = State::Href,
                     _ => break,
                 },
@@ -71,7 +71,7 @@ impl Link {
                     Some(b';') => state = State::BeginKey,
                     Some(b',') => {
                         finish_link!();
-                        state = State::BeginHref
+                        state = State::BeginHref;
                     }
                     Some(_) => break,
                     None => {
@@ -83,11 +83,11 @@ impl Link {
                     Some(b' ') => (),
                     Some(b',') => {
                         finish_link!();
-                        state = State::BeginHref
+                        state = State::BeginHref;
                     }
                     Some(b) => {
                         current_key.push(b);
-                        state = State::Key
+                        state = State::Key;
                     }
                     None => {
                         finish_link!();
@@ -98,12 +98,12 @@ impl Link {
                     Some(b'=') => state = State::BeginValue,
                     Some(b';') => {
                         store_param!();
-                        state = State::BeginKey
+                        state = State::BeginKey;
                     }
                     Some(b',') => {
                         store_param!();
                         finish_link!();
-                        state = State::BeginHref
+                        state = State::BeginHref;
                     }
                     Some(b) => current_key.push(b),
                     None => {
@@ -116,7 +116,7 @@ impl Link {
                     Some(b'"') => state = State::QuotedValue,
                     Some(b) => {
                         current_value.push(b);
-                        state = State::Value
+                        state = State::Value;
                     }
                     None => {
                         store_param!();
@@ -127,7 +127,7 @@ impl Link {
                 State::QuotedValue => match bytes.next().copied() {
                     Some(b'"') => {
                         store_param!();
-                        state = State::NextParam
+                        state = State::NextParam;
                     }
                     // Quoted-pair escape (RFC 8288 uses HTTP quoted-string
                     // syntax).
@@ -141,16 +141,16 @@ impl Link {
                 State::Value => match bytes.next().copied() {
                     Some(b';') => {
                         store_param!();
-                        state = State::BeginKey
+                        state = State::BeginKey;
                     }
                     Some(b',') => {
                         store_param!();
                         finish_link!();
-                        state = State::BeginHref
+                        state = State::BeginHref;
                     }
                     Some(b' ') => {
                         store_param!();
-                        state = State::NextParam
+                        state = State::NextParam;
                     }
                     Some(b) => current_value.push(b),
                     None => {
@@ -194,7 +194,7 @@ mod tests {
         let link = parse_one("<http://www.example.org/context>; rel=\"context\"; type=\"application/ld+json\"");
         assert_eq!(link.href(), "http://www.example.org/context");
         assert_eq!(link.rel(), Some(b"context".as_slice()));
-        assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()))
+        assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()));
     }
 
     #[test]
@@ -202,20 +202,20 @@ mod tests {
         let link = parse_one("<http://www.example.org/context>; rel=\"context\"; type=\"application/ld+json\"; foo=\"bar\"");
         assert_eq!(link.href(), "http://www.example.org/context");
         assert_eq!(link.rel(), Some(b"context".as_slice()));
-        assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()))
+        assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()));
     }
 
     #[test]
     fn parse_link_3() {
         let link = parse_one("<http://www.example.org/context>");
-        assert_eq!(link.href(), "http://www.example.org/context")
+        assert_eq!(link.href(), "http://www.example.org/context");
     }
 
     #[test]
     fn parse_link_unquoted_value() {
         let link = parse_one("<http://www.example.org/context>; rel=alternate; type=application/ld+json");
         assert_eq!(link.rel(), Some(b"alternate".as_slice()));
-        assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()))
+        assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()));
     }
 
     #[test]
@@ -230,7 +230,7 @@ mod tests {
         assert_eq!(links[0].href(), "http://www.example.org/a");
         assert_eq!(links[0].rel(), Some(b"alternate".as_slice()));
         assert_eq!(links[1].href(), "http://www.example.org/context");
-        assert_eq!(links[1].rel(), Some(b"http://www.w3.org/ns/json-ld#context".as_slice()))
+        assert_eq!(links[1].rel(), Some(b"http://www.w3.org/ns/json-ld#context".as_slice()));
     }
 
     #[test]
@@ -238,7 +238,7 @@ mod tests {
         let links = Link::parse_header(&HeaderValue::from_str("<http://www.example.org/a>; title=\"a, b\", <http://www.example.org/b>").unwrap());
         assert_eq!(links.len(), 2);
         assert_eq!(links[0].params.get(b"title".as_slice()).map(Vec::as_slice), Some(b"a, b".as_slice()));
-        assert_eq!(links[1].href(), "http://www.example.org/b")
+        assert_eq!(links[1].href(), "http://www.example.org/b");
     }
 
     #[test]
@@ -246,6 +246,6 @@ mod tests {
         let links = Link::parse_header(&HeaderValue::from_str("<http://www.example.org/a>; rel=alternate, <http://www.example.org/b>; rel=next").unwrap());
         assert_eq!(links.len(), 2);
         assert_eq!(links[0].rel(), Some(b"alternate".as_slice()));
-        assert_eq!(links[1].rel(), Some(b"next".as_slice()))
+        assert_eq!(links[1].rel(), Some(b"next".as_slice()));
     }
 }

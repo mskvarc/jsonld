@@ -49,7 +49,7 @@ where
                 )
                 .await?
                 .into_processed(),
-        )
+        );
     }
 
     // If element has an @value or @id entry and the result of using the Value Compaction algorithm,
@@ -128,10 +128,9 @@ where
                     Literal::String(s) => {
                         if ty.is_some() || (language.is_none() && direction.is_none()) {
                             return Ok(jstrict::Value::String(s.as_str().into()));
-                        } else {
-                            let compact_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
-                            result.insert(compact_key.into(), jstrict::Value::String(s.as_str().into()));
                         }
+                        let compact_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
+                        result.insert(compact_key.into(), jstrict::Value::String(s.as_str().into()));
                     }
                 }
             } else {
@@ -173,32 +172,30 @@ where
             // the value.
             if remove_index && (ls_language.is_none() || language == ls_language) && (ls_direction.is_none() || direction == ls_direction) {
                 return Ok(jstrict::Value::String(ls.as_str().into()));
-            } else {
-                let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
-                result.insert(value_key.into(), jstrict::Value::String(ls.as_str().into()));
+            }
+            let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
+            result.insert(value_key.into(), jstrict::Value::String(ls.as_str().into()));
 
-                if let Some(language) = ls.language() {
-                    let lang_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Language);
-                    result.insert(lang_key.into(), jstrict::Value::String(language.as_str().into()));
-                }
+            if let Some(language) = ls.language() {
+                let lang_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Language);
+                result.insert(lang_key.into(), jstrict::Value::String(language.as_str().into()));
+            }
 
-                if let Some(direction) = ls.direction() {
-                    let dir_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Direction);
-                    result.insert(dir_key.into(), jstrict::Value::String(direction.as_str().into()));
-                }
+            if let Some(direction) = ls.direction() {
+                let dir_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Direction);
+                result.insert(dir_key.into(), jstrict::Value::String(direction.as_str().into()));
             }
         }
         Value::Json(value) => {
             if type_mapping == Some(Type::Json) && remove_index {
                 return Ok(value.clone());
-            } else {
-                let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
-                result.insert(value_key.into(), value.clone());
-
-                let type_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Type);
-                let json_alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Json);
-                result.insert(type_key.into(), jstrict::Value::String(json_alias.into()));
             }
+            let value_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Value);
+            result.insert(value_key.into(), value.clone());
+
+            let type_key = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Type);
+            let json_alias = keyword_alias(vocabulary, active_context.as_ref(), options, Keyword::Json);
+            result.insert(type_key.into(), jstrict::Value::String(json_alias.into()));
         }
     }
 

@@ -61,7 +61,7 @@ use std::{
 /// otherwise allocate.
 struct HashWriter<'a, H: Hasher>(&'a mut H);
 
-impl<'a, H: Hasher> std::fmt::Write for HashWriter<'a, H> {
+impl<H: Hasher> std::fmt::Write for HashWriter<'_, H> {
     #[inline]
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         self.0.write(s.as_bytes());
@@ -116,6 +116,7 @@ pub struct ProcessingCache<T, B> {
 
 impl<T, B> ProcessingCache<T, B> {
     /// Creates an empty cache.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             entries: Mutex::new(HashMap::default()),

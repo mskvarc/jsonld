@@ -26,8 +26,6 @@ where
     L: Loader,
     W: WarningHandler<N>,
 {
-    let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
-
     // When the expansion result is a single object that is an unnamed graph
     // (a node object whose only entry is `@graph`), the document is the
     // content of that graph. Otherwise the object stands alone, unless it is
@@ -45,6 +43,7 @@ where
         }
     }
 
+    let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
     match expanded {
         Expanded::Null => Ok(ExpandedDocument::new()),
         Expanded::Object(obj) => Ok(single(obj)),

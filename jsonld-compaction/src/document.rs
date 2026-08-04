@@ -22,6 +22,10 @@ pub trait EmbedContext {
     /// since only an object can carry `@context`. Nothing is embedded when the
     /// document compacted to `null` or to nothing at all, or when the context
     /// itself is null or empty.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the context cannot be embedded in the compacted document.
     fn embed_context<N>(
         &mut self,
         vocabulary: &N,
@@ -173,8 +177,8 @@ impl EmbedContext for jstrict::Value {
                 obj.insert_front("@context".into(), json_context);
             }
 
-            *self = obj.into()
-        };
+            *self = obj.into();
+        }
 
         Ok(())
     }

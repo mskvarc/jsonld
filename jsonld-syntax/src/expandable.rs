@@ -33,7 +33,7 @@ impl<'a> From<&'a str> for ExpandableRef<'a> {
     }
 }
 
-impl<'a> fmt::Display for ExpandableRef<'a> {
+impl fmt::Display for ExpandableRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Keyword(k) => k.fmt(f),

@@ -56,12 +56,20 @@ fn default_interpretation() -> DefaultInterpretation {
 }
 
 /// Serialize the given Linked-Data value into a JSON-LD document.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expressed as a JSON-LD document.
 pub fn serialize(value: &impl LinkedData<DefaultInterpretation>) -> Result<ExpandedDocument, Error> {
     serialize_with(&mut (), &mut default_interpretation(), value)
 }
 
 /// Serialize the given Linked-Data value into a JSON-LD document using a
 /// custom vocabulary and interpretation.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expressed as a JSON-LD document.
 pub fn serialize_with<V, I>(vocabulary: &mut V, interpretation: &mut I, value: &impl LinkedData<I>) -> Result<ExpandedDocument<V::Iri, V::BlankId>, Error>
 where
     V: Vocabulary + rdfx::vocabulary::VocabularyMut,
@@ -75,11 +83,19 @@ where
 }
 
 /// Serialize the given Linked-Data value into a JSON-LD object.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expressed as a JSON-LD object.
 pub fn serialize_object(value: &(impl LinkedDataSubject<DefaultInterpretation> + LinkedDataResource<DefaultInterpretation>)) -> Result<Object, Error> {
     serialize_object_with(&mut (), &mut default_interpretation(), value)
 }
 
 /// Serialize the given Linked-Data value into a JSON-LD node object.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be expressed as a JSON-LD node object.
 pub fn serialize_node(value: &(impl LinkedDataSubject<DefaultInterpretation> + LinkedDataResource<DefaultInterpretation>)) -> Result<Node, Error> {
     serialize_node_with(&mut (), &mut default_interpretation(), value)
 }

@@ -34,24 +34,28 @@ impl<T, B> Default for ReverseProperties<T, B> {
 
 impl<T, B> ReverseProperties<T, B> {
     /// Creates an empty map.
+    #[must_use]
     pub fn new() -> Self {
         Self(IndexMap::with_hasher(DefaultBuildHasher::default()))
     }
 
     /// Returns the number of reverse properties.
     #[inline(always)]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Checks if there are no defined reverse properties.
     #[inline(always)]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Returns an iterator over the reverse properties and their associated nodes.
     #[inline(always)]
+    #[must_use]
     pub fn iter(&self) -> Iter<'_, T, B> {
         Iter { inner: self.0.iter() }
     }
@@ -65,7 +69,7 @@ impl<T, B> ReverseProperties<T, B> {
     /// Removes all reverse properties.
     #[inline(always)]
     pub fn clear(&mut self) {
-        self.0.clear()
+        self.0.clear();
     }
 }
 
@@ -118,7 +122,7 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
     pub fn insert_unique(&mut self, prop: Id<T, B>, value: IndexedNode<T, B>) {
         if let Some(node_values) = self.0.get_mut(&prop) {
             if node_values.iter().all(|v| !v.equivalent(&value)) {
-                node_values.insert(value)
+                node_values.insert(value);
             }
         } else {
             self.0.insert(prop, Multiset::singleton(value));
@@ -141,7 +145,7 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
         if let Some(node_values) = self.0.get_mut(&prop) {
             for value in values {
                 if node_values.iter().all(|v| !v.equivalent(&value)) {
-                    node_values.insert(value)
+                    node_values.insert(value);
                 }
             }
         } else {
@@ -149,7 +153,7 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
             let mut node_values: ReversePropertyNodes<T, B> = Multiset::with_capacity(values.size_hint().0);
             for value in values {
                 if node_values.iter().all(|v| !v.equivalent(&value)) {
-                    node_values.insert(value)
+                    node_values.insert(value);
                 }
             }
 
@@ -169,7 +173,7 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
         N: IntoIterator<Item = IndexedNode<T, B>>,
     {
         for (prop, values) in iter {
-            self.insert_all_unique(prop, values)
+            self.insert_all_unique(prop, values);
         }
     }
 
@@ -209,7 +213,7 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for ReverseProperties<T
         for entry in object {
             let prop = Id::from_string_in(vocabulary, entry.key.to_string());
             let nodes: Vec<IndexedNode<T, B>> = Vec::try_from_json_in(vocabulary, entry.value)?;
-            result.insert_all(prop, nodes)
+            result.insert_all(prop, nodes);
         }
 
         Ok(result)
@@ -219,7 +223,7 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for ReverseProperties<T
 impl<T: Hash, B: Hash> Hash for ReverseProperties<T, B> {
     #[inline(always)]
     fn hash<H: Hasher>(&self, h: &mut H) {
-        crate::utils::hash_map(&self.0, h)
+        crate::utils::hash_map(&self.0, h);
     }
 }
 
@@ -229,7 +233,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Extend<(Id<T, B>, Vec<IndexedNode<T, B>>)> for 
         I: IntoIterator<Item = (Id<T, B>, Vec<IndexedNode<T, B>>)>,
     {
         for (prop, values) in iter {
-            self.insert_all(prop, values)
+            self.insert_all(prop, values);
         }
     }
 }
@@ -304,9 +308,9 @@ impl<'a, T, B> Iterator for Iter<'a, T, B> {
     }
 }
 
-impl<'a, T, B> ExactSizeIterator for Iter<'a, T, B> {}
+impl<T, B> ExactSizeIterator for Iter<'_, T, B> {}
 
-impl<'a, T, B> std::iter::FusedIterator for Iter<'a, T, B> {}
+impl<T, B> std::iter::FusedIterator for Iter<'_, T, B> {}
 
 /// Iterator over the reverse properties of a node, giving a mutable reference
 /// to the associated nodes.

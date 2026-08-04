@@ -34,21 +34,25 @@ impl Default for Context {
 
 impl Context {
     /// Creates a new context with a single entry.
+    #[must_use]
     pub fn one(context: ContextEntry) -> Self {
         Self::One(context)
     }
 
     /// Creates the `null` context.
+    #[must_use]
     pub fn null() -> Self {
         Self::one(ContextEntry::Null)
     }
 
     /// Creates a new context with a single IRI-reference entry.
+    #[must_use]
     pub fn iri_ref(iri_ref: IriRefBuf) -> Self {
         Self::one(ContextEntry::IriRef(iri_ref))
     }
 
     /// Creates a new context with a single context definition entry.
+    #[must_use]
     pub fn definition(def: Definition) -> Self {
         Self::one(ContextEntry::Definition(def))
     }
@@ -57,6 +61,7 @@ impl Context {
 impl Context {
     /// Returns the number of entries of this context, which is 1 for a single
     /// entry.
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             Self::One(_) => 1,
@@ -65,6 +70,7 @@ impl Context {
     }
 
     /// Checks whether this context has no entry, which only an empty array can.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match self {
             Self::One(_) => false,
@@ -73,6 +79,7 @@ impl Context {
     }
 
     /// Returns the entries of this context as a slice.
+    #[must_use]
     pub fn as_slice(&self) -> &[ContextEntry] {
         match self {
             Self::One(c) => std::slice::from_ref(c),
@@ -82,20 +89,23 @@ impl Context {
 
     /// Checks whether this context is a single context definition, written as
     /// a JSON object.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         match self {
             Self::One(c) => c.is_object(),
-            _ => false,
+            Self::Many(_) => false,
         }
     }
 
     /// Checks whether this context is written as a JSON array.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
     /// Returns a depth-first iterator over this context and every fragment it
     /// contains, itself included.
+    #[must_use]
     pub fn traverse(&self) -> Traverse<'_> {
         match self {
             Self::One(c) => Traverse::new(FragmentRef::Context(c)),
@@ -213,6 +223,7 @@ impl ContextEntry {
 
     /// Checks whether this entry is an inline context definition, written as a
     /// JSON object.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         matches!(self, Self::Definition(_))
     }
@@ -262,24 +273,27 @@ pub enum FragmentRef<'a> {
 
 impl<'a> FragmentRef<'a> {
     /// Checks whether this fragment is a JSON array.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         match self {
             Self::ContextArray(_) => true,
             Self::DefinitionFragment(i) => i.is_array(),
-            _ => false,
+            Self::Context(_) => false,
         }
     }
 
     /// Checks whether this fragment is a JSON object.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         match self {
             Self::Context(c) => c.is_object(),
             Self::DefinitionFragment(i) => i.is_object(),
-            _ => false,
+            Self::ContextArray(_) => false,
         }
     }
 
     /// Returns an iterator over the fragments directly contained in this one.
+    #[must_use]
     pub fn sub_items(&self) -> SubFragments<'a> {
         match self {
             Self::ContextArray(a) => SubFragments::ContextArray(a.iter()),

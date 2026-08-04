@@ -30,6 +30,7 @@ pub struct Options {
 
 impl Options {
     /// Returns a copy of these options with entry ordering switched off.
+    #[must_use]
     pub fn unordered(self) -> Self {
         Self { ordered: false, ..self }
     }

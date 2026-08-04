@@ -23,17 +23,29 @@ pub type FlattenUnorderedResult<I, B> = Result<UnorderedFlattenedDocument<I, B>,
 pub trait Flatten<I, B> {
     /// Flattens this document using the given vocabulary and blank node
     /// generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers, or when two nodes disagree on an `@index`.
     fn flatten_with<V, G: LocalGenerator>(self, vocabulary: &mut V, generator: G, ordered: bool) -> FlattenResult<I, B>
     where
         V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut;
 
     /// Flattens this document into an unordered set, using the given
     /// vocabulary and generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers, or when two nodes disagree on an `@index`.
     fn flatten_unordered_with<V, G: LocalGenerator>(self, vocabulary: &mut V, generator: G) -> FlattenUnorderedResult<I, B>
     where
         V: Vocabulary<Iri = I, BlankId = B> + VocabularyMut;
 
     /// Flattens this document, sorting the result when `ordered` is set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers, or when two nodes disagree on an `@index`.
     fn flatten<G: LocalGenerator>(self, generator: G, ordered: bool) -> FlattenResult<I, B>
     where
         (): Vocabulary<Iri = I, BlankId = B>,
@@ -43,6 +55,10 @@ pub trait Flatten<I, B> {
     }
 
     /// Flattens this document into an unordered set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers, or when two nodes disagree on an `@index`.
     fn flatten_unordered<G: LocalGenerator>(self, generator: G) -> FlattenUnorderedResult<I, B>
     where
         (): Vocabulary<Iri = I, BlankId = B>,
@@ -86,6 +102,7 @@ fn filter_sub_graph<T, B>(mut node: IndexedNode<T, B>) -> Option<IndexedObject<T
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
     /// Flattens this node map into a list of nodes, sorted when `ordered` is
     /// set.
+    #[must_use]
     pub fn flatten(self, ordered: bool) -> FlattenedDocument<T, B>
     where
         (): Vocabulary<Iri = T, BlankId = B>,

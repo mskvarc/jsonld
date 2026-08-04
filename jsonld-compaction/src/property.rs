@@ -70,11 +70,14 @@ where
     // then set `compacted_item` to an array containing only `compacted_item`.
     if !compacted_item.is_array() {
         let array = vec![compacted_item];
-        compacted_item = jstrict::Value::Array(array)
+        compacted_item = jstrict::Value::Array(array);
     }
 
     // If container does not include @list:
-    if !container.contains(ContainerKind::List) {
+    if container.contains(ContainerKind::List) {
+        // Otherwise, set the value of the item active property entry in nest result to compacted item.
+        nest_result.insert(item_active_property.into(), compacted_item);
+    } else {
         // Convert `compacted_item` to a list object by setting it to
         // a map containing an entry where the key is the result of
         // IRI compacting @list and the value is the original
@@ -96,10 +99,7 @@ where
 
         // Use add value to add `compacted_item` to
         // the `item_active_property` entry in `nest_result` using `as_array`.
-        add_value(nest_result, item_active_property, compacted_item, as_array)
-    } else {
-        // Otherwise, set the value of the item active property entry in nest result to compacted item.
-        nest_result.insert(item_active_property.into(), compacted_item);
+        add_value(nest_result, item_active_property, compacted_item, as_array);
     }
 
     Ok(())
@@ -148,7 +148,7 @@ where
         // Initialize `map_object` to the value of `item_active_property`
         // in `nest_result`, initializing it to a new empty map,
         // if necessary.
-        if nest_result.get_unique(item_active_property).map(|o| o.is_none()).unwrap_or(false) {
+        if nest_result.get_unique(item_active_property).is_ok_and(|o| o.is_none()) {
             nest_result.insert(item_active_property.into(), jsonld_syntax::Object::default().into());
         }
 
@@ -175,19 +175,18 @@ where
             None => (Term::Keyword(Keyword::None), true),
         };
 
-        let map_key = match compact_iri(vocabulary, active_context, &id_value, vocab, false, options)? {
-            Some(arc) => arc,
-            None => return Err(Error::IriConfusedWithPrefix),
+        let Some(map_key) = compact_iri(vocabulary, active_context, &id_value, vocab, false, options)? else {
+            return Err(Error::IriConfusedWithPrefix);
         };
 
         // Use `add_value` to add `compacted_item` to
         // the `map_key` entry in `map_object` using `as_array`.
-        add_value(map_object, &map_key, compacted_item, as_array)
+        add_value(map_object, &map_key, compacted_item, as_array);
     } else if container.contains(ContainerKind::Graph) && container.contains(ContainerKind::Index) && node.is_simple_graph() {
         // Initialize `map_object` to the value of `item_active_property`
         // in `nest_result`, initializing it to a new empty map,
         // if necessary.
-        if nest_result.get_unique(item_active_property).map(|o| o.is_none()).unwrap_or(false) {
+        if nest_result.get_unique(item_active_property).is_ok_and(|o| o.is_none()) {
             nest_result.insert(item_active_property.into(), jsonld_syntax::Object::default().into());
         }
 
@@ -209,7 +208,7 @@ where
 
         // Use `add_value` to add `compacted_item` to
         // the `map_key` entry in `map_object` using `as_array`.
-        add_value(map_object, map_key, compacted_item, as_array)
+        add_value(map_object, map_key, compacted_item, as_array);
     } else if container.contains(ContainerKind::Graph) && node.is_simple_graph() {
         // Otherwise, if `container` includes @graph and
         // `expanded_item` is a simple graph object
@@ -233,7 +232,7 @@ where
 
         // Use `add_value` to add `compacted_item` to the
         // `item_active_property` entry in `nest_result` using `as_array`.
-        add_value(nest_result, item_active_property, compacted_item, as_array)
+        add_value(nest_result, item_active_property, compacted_item, as_array);
     } else {
         // Otherwise, `container` does not include @graph or
         // otherwise does not match one of the previous cases.
@@ -275,7 +274,7 @@ where
         // Use `add_value` to add `compacted_item` to the
         // `item_active_property` entry in `nest_result` using `as_array`.
         let compacted_item = jstrict::Value::Object(map);
-        add_value(nest_result, item_active_property, compacted_item, as_array)
+        add_value(nest_result, item_active_property, compacted_item, as_array);
     }
 
     Ok(())
@@ -320,7 +319,7 @@ where
 
                     // If result does not have a nest_term entry,
                     // initialize it to an empty map.
-                    if result.get_unique(nest_term.as_str()).map(|o| o.is_none()).unwrap_or(false) {
+                    if result.get_unique(nest_term.as_str()).is_ok_and(|o| o.is_none()) {
                         result.insert(nest_term.as_str().into(), jstrict::Object::default().into());
                     }
 
@@ -445,7 +444,7 @@ where
                         loader,
                         options,
                     )
-                    .await?
+                    .await?;
                 }
                 object::Ref::Node(node) if node.is_graph() => {
                     compact_property_graph(
@@ -460,7 +459,7 @@ where
                         loader,
                         options,
                     )
-                    .await?
+                    .await?;
                 }
                 _ => {
                     let mut compacted_item =
@@ -478,7 +477,7 @@ where
                         // Initialize `map_object` to the value of
                         // `item_active_property` in `nest_result`,
                         // initializing it to a new empty map, if necessary.
-                        if nest_result.get_unique(&*item_active_property).map(|o| o.is_none()).unwrap_or(false) {
+                        if nest_result.get_unique(&*item_active_property).is_ok_and(|o| o.is_none()) {
                             nest_result.insert((&*item_active_property).into(), jstrict::Object::default().into());
                         }
 
@@ -524,10 +523,10 @@ where
                         // if any.
                         let map_key = if container_type == ContainerKind::Language && expanded_item.is_value() {
                             if let object::Ref::Value(value) = expanded_item.inner().as_ref() {
-                                compacted_item = value_value(value)
+                                compacted_item = value_value(value);
                             }
 
-                            expanded_item.language().map(|lang| lang.to_string())
+                            expanded_item.language().map(std::string::ToString::to_string)
                         } else if container_type == ContainerKind::Index {
                             match index_key {
                                 Some(index_key) => {
@@ -551,7 +550,7 @@ where
                                                 jstrict::Value::Array(values) => {
                                                     let mut values = values.into_iter();
                                                     match values.next() {
-                                                        Some(first_value) => (first_value.as_str().map(|v| v.to_string()), values.collect()),
+                                                        Some(first_value) => (first_value.as_str().map(std::string::ToString::to_string), values.collect()),
                                                         None => (None, values.collect()),
                                                     }
                                                 }
@@ -571,7 +570,7 @@ where
                                         && let Some(map) = compacted_item.as_object_mut()
                                     {
                                         for value in remaining_values {
-                                            add_value(map, container_key.as_str(), value, false)
+                                            add_value(map, container_key.as_str(), value, false);
                                         }
                                     }
 
@@ -630,7 +629,7 @@ where
                                 && let Some(map) = compacted_item.as_object_mut()
                             {
                                 for value in remaining_values {
-                                    add_value(map, container_key.as_str(), value, false)
+                                    add_value(map, container_key.as_str(), value, false);
                                 }
                             }
 
@@ -657,7 +656,7 @@ where
                                     loader,
                                     options,
                                 ))
-                                .await?
+                                .await?;
                             }
 
                             map_key
@@ -672,14 +671,14 @@ where
 
                         // Use `add_value` to add `compacted_item` to
                         // the `map_key` entry in `map_object` using `as_array`.
-                        add_value(map_object, &map_key, compacted_item, as_array)
+                        add_value(map_object, &map_key, compacted_item, as_array);
                     } else {
                         // Otherwise, use `add_value` to add `compacted_item` to the
                         // `item_active_property` entry in `nest_result` using `as_array`.
-                        add_value(nest_result, &item_active_property, compacted_item, as_array)
+                        add_value(nest_result, &item_active_property, compacted_item, as_array);
                     }
                 }
-            };
+            }
         }
     }
 
@@ -705,7 +704,7 @@ where
 
             // Use `add_value` to add an empty array to the `item_active_property` entry in
             // `nest_result` using true for `as_array`.
-            add_value(nest_result, &item_active_property, Vec::new().into(), true)
+            add_value(nest_result, &item_active_property, Vec::new().into(), true);
         }
     }
 

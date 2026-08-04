@@ -79,7 +79,7 @@ where
 
 struct Rest<'a, T, B>(&'a [IndexedObject<T, B>]);
 
-impl<'a, T, B, I: Interpretation> LinkedDataResource<I> for Rest<'a, T, B> {
+impl<T, B, I: Interpretation> LinkedDataResource<I> for Rest<'_, T, B> {
     fn interpretation(&self, _interpretation: &mut I) -> ResourceInterpretation<'_, I> {
         if self.0.is_empty() {
             // The empty list is the well-known `rdf:nil` resource, not a
@@ -91,7 +91,7 @@ impl<'a, T, B, I: Interpretation> LinkedDataResource<I> for Rest<'a, T, B> {
     }
 }
 
-impl<'a, T, B, I: Interpretation> LinkedDataSubject<I> for Rest<'a, T, B>
+impl<T, B, I: Interpretation> LinkedDataSubject<I> for Rest<'_, T, B>
 where
     T: LinkedDataResource<I> + LinkedDataSubject<I>,
     B: LinkedDataResource<I> + LinkedDataSubject<I>,
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Rest<'a, T, B>
+impl<T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Rest<'_, T, B>
 where
     T: LinkedDataResource<I> + LinkedDataSubject<I>,
     B: LinkedDataResource<I> + LinkedDataSubject<I>,

@@ -33,6 +33,7 @@ impl<T, S: Default> Default for Multiset<T, S> {
 
 impl<T, S> Multiset<T, S> {
     /// Creates a new `Multiset`.
+    #[must_use]
     pub fn new() -> Self
     where
         S: Default,
@@ -41,6 +42,7 @@ impl<T, S> Multiset<T, S> {
     }
 
     /// Creates a new `Multiset` with room for `cap` values.
+    #[must_use]
     pub fn with_capacity(cap: usize) -> Self
     where
         S: Default,
@@ -151,7 +153,7 @@ impl<T: Hash, S: Default + BuildHasher> FromIterator<T> for Multiset<T, S> {
         let mut result = Self::new();
 
         for item in iter {
-            result.insert(item)
+            result.insert(item);
         }
 
         result
@@ -161,7 +163,7 @@ impl<T: Hash, S: Default + BuildHasher> FromIterator<T> for Multiset<T, S> {
 impl<T: Hash, S: BuildHasher> Extend<T> for Multiset<T, S> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter {
-            self.insert(item)
+            self.insert(item);
         }
     }
 }
@@ -208,7 +210,7 @@ impl<T: Hash, S: BuildHasher> Hash for Multiset<T, S> {
             hash = hash.wrapping_add(self.hasher.hash_one(item));
         }
 
-        state.write_u64(hash)
+        state.write_u64(hash);
     }
 }
 

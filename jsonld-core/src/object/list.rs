@@ -21,16 +21,19 @@ impl<T: Eq + Hash, B: Eq + Hash> Eq for List<T, B> {}
 
 impl<T, B> List<T, B> {
     /// Creates a new list object.
+    #[must_use]
     pub fn new(objects: Vec<IndexedObject<T, B>>) -> Self {
         Self { entry: objects }
     }
 
     /// Returns the number of objects in the list.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.entry.len()
     }
 
     /// Checks whether the list holds no objects.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entry.is_empty()
     }
@@ -38,6 +41,7 @@ impl<T, B> List<T, B> {
     /// Returns the objects of the `@list` entry, in list order.
     ///
     /// Alias for [`as_slice`](Self::as_slice).
+    #[must_use]
     pub fn entry(&self) -> &[IndexedObject<T, B>] {
         &self.entry
     }
@@ -48,6 +52,7 @@ impl<T, B> List<T, B> {
     }
 
     /// Returns the objects of the list as a slice, in list order.
+    #[must_use]
     pub fn as_slice(&self) -> &[IndexedObject<T, B>] {
         self.entry.as_slice()
     }
@@ -58,13 +63,14 @@ impl<T, B> List<T, B> {
     }
 
     /// Consumes the list, returning the objects of its `@list` entry.
+    #[must_use]
     pub fn into_entry(self) -> Vec<IndexedObject<T, B>> {
         self.entry
     }
 
     /// Appends an object to the end of the list.
     pub fn push(&mut self, object: IndexedObject<T, B>) {
-        self.entry.push(object)
+        self.entry.push(object);
     }
 
     /// Removes the last object of the list and returns it.
@@ -87,14 +93,14 @@ impl<T, B> List<T, B> {
     /// `buffer` to render numbers.
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
         for object in self {
-            object.canonicalize_with(buffer)
+            object.canonicalize_with(buffer);
         }
     }
 
     /// Puts every literal of the list into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
-        self.canonicalize_with(&mut buffer)
+        self.canonicalize_with(&mut buffer);
     }
 
     /// Rewrites every IRI and identifier of the list (recursively) with the
@@ -133,7 +139,7 @@ impl<T, B> Relabel<T, B> for List<T, B> {
         B: Clone + Eq + Hash,
     {
         for object in self {
-            object.relabel_with(vocabulary, generator, relabeling)?
+            object.relabel_with(vocabulary, generator, relabeling)?;
         }
         Ok(())
     }
@@ -206,6 +212,7 @@ pub enum FragmentRef<'a, T, B> {
 
 impl<'a, T, B> FragmentRef<'a, T, B> {
     /// Returns the sub-fragments of this fragment: the objects of the list.
+    #[must_use]
     pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
         match self {
             Self::Entry(e) => SubFragments(e.iter()),

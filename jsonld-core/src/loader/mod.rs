@@ -66,6 +66,10 @@ impl<I> RemoteDocumentReference<I> {
     ///
     /// If the document is already [`Self::Loaded`], simply returns the inner
     /// [`RemoteDocument`].
+    ///
+    /// # Errors
+    ///
+    /// Returns the loader's error when the document cannot be fetched or parsed.
     pub async fn load_with<V, L>(self, vocabulary: &mut V, loader: &L) -> LoadingResult<I, L::Error>
     where
         V: IriVocabularyMut<Iri = I>,
@@ -84,6 +88,10 @@ impl<I> RemoteDocumentReference<I> {
     /// [`Cow::Owned`].
     /// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
     /// with [`Cow::Borrowed`].
+    ///
+    /// # Errors
+    ///
+    /// Returns the loader's error when the document cannot be fetched or parsed.
     pub async fn loaded_with<V, L>(&self, vocabulary: &mut V, loader: &L) -> Result<Cow<'_, RemoteDocument<V::Iri>>, LoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
@@ -114,13 +122,17 @@ impl<I> RemoteContextReference<I> {
     ///
     /// If the context is already [`Self::Loaded`], simply returns the inner
     /// [`RemoteContext`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the document cannot be fetched, or when it holds no `@context` entry.
     pub async fn load_context_with<V, L: Loader>(self, vocabulary: &mut V, loader: &L) -> Result<RemoteContext<I>, ContextLoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(loader.load_with(vocabulary, r).await?.try_map(|d| d.into_ld_context())?),
+            Self::Iri(r) => Ok(loader.load_with(vocabulary, r).await?.try_map(ExtractContext::into_ld_context)?),
             Self::Loaded(doc) => Ok(doc),
         }
     }
@@ -131,13 +143,19 @@ impl<I> RemoteContextReference<I> {
     /// [`Cow::Owned`].
     /// For [`Self::Loaded`] returns a reference to the inner [`RemoteContext`]
     /// with [`Cow::Borrowed`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the document cannot be fetched, or when it holds no `@context` entry.
     pub async fn loaded_context_with<V, L: Loader>(&self, vocabulary: &mut V, loader: &L) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(Cow::Owned(loader.load_with(vocabulary, r.clone()).await?.try_map(|d| d.into_ld_context())?)),
+            Self::Iri(r) => Ok(Cow::Owned(
+                loader.load_with(vocabulary, r.clone()).await?.try_map(ExtractContext::into_ld_context)?,
+            )),
             Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
         }
     }
@@ -222,6 +240,10 @@ impl<I, T> RemoteDocument<I, T> {
     }
 
     /// Tries to map the content of the remote document.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever `f` returns for the contained document.
     pub fn try_map<U, E>(self, f: impl Fn(T) -> Result<U, E>) -> Result<RemoteDocument<I, U>, E> {
         Ok(RemoteDocument {
             url: self.url,
@@ -293,7 +315,7 @@ impl<I, T> RemoteDocument<I, T> {
 
     /// Sets the URL of the document.
     pub fn set_url(&mut self, url: Option<I>) {
-        self.url = url
+        self.url = url;
     }
 }
 
@@ -358,6 +380,7 @@ pub enum StandardProfile {
 
 impl StandardProfile {
     /// Returns the standard profile denoted by `iri`, if any.
+    #[must_use]
     pub fn from_iri(iri: Iri<&str>) -> Option<Self> {
         if iri == iri!("http://www.w3.org/ns/json-ld#expanded") {
             Some(Self::Expanded)
@@ -375,6 +398,7 @@ impl StandardProfile {
     }
 
     /// Returns the IRI that identifies this profile.
+    #[must_use]
     pub fn iri(&self) -> Iri<&'static str> {
         match self {
             Self::Expanded => iri!("http://www.w3.org/ns/json-ld#expanded"),
@@ -403,6 +427,7 @@ pub enum Profile<I = IriBuf> {
 impl Profile {
     /// Builds a profile from an IRI, recognising the ones the specification
     /// registers.
+    #[must_use]
     pub fn new(iri: Iri<&str>) -> Self {
         match StandardProfile::from_iri(iri) {
             Some(p) => Self::Standard(p),
@@ -411,6 +436,7 @@ impl Profile {
     }
 
     /// Returns the IRI that identifies this profile.
+    #[must_use]
     pub fn iri(&self) -> Iri<&str> {
         match self {
             Self::Standard(s) => s.iri(),
@@ -582,6 +608,10 @@ impl ExtractContextError {
 /// Documents from which a JSON-LD context can be extracted.
 pub trait ExtractContext {
     /// Consumes this `ExtractContext`, returning its LD context.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the document is not an object, or has no `@context` entry.
     fn into_ld_context(self) -> Result<jsonld_syntax::context::Context, ExtractContextError>;
 }
 
@@ -637,9 +667,8 @@ mod serde_json_tests {
             "obj": {"k": "v"}
         });
         let doc = RemoteDocument::<IriBuf, _>::from_serde_json(None, None, value);
-        let obj = match doc.document() {
-            jstrict::Value::Object(o) => o,
-            _ => panic!("expected object"),
+        let jstrict::Value::Object(obj) = doc.document() else {
+            panic!("expected object")
         };
         assert!(matches!(obj.get("null").next().unwrap(), jstrict::Value::Null));
         assert!(matches!(obj.get("bool").next().unwrap(), jstrict::Value::Boolean(true)));
@@ -714,9 +743,8 @@ mod sonic_rs_tests {
             "obj": {"k": "v"}
         });
         let doc = RemoteDocument::<IriBuf, _>::from_sonic_rs(None, None, value);
-        let obj = match doc.document() {
-            jstrict::Value::Object(o) => o,
-            _ => panic!("expected object"),
+        let jstrict::Value::Object(obj) = doc.document() else {
+            panic!("expected object")
         };
         assert!(matches!(obj.get("null").next().unwrap(), jstrict::Value::Null));
         assert!(matches!(obj.get("bool").next().unwrap(), jstrict::Value::Boolean(true)));

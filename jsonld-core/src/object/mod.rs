@@ -127,6 +127,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Eq for Object<T, B> {}
 impl<T, B> Object<T, B> {
     /// Creates a `null` value object.
     #[inline(always)]
+    #[must_use]
     pub fn null() -> Self {
         Self::Value(Value::null())
     }
@@ -147,6 +148,10 @@ impl<T, B> Object<T, B> {
     }
 
     /// Assigns an identifier to every node included in this object using the given `generator`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     pub fn identify_all_with<V: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut V,
@@ -160,16 +165,20 @@ impl<T, B> Object<T, B> {
             Object::Node(n) => n.identify_all_with(vocabulary, generator)?,
             Object::List(l) => {
                 for object in l {
-                    object.identify_all_with(vocabulary, generator)?
+                    object.identify_all_with(vocabulary, generator)?;
                 }
             }
-            _ => (),
+            Object::Value(_) => (),
         }
         Ok(())
     }
 
     /// Use the given `generator` to assign an identifier to all nodes that
     /// don't have one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     pub fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), crate::id::GeneratedIdError>
     where
         T: Eq + Hash,
@@ -192,7 +201,7 @@ impl<T, B> Object<T, B> {
     /// Puts every literal of the object into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
-        self.canonicalize_with(&mut buffer)
+        self.canonicalize_with(&mut buffer);
     }
 
     /// Returns an iterator over the types of the object.
@@ -338,7 +347,7 @@ impl<T, B> Object<T, B> {
         match self {
             Object::Value(value) => value.as_str(),
             Object::Node(node) => node.as_str(),
-            _ => None,
+            Object::List(_) => None,
         }
     }
 
@@ -490,6 +499,10 @@ impl<T, B> Indexed<Object<T, B>> {
     }
 
     /// Try to convert this object into an unnamed graph.
+    ///
+    /// # Errors
+    ///
+    /// Returns `self` unchanged when the object is not a graph object, or is a named graph.
     pub fn into_unnamed_graph(self) -> Result<Graph<T, B>, Self> {
         let (obj, index) = self.into_parts();
         match obj {
@@ -545,7 +558,7 @@ impl<'a, T, B> Iterator for Entries<'a, T, B> {
     }
 }
 
-impl<'a, T, B> ExactSizeIterator for Entries<'a, T, B> {}
+impl<T, B> ExactSizeIterator for Entries<'_, T, B> {}
 
 #[derive(Educe)]
 #[educe(Clone)]
@@ -571,7 +584,7 @@ impl<'a, T, B> Iterator for IndexedEntries<'a, T, B> {
     }
 }
 
-impl<'a, T, B> ExactSizeIterator for IndexedEntries<'a, T, B> {}
+impl<T, B> ExactSizeIterator for IndexedEntries<'_, T, B> {}
 
 // `bound(false)`: every variant payload is a shared reference, a `Copy` value
 // type, or another unconditionally-`Copy` borrow type, so the impls hold for any
@@ -592,6 +605,7 @@ pub enum EntryKeyRef<'a, T, B> {
 
 impl<'a, T, B> EntryKeyRef<'a, T, B> {
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Value(e) => Some(e.into_keyword()),
@@ -601,11 +615,13 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
     }
 
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
     /// Returns the key as a string slice.
+    #[must_use]
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -619,6 +635,7 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -664,6 +681,7 @@ pub enum EntryRef<'a, T, B> {
 
 impl<'a, T, B> EntryRef<'a, T, B> {
     /// Consumes this `EntryRef`, returning its key.
+    #[must_use]
     pub fn into_key(self) -> EntryKeyRef<'a, T, B> {
         match self {
             Self::Value(e) => EntryKeyRef::Value(e.key()),
@@ -673,11 +691,13 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 
     /// Returns the key of this `EntryRef`.
+    #[must_use]
     pub fn key(&self) -> EntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
     /// Consumes this `EntryRef`, returning its value.
+    #[must_use]
     pub fn into_value(self) -> EntryValueRef<'a, T, B> {
         match self {
             Self::Value(v) => EntryValueRef::Value(v),
@@ -687,11 +707,13 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 
     /// Returns the value of this `EntryRef`.
+    #[must_use]
     pub fn value(&self) -> EntryValueRef<'a, T, B> {
         self.into_value()
     }
 
     /// Consumes this `EntryRef`, returning its key and value.
+    #[must_use]
     pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         match self {
             Self::Value(e) => (EntryKeyRef::Value(e.key()), EntryValueRef::Value(e)),
@@ -704,6 +726,7 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 
     /// Returns the key and value of this entry.
+    #[must_use]
     pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
         self.into_key_value()
     }
@@ -721,6 +744,7 @@ pub enum IndexedEntryKeyRef<'a, T, B> {
 
 impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn into_keyword(self) -> Option<Keyword> {
         match self {
             Self::Index => Some(Keyword::Index),
@@ -729,11 +753,13 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
     }
 
     /// Returns the JSON-LD keyword this key stands for, if any.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<Keyword> {
         self.into_keyword()
     }
 
     /// Returns the key as a string slice.
+    #[must_use]
     pub fn into_str(self) -> &'a str
     where
         T: AsRef<str>,
@@ -746,6 +772,7 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &'a str
     where
         T: AsRef<str>,
@@ -786,6 +813,7 @@ pub enum IndexedEntryRef<'a, T, B> {
 
 impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     /// Consumes this `IndexedEntryRef`, returning its key.
+    #[must_use]
     pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B> {
         match self {
             Self::Index(_) => IndexedEntryKeyRef::Index,
@@ -794,11 +822,13 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     }
 
     /// Returns the key of this `IndexedEntryRef`.
+    #[must_use]
     pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B> {
         self.into_key()
     }
 
     /// Consumes this `IndexedEntryRef`, returning its value.
+    #[must_use]
     pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B> {
         match self {
             Self::Index(v) => IndexedEntryValueRef::Index(v),
@@ -807,11 +837,13 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     }
 
     /// Returns the value of this `IndexedEntryRef`.
+    #[must_use]
     pub fn value(&self) -> IndexedEntryValueRef<'a, T, B> {
         self.into_value()
     }
 
     /// Consumes this `IndexedEntryRef`, returning its key and value.
+    #[must_use]
     pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         match self {
             Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
@@ -823,6 +855,7 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
     }
 
     /// Returns the key and value of this entry.
+    #[must_use]
     pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
         self.into_key_value()
     }
@@ -835,6 +868,10 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
 pub trait TryFromJson<T, B>: Sized {
     /// Builds this fragment from a JSON value, interning terms in the given
     /// vocabulary.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the JSON does not describe a valid expanded object.
     fn try_from_json_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, value: jstrict::Value) -> Result<Self, InvalidExpandedJson>;
 }
 
@@ -845,6 +882,10 @@ pub trait TryFromJson<T, B>: Sized {
 pub trait TryFromJsonObject<T, B>: Sized {
     /// Builds this fragment from a JSON object, interning terms in the given
     /// vocabulary.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the JSON object does not describe a valid expanded object.
     fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, object: jstrict::Object) -> Result<Self, InvalidExpandedJson>;
 }
 
@@ -855,7 +896,7 @@ impl<T, B, V: TryFromJson<T, B>> TryFromJson<T, B> for Vec<V> {
                 let mut result = Vec::new();
 
                 for item in items {
-                    result.push(V::try_from_json_in(vocabulary, item)?)
+                    result.push(V::try_from_json_in(vocabulary, item)?);
                 }
 
                 Ok(result)
@@ -958,6 +999,7 @@ pub enum InvalidExpandedJson {
 
 impl InvalidExpandedJson {
     /// Builds a duplicate-key error from the duplicate `jstrict` reports.
+    #[must_use]
     pub fn duplicate_key(jstrict::object::Duplicate(a, _): jstrict::object::Duplicate<jstrict::object::Entry>) -> Self {
         InvalidExpandedJson::DuplicateKey(a.key)
     }
@@ -1070,6 +1112,7 @@ pub enum FragmentRef<'a, T, B> {
 
 impl<'a, T, B> FragmentRef<'a, T, B> {
     /// Returns the object this fragment stands for, if it is one.
+    #[must_use]
     pub fn into_ref(self) -> Option<Ref<'a, T, B>> {
         match self {
             Self::Object(o) => Some(o.as_ref()),
@@ -1099,6 +1142,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Checks whether this fragment renders as a JSON array.
+    #[must_use]
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::IndexedNodeList(_) => true,
@@ -1109,6 +1153,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Checks whether this fragment renders as a JSON object.
+    #[must_use]
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Object(_) | Self::IndexedObject(_) | Self::Node(_) | Self::IndexedNode(_) => true,
@@ -1119,6 +1164,7 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     }
 
     /// Returns an iterator over the fragments directly contained in this one.
+    #[must_use]
     pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
         match self {
             Self::IndexEntry(v) => SubFragments::IndexEntry(Some(()), Some(v)),

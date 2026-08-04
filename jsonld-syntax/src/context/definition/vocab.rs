@@ -14,27 +14,32 @@ pub struct Vocab(String);
 
 impl Vocab {
     /// Parses this value as an IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         Iri::parse(self.0.as_str()).ok()
     }
 
     /// Parses this value as a compact IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         CompactIri::new(&self.0).ok()
     }
 
     /// Parses this value as a blank node identifier, returning `None` if it is
     /// not one.
+    #[must_use]
     pub fn as_blank_id(&self) -> Option<&BlankId> {
         BlankId::new(&self.0).ok()
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Unwraps the underlying string.
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }

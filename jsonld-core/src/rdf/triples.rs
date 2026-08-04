@@ -109,7 +109,7 @@ impl<T: Clone> crate::object::Value<T> {
                         Some(RdfDirection::I18nDatatype) => {
                             // `i18n` IRIs are never reserved datatypes, so the
                             // fallback is unreachable.
-                            let ty = rdfx::Datatype::new(i18n(language, *direction)).unwrap_or_else(|_| rdfx::Datatype::xsd_string());
+                            let ty = rdfx::Datatype::new(i18n(language.as_ref(), *direction)).unwrap_or_else(|_| rdfx::Datatype::xsd_string());
                             Some(CompoundLiteral {
                                 value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::Any(ty)))),
                                 triples: None,
@@ -161,7 +161,7 @@ impl<T: Clone> crate::object::Value<T> {
                     }
                     value::Literal::Null => ("null".to_string(), None),
                     value::Literal::Number(n) => {
-                        if n.is_i64() && !ty.as_ref().and_then(|t| vocabulary.iri(t)).map(|i| i == XSD_DOUBLE).unwrap_or(false) {
+                        if n.is_i64() && ty.as_ref().and_then(|t| vocabulary.iri(t)).is_none_or(|i| i != XSD_DOUBLE) {
                             (n.to_string(), Some(static_datatype(XSD_INTEGER)))
                         } else {
                             (pretty_dtoa::dtoa(n.as_f64_lossy(), XSD_CANONICAL_FLOAT), Some(static_datatype(XSD_DOUBLE)))
@@ -367,7 +367,7 @@ pub struct CompoundValueTriplesWith<'a, 'n, N: Vocabulary, G: LocalGenerator> {
     inner: CompoundValueTriples<'a, N::Iri, N::BlankId, N::Literal>,
 }
 
-impl<'a, 'n, N: Vocabulary + VocabularyMut, G: LocalGenerator> Iterator for CompoundValueTriplesWith<'a, 'n, N, G>
+impl<N: Vocabulary + VocabularyMut, G: LocalGenerator> Iterator for CompoundValueTriplesWith<'_, '_, N, G>
 where
     N::Iri: Clone,
     N::BlankId: Clone,
@@ -435,42 +435,39 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
                 },
                 Some(ListItemTriples::NestedList(list)) => {
                     let previous = list.previous().cloned();
-                    match list.next(vocabulary, generator) {
-                        Some(node) => {
-                            if let Some(compound_value) = node.object.rdf_value_with(vocabulary, generator, rdf_direction) {
-                                let id = node.id.clone();
+                    if let Some(node) = list.next(vocabulary, generator) {
+                        if let Some(compound_value) = node.object.rdf_value_with(vocabulary, generator, rdf_direction) {
+                            let id = node.id.clone();
 
-                                if let Some(compound_triples) = compound_value.triples {
-                                    match compound_triples {
-                                        CompoundValueTriples::List(list) => self.stack.extend(list.stack),
-                                        CompoundValueTriples::Literal(lit) => self.stack.push(ListItemTriples::CompoundLiteral(lit)),
-                                    }
-                                }
-
-                                self.pending = Some(rdfx::GeneralizedTriple(
-                                    id.clone(),
-                                    ValidId::Iri(vocabulary.insert(RDF_FIRST)),
-                                    compound_value.value,
-                                ));
-
-                                if let Some(previous_id) = previous {
-                                    break Some(rdfx::GeneralizedTriple(
-                                        previous_id,
-                                        ValidId::Iri(vocabulary.insert(RDF_REST)),
-                                        Value::from_id(id),
-                                    ));
+                            if let Some(compound_triples) = compound_value.triples {
+                                match compound_triples {
+                                    CompoundValueTriples::List(nested) => self.stack.extend(nested.stack),
+                                    CompoundValueTriples::Literal(literal) => self.stack.push(ListItemTriples::CompoundLiteral(literal)),
                                 }
                             }
-                        }
-                        None => {
-                            self.stack.pop();
+
+                            self.pending = Some(rdfx::GeneralizedTriple(
+                                id.clone(),
+                                ValidId::Iri(vocabulary.insert(RDF_FIRST)),
+                                compound_value.value,
+                            ));
+
                             if let Some(previous_id) = previous {
                                 break Some(rdfx::GeneralizedTriple(
                                     previous_id,
                                     ValidId::Iri(vocabulary.insert(RDF_REST)),
-                                    Value::Id(ValidId::Iri(vocabulary.insert(RDF_NIL))),
+                                    Value::from_id(id),
                                 ));
                             }
+                        }
+                    } else {
+                        self.stack.pop();
+                        if let Some(previous_id) = previous {
+                            break Some(rdfx::GeneralizedTriple(
+                                previous_id,
+                                ValidId::Iri(vocabulary.insert(RDF_REST)),
+                                Value::Id(ValidId::Iri(vocabulary.insert(RDF_NIL))),
+                            ));
                         }
                     }
                 }
@@ -488,7 +485,7 @@ pub struct ListTriplesWith<'a, 'n, V: Vocabulary, G: LocalGenerator> {
     inner: ListTriples<'a, V::Iri, V::BlankId, V::Literal>,
 }
 
-impl<'a, 'n, N: Vocabulary + VocabularyMut, G: LocalGenerator> Iterator for ListTriplesWith<'a, 'n, N, G>
+impl<N: Vocabulary + VocabularyMut, G: LocalGenerator> Iterator for ListTriplesWith<'_, '_, N, G>
 where
     N::Iri: Clone,
     N::BlankId: Clone,
@@ -501,8 +498,8 @@ where
     }
 }
 
-fn i18n(language: Option<LangTagBuf>, direction: Direction) -> IriBuf {
-    let iri = match &language {
+fn i18n(language: Option<&LangTagBuf>, direction: Direction) -> IriBuf {
+    let iri = match language {
         Some(language) => format!("https://www.w3.org/ns/i18n#{language}_{direction}"),
         None => format!("https://www.w3.org/ns/i18n#{direction}"),
     };

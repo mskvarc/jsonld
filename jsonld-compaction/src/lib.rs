@@ -42,10 +42,10 @@ mod value;
 
 pub use document::*;
 pub use iri::IriConfusedWithPrefix;
-pub(crate) use iri::*;
-use node::*;
-use property::*;
-use value::*;
+pub(crate) use iri::{compact_iri, compact_iri_with, compact_iri_with_memo};
+use node::compact_indexed_node_with;
+use property::compact_property;
+use value::compact_indexed_value_with;
 
 #[derive(Debug, thiserror::Error)]
 /// Error raised while compacting a document.
@@ -323,7 +323,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                 // a single @id entry, set active context to previous context from active context,
                 // as the scope of a term-scoped context does not apply when processing new node objects.
                 if let Some(previous_context) = active_context.previous_context() {
-                    active_context = previous_context
+                    active_context = previous_context;
                 }
 
                 // If the term definition for active property in active context has a local context:
@@ -350,7 +350,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                                 )
                                 .await?
                                 .into_processed(),
-                        )
+                        );
                     }
 
                     list_container = active_property_definition.container().contains(ContainerKind::List);
@@ -512,7 +512,7 @@ where
         let compacted_item = Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
 
         if !compacted_item.is_null() {
-            result.push(compacted_item)
+            result.push(compacted_item);
         }
     }
 

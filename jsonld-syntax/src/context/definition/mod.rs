@@ -81,6 +81,7 @@ pub struct Definition {
 
 impl Definition {
     /// Creates an empty context definition, with no entry set.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -108,6 +109,7 @@ impl Definition {
     }
 
     /// Returns the term definition bound to the given term, if any.
+    #[must_use]
     pub fn get_binding(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
         self.bindings.get(key)
     }
@@ -135,13 +137,13 @@ impl<'a> Iterator for BindingsIter<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for BindingsIter<'a> {
+impl DoubleEndedIterator for BindingsIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back().map(|(k, d)| (k, d.as_ref()))
     }
 }
 
-impl<'a> ExactSizeIterator for BindingsIter<'a> {}
+impl ExactSizeIterator for BindingsIter<'_> {}
 
 impl Bindings {
     /// Binds `key` to `def`, returning the definition it replaced, if any.
@@ -152,16 +154,19 @@ impl Bindings {
 
 impl Bindings {
     /// Creates an empty set of bindings.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Returns the number of bound terms.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Checks whether no term is bound.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -175,11 +180,13 @@ impl Bindings {
     }
 
     /// Returns the `i`th binding in insertion order, if there is one.
+    #[must_use]
     pub fn get_entry(&self, i: usize) -> Option<(&Key, Nullable<&TermDefinition>)> {
         self.0.get_index(i).map(|(key, value)| (key, value.as_ref()))
     }
 
     /// Returns an iterator over the bindings, in insertion order.
+    #[must_use]
     pub fn iter(&self) -> BindingsIter<'_> {
         BindingsIter(self.0.iter())
     }
@@ -230,6 +237,7 @@ pub enum FragmentRef<'a> {
 
 impl<'a> FragmentRef<'a> {
     /// Checks whether this fragment is an entry key.
+    #[must_use]
     pub fn is_key(&self) -> bool {
         match self {
             Self::Key(_) => true,
@@ -239,6 +247,7 @@ impl<'a> FragmentRef<'a> {
     }
 
     /// Checks whether this fragment is an entry, key and value together.
+    #[must_use]
     pub fn is_entry(&self) -> bool {
         match self {
             Self::Entry(_) => true,
@@ -248,6 +257,7 @@ impl<'a> FragmentRef<'a> {
     }
 
     /// Checks whether this fragment is a JSON array.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         match self {
             Self::TermDefinitionFragment(i) => i.is_array(),
@@ -256,6 +266,7 @@ impl<'a> FragmentRef<'a> {
     }
 
     /// Checks whether this fragment is a JSON object.
+    #[must_use]
     pub fn is_object(&self) -> bool {
         match self {
             Self::Value(v) => v.is_object(),
@@ -265,6 +276,7 @@ impl<'a> FragmentRef<'a> {
     }
 
     /// Returns an iterator over the fragments directly contained in this one.
+    #[must_use]
     pub fn sub_items(&self) -> SubItems<'a> {
         match self {
             Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(Box::new(e.value()))),
@@ -331,12 +343,12 @@ mod tests {
             "@vocab": null
         }))
         .unwrap();
-        assert_eq!(definition.vocab, Some(crate::Nullable::Null))
+        assert_eq!(definition.vocab, Some(crate::Nullable::Null));
     }
 
     #[test]
     fn deserialize_no_vocab() {
         let definition: Definition = jstrict::from_value(jstrict::json!({})).unwrap();
-        assert_eq!(definition.vocab, None)
+        assert_eq!(definition.vocab, None);
     }
 }

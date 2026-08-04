@@ -130,7 +130,7 @@ impl<R> SerResource<R> {
     }
 
     fn is_list_node(&self) -> bool {
-        self.types.iter().all(|ty| ty.is_list()) && self.properties.is_empty() && self.graph.is_none() && self.list.is_well_formed()
+        self.types.iter().all(RdfType::is_list) && self.properties.is_empty() && self.graph.is_none() && self.list.is_well_formed()
     }
 
     fn insert(&mut self, prop: R, object: R)
@@ -245,6 +245,10 @@ pub struct RdfTerms<R> {
 impl<I, B> ExpandedDocument<I, B> {
     /// Builds a document from interpreted RDF quads, using the given
     /// vocabulary and interpretation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the dataset cannot be expressed as JSON-LD, for instance a literal whose datatype has no IRI in the vocabulary.
     pub fn from_interpreted_quads_in<'a, V, T>(
         vocabulary: &V,
         interpretation: &T,
@@ -313,7 +317,7 @@ impl<I, B> ExpandedDocument<I, B> {
                 object.references = usize::MAX;
             } else {
                 let r = object.references;
-                object.references = r.saturating_add(1)
+                object.references = r.saturating_add(1);
             }
         }
 
@@ -355,13 +359,13 @@ impl<I, B> ExpandedDocument<I, B> {
                     }
 
                     values.reverse();
-                    lists.push((head_id, values))
+                    lists.push((head_id, values));
                 }
             }
         }
 
         for (id, values) in lists {
-            graph.resource_mut(id).list.values = Some(values)
+            graph.resource_mut(id).list.values = Some(values);
         }
 
         let mut result = ExpandedDocument::new();
@@ -375,6 +379,10 @@ impl<I, B> ExpandedDocument<I, B> {
     }
 
     /// Builds a document from interpreted RDF quads.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the dataset cannot be expressed as JSON-LD.
     pub fn from_interpreted_quads<'a, V, T>(
         vocabulary: &V,
         interpretation: &T,
@@ -410,93 +418,88 @@ where
     let context = context.with_subject(id);
     if resource.is_empty() {
         render_reference(vocabulary, interpretation, id, context)
+    } else if let Some(values) = &resource.list.values {
+        let mut objects = Vec::with_capacity(values.len());
+
+        for value in values {
+            objects.push(render_object_or_reference(vocabulary, interpretation, rdf_terms, graph, value, context)?);
+        }
+
+        Ok(Indexed::none(Object::List(List::new(objects))))
     } else {
-        match &resource.list.values {
-            Some(values) => {
-                let mut objects = Vec::with_capacity(values.len());
+        let mut node: Node<V::Iri, V::BlankId> = Node::new();
 
-                for value in values {
-                    objects.push(render_object_or_reference(vocabulary, interpretation, rdf_terms, graph, value, context)?);
-                }
+        if let Some(id) = id_of(interpretation, id) {
+            node.id = Some(id);
+        }
 
-                Ok(Indexed::none(Object::List(List::new(objects))))
-            }
-            None => {
-                let mut node: Node<V::Iri, V::BlankId> = Node::new();
+        let mut types = Vec::with_capacity(resource.types.len());
+        for ty in &resource.types {
+            let ty_resource = match ty {
+                // SAFETY: a `RdfType::List` is only produced when the
+                // RDF list type was actually observed in the input.
+                RdfType::List => unsafe { rdf_terms.list.unwrap_unchecked() },
+                RdfType::Other(o) => o,
+            };
 
-                if let Some(id) = id_of(interpretation, id) {
-                    node.id = Some(id)
-                }
-
-                let mut types = Vec::with_capacity(resource.types.len());
-                for ty in &resource.types {
-                    let ty_resource = match ty {
-                        // SAFETY: a `RdfType::List` is only produced when the
-                        // RDF list type was actually observed in the input.
-                        RdfType::List => unsafe { rdf_terms.list.unwrap_unchecked() },
-                        RdfType::Other(o) => o,
-                    };
-
-                    if let Some(ty_id) = id_of(interpretation, ty_resource) {
-                        types.push(ty_id)
-                    }
-                }
-
-                if !types.is_empty() {
-                    node.types = Some(types);
-                }
-
-                if let Some(graph) = &resource.graph {
-                    let mut value = crate::object::Graph::default();
-
-                    for (id, resource) in &graph.resources {
-                        if resource.references != 1 && !resource.is_empty() {
-                            value.push(render_object(vocabulary, interpretation, rdf_terms, graph, id, resource, context)?);
-                        }
-                    }
-
-                    node.graph = Some(value)
-                }
-
-                for (prop, objects) in &resource.properties {
-                    insert_property(vocabulary, interpretation, rdf_terms, graph, &mut node, prop, objects.iter().copied(), context)?;
-                }
-
-                if !resource.list.first.is_empty() {
-                    // SAFETY: `resource.list.first` is non-empty so `rdf_terms.first`
-                    // was set when `rdf:first` was first observed.
-                    let rdf_first_id = unsafe { rdf_terms.first.unwrap_unchecked() };
-                    insert_property(
-                        vocabulary,
-                        interpretation,
-                        rdf_terms,
-                        graph,
-                        &mut node,
-                        rdf_first_id,
-                        resource.list.first.iter().copied(),
-                        context,
-                    )?;
-                }
-
-                if !resource.list.rest.is_empty() {
-                    // SAFETY: `resource.list.rest` is non-empty so `rdf_terms.rest`
-                    // was set when `rdf:rest` was first observed.
-                    let rdf_rest_id = unsafe { rdf_terms.rest.unwrap_unchecked() };
-                    insert_property(
-                        vocabulary,
-                        interpretation,
-                        rdf_terms,
-                        graph,
-                        &mut node,
-                        rdf_rest_id,
-                        resource.list.rest.iter().copied(),
-                        context,
-                    )?;
-                }
-
-                Ok(Indexed::none(Object::node(node)))
+            if let Some(ty_id) = id_of(interpretation, ty_resource) {
+                types.push(ty_id);
             }
         }
+
+        if !types.is_empty() {
+            node.types = Some(types);
+        }
+
+        if let Some(graph) = &resource.graph {
+            let mut value = crate::object::Graph::default();
+
+            for (id, resource) in &graph.resources {
+                if resource.references != 1 && !resource.is_empty() {
+                    value.push(render_object(vocabulary, interpretation, rdf_terms, graph, id, resource, context)?);
+                }
+            }
+
+            node.graph = Some(value);
+        }
+
+        for (prop, objects) in &resource.properties {
+            insert_property(vocabulary, interpretation, rdf_terms, graph, &mut node, prop, objects.iter().copied(), context)?;
+        }
+
+        if !resource.list.first.is_empty() {
+            // SAFETY: `resource.list.first` is non-empty so `rdf_terms.first`
+            // was set when `rdf:first` was first observed.
+            let rdf_first_id = unsafe { rdf_terms.first.unwrap_unchecked() };
+            insert_property(
+                vocabulary,
+                interpretation,
+                rdf_terms,
+                graph,
+                &mut node,
+                rdf_first_id,
+                resource.list.first.iter().copied(),
+                context,
+            )?;
+        }
+
+        if !resource.list.rest.is_empty() {
+            // SAFETY: `resource.list.rest` is non-empty so `rdf_terms.rest`
+            // was set when `rdf:rest` was first observed.
+            let rdf_rest_id = unsafe { rdf_terms.rest.unwrap_unchecked() };
+            insert_property(
+                vocabulary,
+                interpretation,
+                rdf_terms,
+                graph,
+                &mut node,
+                rdf_rest_id,
+                resource.list.rest.iter().copied(),
+                context,
+            )?;
+        }
+
+        Ok(Indexed::none(Object::node(node)))
     }
 }
 

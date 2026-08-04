@@ -122,7 +122,7 @@ fn runtime_path(span: proc_macro2::Span) -> syn::Result<TokenStream2> {
 pub fn derive_expandable(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     match runtime_path(ast.ident.span()) {
-        Ok(runtime) => jsonld_expandable_core::derive_expandable(ast, &runtime).into(),
+        Ok(runtime) => jsonld_expandable_core::derive_expandable(&ast, &runtime).into(),
         Err(err) => err.to_compile_error().into(),
     }
 }

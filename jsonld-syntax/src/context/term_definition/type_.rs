@@ -18,6 +18,7 @@ pub enum Type {
 
 impl Type {
     /// Parses this value as an IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_iri(&self) -> Option<Iri<&str>> {
         match self {
             Self::Term(t) => Iri::parse(t.as_str()).ok(),
@@ -26,6 +27,7 @@ impl Type {
     }
 
     /// Parses this value as a compact IRI, returning `None` if it is not one.
+    #[must_use]
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
         match self {
             Self::Term(t) => CompactIri::new(t).ok(),
@@ -34,6 +36,7 @@ impl Type {
     }
 
     /// Returns the keyword, or `None` if this value is not one.
+    #[must_use]
     pub fn as_keyword(&self) -> Option<TypeKeyword> {
         match self {
             Self::Keyword(k) => Some(*k),
@@ -42,6 +45,7 @@ impl Type {
     }
 
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Term(t) => t.as_str(),
@@ -51,6 +55,7 @@ impl Type {
 
     /// Converts this value into an owned `String`, allocating if it is a
     /// keyword.
+    #[must_use]
     pub fn into_string(self) -> String {
         match self {
             Self::Term(t) => t,
@@ -73,7 +78,7 @@ impl Eq for Type {}
 
 impl Hash for Type {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
+        self.as_str().hash(state);
     }
 }
 
@@ -122,27 +127,31 @@ impl Eq for TypeKeyword {}
 
 impl Hash for TypeKeyword {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.into_str().hash(state)
+        self.into_str().hash(state);
     }
 }
 
 impl TypeKeyword {
     /// Returns this value as a general [`Keyword`].
+    #[must_use]
     pub fn keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
     /// Same as [`keyword`](Self::keyword), taking `self` by value.
+    #[must_use]
     pub fn into_keyword(self) -> Keyword {
         self.into()
     }
 
     /// Returns the spelling of this keyword, such as `"@vocab"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.into_keyword().into_str()
     }
 
     /// Same as [`as_str`](Self::as_str), taking `self` by value.
+    #[must_use]
     pub fn into_str(self) -> &'static str {
         self.into_keyword().into_str()
     }

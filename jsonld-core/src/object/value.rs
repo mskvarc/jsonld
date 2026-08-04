@@ -26,6 +26,7 @@ pub enum TypeRef<'a, T> {
 impl<'a, T> TypeRef<'a, T> {
     /// Converts this value type into the more general term type used by
     /// context definitions.
+    #[must_use]
     pub fn as_syntax_type(&self) -> crate::Type<&'a T> {
         match self {
             Self::Json => crate::Type::Json,
@@ -35,6 +36,7 @@ impl<'a, T> TypeRef<'a, T> {
 
     /// Returns the node identifier naming this type, or `None` for the
     /// `@json` type, which names a literal rather than a node.
+    #[must_use]
     pub fn into_reference<B>(self) -> Option<crate::id::Ref<'a, T, B>> {
         match self {
             Self::Json => None,
@@ -62,6 +64,7 @@ pub enum Literal {
 impl Literal {
     /// Returns this value as a string if it is one.
     #[inline(always)]
+    #[must_use]
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Literal::String(s) => Some(s.as_ref()),
@@ -71,6 +74,7 @@ impl Literal {
 
     /// Returns this value as a boolean if it is one.
     #[inline(always)]
+    #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Literal::Boolean(b) => Some(*b),
@@ -80,6 +84,7 @@ impl Literal {
 
     /// Returns this value as a number if it is one.
     #[inline(always)]
+    #[must_use]
     pub fn as_number(&self) -> Option<&Number> {
         match self {
             Literal::Number(n) => Some(n),
@@ -88,6 +93,7 @@ impl Literal {
     }
 
     /// Converts the literal into the equivalent JSON value.
+    #[must_use]
     pub fn into_json(self) -> jstrict::Value {
         match self {
             Self::Null => jstrict::Value::Null,
@@ -101,14 +107,14 @@ impl Literal {
     /// render numbers. Only numbers have a non-trivial canonical form.
     pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
         if let Self::Number(n) = self {
-            *n = NumberBuf::from_number(n.canonical_with(buffer))
+            *n = NumberBuf::from_number(n.canonical_with(buffer));
         }
     }
 
     /// Puts this literal into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
-        self.canonicalize_with(&mut buffer)
+        self.canonicalize_with(&mut buffer);
     }
 }
 
@@ -182,7 +188,7 @@ impl<T> Value<T> {
     /// Has no effect if the value is not a typed literal.
     pub fn map_literal_type<F: FnOnce(Option<T>) -> Option<T>>(&mut self, f: F) {
         if let Self::Literal(_, ty) = self {
-            *ty = f(ty.take())
+            *ty = f(ty.take());
         }
     }
 
@@ -271,8 +277,8 @@ impl<T> Value<T> {
         mut object: jstrict::Object,
         value_entry: jstrict::object::Entry,
     ) -> Result<Self, InvalidExpandedJson> {
-        match object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
-            Some(type_entry) => match type_entry.value {
+        if let Some(type_entry) = object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
+            match type_entry.value {
                 jstrict::Value::String(ty) => match ty.as_str() {
                     "@json" => Ok(Self::Json(value_entry.value)),
                     iri => match Iri::parse(iri) {
@@ -285,23 +291,22 @@ impl<T> Value<T> {
                     },
                 },
                 _ => Err(InvalidExpandedJson::InvalidValueType),
-            },
-            None => {
-                let language = object
-                    .remove_unique("@language")
-                    .map_err(InvalidExpandedJson::duplicate_key)?
-                    .map(jstrict::object::Entry::into_value);
-                let direction = object
-                    .remove_unique("@direction")
-                    .map_err(InvalidExpandedJson::duplicate_key)?
-                    .map(jstrict::object::Entry::into_value);
+            }
+        } else {
+            let language = object
+                .remove_unique("@language")
+                .map_err(InvalidExpandedJson::duplicate_key)?
+                .map(jstrict::object::Entry::into_value);
+            let direction = object
+                .remove_unique("@direction")
+                .map_err(InvalidExpandedJson::duplicate_key)?
+                .map(jstrict::object::Entry::into_value);
 
-                if language.is_some() || direction.is_some() {
-                    Ok(Self::LangString(LangString::try_from_json(object, value_entry.value, language, direction)?))
-                } else {
-                    let lit = value_entry.value.try_into()?;
-                    Ok(Self::Literal(lit, None))
-                }
+            if language.is_some() || direction.is_some() {
+                Ok(Self::LangString(LangString::try_from_json(object, value_entry.value, language, direction)?))
+            } else {
+                let lit = value_entry.value.try_into()?;
+                Ok(Self::Literal(lit, None))
             }
         }
     }
@@ -319,7 +324,7 @@ impl<T> Value<T> {
     /// Puts the literal held by this value object into canonical form.
     pub fn canonicalize(&mut self) {
         let mut buffer = ryu_js::Buffer::new();
-        self.canonicalize_with(&mut buffer)
+        self.canonicalize_with(&mut buffer);
     }
 
     /// Rewrites the `@type` IRI of the value, if it has one, with the given
@@ -370,6 +375,7 @@ pub enum EntryRef<'a, T> {
 
 impl<'a, T> EntryRef<'a, T> {
     /// Consumes this `EntryRef`, returning its key.
+    #[must_use]
     pub fn into_key(self) -> EntryKey {
         match self {
             Self::Value(_) => EntryKey::Value,
@@ -380,11 +386,13 @@ impl<'a, T> EntryRef<'a, T> {
     }
 
     /// Returns the key of this `EntryRef`.
+    #[must_use]
     pub fn key(&self) -> EntryKey {
         self.into_key()
     }
 
     /// Consumes this `EntryRef`, returning its value.
+    #[must_use]
     pub fn into_value(self) -> EntryValueRef<'a, T> {
         match self {
             Self::Value(v) => EntryValueRef::Value(v),
@@ -395,6 +403,7 @@ impl<'a, T> EntryRef<'a, T> {
     }
 
     /// Returns the value of this `EntryRef`.
+    #[must_use]
     pub fn value(&self) -> EntryValueRef<'a, T> {
         match self {
             Self::Value(v) => EntryValueRef::Value(*v),
@@ -419,6 +428,7 @@ pub enum EntryValueRef<'a, T> {
     Direction(Direction),
 }
 /// Value held by the `@value` entry.
+#[derive(Clone, Copy)]
 pub enum ValueEntryRef<'a> {
     /// An RDF literal.
     Literal(&'a Literal),
@@ -427,14 +437,6 @@ pub enum ValueEntryRef<'a> {
     /// A JSON literal.
     Json(&'a jstrict::Value),
 }
-
-impl<'a> Clone for ValueEntryRef<'a> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<'a> Copy for ValueEntryRef<'a> {}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Key of a value object entry.
@@ -451,6 +453,7 @@ pub enum EntryKey {
 
 impl EntryKey {
     /// Returns the JSON-LD keyword this key stands for.
+    #[must_use]
     pub fn into_keyword(self) -> Keyword {
         match self {
             Self::Value => Keyword::Value,
@@ -461,11 +464,13 @@ impl EntryKey {
     }
 
     /// Returns the JSON-LD keyword this key stands for.
+    #[must_use]
     pub fn as_keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
     /// Returns the key as a string slice.
+    #[must_use]
     pub fn into_str(&self) -> &'static str {
         match self {
             Self::Value => "@value",
@@ -476,6 +481,7 @@ impl EntryKey {
     }
 
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.into_str()
     }
@@ -498,19 +504,19 @@ impl<'a, T> Iterator for Entries<'a, T> {
         let mut len = 0;
 
         if self.value.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.type_.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.language.is_some() {
-            len += 1
+            len += 1;
         }
 
         if self.direction.is_some() {
-            len += 1
+            len += 1;
         }
 
         (len, Some(len))
@@ -528,9 +534,9 @@ impl<'a, T> Iterator for Entries<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for Entries<'a, T> {}
+impl<T> ExactSizeIterator for Entries<'_, T> {}
 
-impl<'a, T> DoubleEndedIterator for Entries<'a, T> {
+impl<T> DoubleEndedIterator for Entries<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.direction.take().map(EntryRef::Direction).or_else(|| {
             self.language
@@ -558,6 +564,7 @@ pub enum FragmentRef<'a, T> {
 
 impl<'a, T> FragmentRef<'a, T> {
     /// Returns the IRI this fragment stands for, if it is one.
+    #[must_use]
     pub fn into_iri(self) -> Option<&'a T> {
         match self {
             Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -566,6 +573,7 @@ impl<'a, T> FragmentRef<'a, T> {
     }
 
     /// Returns the IRI this fragment stands for, if it is one.
+    #[must_use]
     pub fn as_iri(&self) -> Option<&'a T> {
         match self {
             Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -574,6 +582,7 @@ impl<'a, T> FragmentRef<'a, T> {
     }
 
     /// Checks whether this fragment renders as a JSON array.
+    #[must_use]
     pub fn is_json_array(&self) -> bool {
         match self {
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => json.is_array(),
@@ -583,6 +592,7 @@ impl<'a, T> FragmentRef<'a, T> {
     }
 
     /// Checks whether this fragment renders as a JSON object.
+    #[must_use]
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => json.is_object(),
@@ -592,6 +602,7 @@ impl<'a, T> FragmentRef<'a, T> {
     }
 
     /// Returns an iterator over the fragments directly contained in this one.
+    #[must_use]
     pub fn sub_fragments(&self) -> SubFragments<'a, T> {
         match self {
             Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
@@ -635,7 +646,7 @@ impl<T, N: IriVocabulary<Iri = T>> IntoJsonWithContext<N> for Value<T> {
         let value = match self {
             Self::Literal(lit, ty) => {
                 if let Some(ty) = ty {
-                    let ty_str = vocabulary.iri(&ty).map(|i| i.into_inner()).unwrap_or("<unresolved iri>");
+                    let ty_str = vocabulary.iri(&ty).map_or("<unresolved iri>", iri_rs::Iri::into_inner);
                     obj.insert("@type".into(), ty_str.into());
                 }
 

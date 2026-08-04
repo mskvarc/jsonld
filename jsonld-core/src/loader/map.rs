@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 #[error("document not found")]
 pub struct EntryNotFound;
 
-impl Loader for HashMap<IriBuf, RemoteDocument> {
+impl<S: std::hash::BuildHasher + Send + Sync> Loader for HashMap<IriBuf, RemoteDocument, S> {
     type Error = EntryNotFound;
 
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {

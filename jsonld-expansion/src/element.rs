@@ -29,12 +29,13 @@ pub(crate) struct ExpandedEntry<'a, T, B>(pub &'a str, pub Arc<Term<T, B>>, pub 
 ///
 /// It is `None` at the top level of a document, where the element being
 /// expanded is not the value of any property.
+#[derive(Clone, Copy)]
 pub(crate) enum ActiveProperty<'a> {
     Some(&'a str),
     None,
 }
 
-impl<'a> ActiveProperty<'a> {
+impl ActiveProperty<'_> {
     pub fn is_some(&self) -> bool {
         matches!(self, Self::Some(_))
     }
@@ -53,19 +54,11 @@ impl<'a> ActiveProperty<'a> {
     }
 }
 
-impl<'a> Clone for ActiveProperty<'a> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<'a> Copy for ActiveProperty<'a> {}
-
-impl<'a> PartialEq<Keyword> for ActiveProperty<'a> {
+impl PartialEq<Keyword> for ActiveProperty<'_> {
     fn eq(&self, other: &Keyword) -> bool {
         match self {
             Self::Some(s) => *s == other.into_str(),
-            _ => false,
+            Self::None => false,
         }
     }
 }
@@ -379,7 +372,7 @@ where
             let mut list_entry: Option<&Value> = None;
             let mut set_entry: Option<&Value> = None;
             let mut value_entry: Option<&Value> = None;
-            for ExpandedEntry(_, expanded_key, value) in expanded_entries.iter() {
+            for ExpandedEntry(_, expanded_key, value) in &expanded_entries {
                 match expanded_key.as_ref() {
                     Term::Keyword(Keyword::Value) => value_entry = Some(*value),
                     Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Keyword::Graph => list_entry = Some(*value),
@@ -427,7 +420,7 @@ where
                         cache,
                     ))
                     .await?;
-                    result.extend(e)
+                    result.extend(e);
                 }
 
                 // JSON-LD 1.0 forbids a list object among the items of another

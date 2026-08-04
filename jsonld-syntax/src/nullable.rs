@@ -35,6 +35,10 @@ impl<T> Nullable<T> {
     }
 
     /// Returns the inner value, or [`NullError`] if `null`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the value is null.
     #[inline(always)]
     pub fn try_unwrap(self) -> Result<T, NullError> {
         match self {
@@ -134,6 +138,7 @@ impl<T> From<Option<T>> for Nullable<T> {
 impl<T: Clone> Nullable<&T> {
     /// Clones the referenced inner value.
     #[inline(always)]
+    #[must_use]
     pub fn cloned(&self) -> Nullable<T> {
         match self {
             Nullable::Null => Nullable::Null,
@@ -192,6 +197,10 @@ impl<T> Nullable<T> {
     /// while an entry present with the value `null` yields
     /// `Some(Nullable::Null)`. Serde's own handling of `Option` would collapse
     /// both cases to `None`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the deserializer's error when the value is neither absent, null, nor a valid `T`.
     pub fn optional<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
     where
         T: serde::Deserialize<'de>,

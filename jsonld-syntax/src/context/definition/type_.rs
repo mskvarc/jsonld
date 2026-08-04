@@ -21,6 +21,7 @@ pub struct Type {
 
 impl Type {
     /// Returns an iterator over the entries of this `@type` definition.
+    #[must_use]
     pub fn iter(&self) -> ContextTypeEntries {
         ContextTypeEntries {
             container: Some(self.container),
@@ -72,6 +73,7 @@ pub enum ContextTypeEntry {
 
 impl ContextTypeEntry {
     /// Returns the key of this entry.
+    #[must_use]
     pub fn key(&self) -> ContextTypeKey {
         match self {
             Self::Container(_) => ContextTypeKey::Container,
@@ -90,6 +92,7 @@ pub enum ContextTypeKey {
 
 impl ContextTypeKey {
     /// Returns `"@container"` or `"@protected"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Container => "@container",
@@ -116,6 +119,7 @@ pub enum TypeContainer {
 
 impl TypeContainer {
     /// Returns `"@set"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Set => "@set",
@@ -123,6 +127,7 @@ impl TypeContainer {
     }
 
     /// Same as [`as_str`](Self::as_str), taking `self` by value.
+    #[must_use]
     pub fn into_str(self) -> &'static str {
         self.as_str()
     }
@@ -138,7 +143,7 @@ impl Eq for TypeContainer {}
 
 impl Hash for TypeContainer {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.into_str().hash(state)
+        self.into_str().hash(state);
     }
 }
 
@@ -171,7 +176,7 @@ impl<'de> serde::Deserialize<'de> for TypeContainer {
     {
         struct Visitor;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
+        impl serde::de::Visitor<'_> for Visitor {
             type Value = TypeContainer;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

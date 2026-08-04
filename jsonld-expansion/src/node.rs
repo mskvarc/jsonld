@@ -238,7 +238,7 @@ where
                                             }
                                         }
 
-                                        result.types_mut_or_default().push(ty)
+                                        result.types_mut_or_default().push(ty);
                                     } else {
                                         return Err(Error::InvalidTypeValue);
                                     }
@@ -301,7 +301,7 @@ where
                         ))
                         .await?;
                         let mut expanded_nodes = Vec::new();
-                        for obj in expanded_value.into_iter() {
+                        for obj in expanded_value {
                             match obj.try_cast::<Node<N::Iri, N::BlankId>>() {
                                 Ok(node) => expanded_nodes.push(node),
                                 Err(_) => {
@@ -327,7 +327,7 @@ where
                     // If expanded property is @index:
                     Keyword::Index => {
                         if let Some(index) = value.as_str() {
-                            result.set_index(Some(index.to_string()))
+                            result.set_index(Some(index.to_string()));
                         } else {
                             // If value is not a string, an invalid @index value
                             // error has been detected and processing is aborted.
@@ -342,7 +342,7 @@ where
                             let mut reverse_entries: SmallVec<[&Entry; 8]> = value.iter().collect();
 
                             if options.ordered {
-                                reverse_entries.sort_by_key(|entry| &entry.key)
+                                reverse_entries.sort_by_key(|entry| &entry.key);
                             }
 
                             for Entry {
@@ -396,7 +396,7 @@ where
                                         };
 
                                         if is_double_reversed {
-                                            result.insert_all(reverse_prop, reverse_expanded_value.into_iter())
+                                            result.insert_all(reverse_prop, reverse_expanded_value.into_iter());
                                         } else {
                                             let mut reverse_expanded_nodes = Vec::new();
                                             for object in reverse_expanded_value {
@@ -408,7 +408,7 @@ where
                                                 }
                                             }
 
-                                            result.reverse_properties_or_default().insert_all(reverse_prop, reverse_expanded_nodes)
+                                            result.reverse_properties_or_default().insert_all(reverse_prop, reverse_expanded_nodes);
                                         }
                                     }
                                     _ => {
@@ -489,8 +489,8 @@ where
                             if let Some(nested_value) = nested_value.as_object() {
                                 let mut nested_entries: SmallVec<[&Entry; 8]> = SmallVec::new();
 
-                                for entry in nested_value.iter() {
-                                    nested_entries.push(entry)
+                                for entry in nested_value {
+                                    nested_entries.push(entry);
                                 }
 
                                 if options.ordered {
@@ -599,13 +599,13 @@ where
                             if let Some(key_definition) = key_definition
                                 && let Some(key_direction) = key_definition.direction()
                             {
-                                direction = key_direction.option()
+                                direction = key_direction.option();
                             }
 
                             // For each key-value pair language-language value in
                             // value, ordered lexicographically by language if ordered is true:
                             let mut language_entries: SmallVec<[&Entry; 8]> = SmallVec::with_capacity(value.len());
-                            for language_entry in value.iter() {
+                            for language_entry in value {
                                 language_entries.push(language_entry);
                             }
 
@@ -646,7 +646,7 @@ where
                                                 let (language, error) = LenientLangTagBuf::new(language.to_string());
 
                                                 if let Some(error) = error {
-                                                    env.warnings.handle(env.vocabulary, Warning::MalformedLanguageTag(language.to_string(), error))
+                                                    env.warnings.handle(env.vocabulary, Warning::MalformedLanguageTag(language.to_string(), error));
                                                 }
 
                                                 Some(language)
@@ -663,9 +663,9 @@ where
                                                 // into a `LenientLangTagBuf`.
 
                                                 // Append v to expanded value.
-                                                expanded_value.push(Object::Value(Value::LangString(v)).into())
+                                                expanded_value.push(Object::Value(Value::LangString(v)).into());
                                             } else {
-                                                expanded_value.push(Object::Value(Value::Literal(Literal::String(item.clone()), None)).into())
+                                                expanded_value.push(Object::Value(Value::Literal(Literal::String(item.clone()), None)).into());
                                             }
                                         }
                                         _ => {
@@ -702,8 +702,8 @@ where
                             // For each key-value pair index-index value in value,
                             // ordered lexicographically by index if ordered is true:
                             let mut entries: SmallVec<[&Entry; 8]> = SmallVec::with_capacity(value.len());
-                            for entry in value.iter() {
-                                entries.push(entry)
+                            for entry in value {
+                                entries.push(entry);
                             }
 
                             if options.ordered {
@@ -723,7 +723,7 @@ where
                                 if (container_mapping.contains(ContainerKind::Type) || container_mapping.contains(ContainerKind::Id))
                                     && let Some(previous_context) = active_context.previous_context()
                                 {
-                                    map_context = ContextRef::Borrowed(previous_context)
+                                    map_context = ContextRef::Borrowed(previous_context);
                                 }
 
                                 // If container mapping includes @type and
@@ -761,7 +761,7 @@ where
                                         .await?
                                         .into_processed(),
                                     };
-                                    map_context = ContextRef::owned(processed)
+                                    map_context = ContextRef::owned(processed);
                                 }
 
                                 // Spec step 13.8.3 says "Otherwise, set map
@@ -888,7 +888,7 @@ where
                                             // @index, item does not have an entry @index,
                                             // and expanded index is not @none, add the
                                             // key-value pair (@index-index) to item.
-                                            item.set_index(Some((*index).to_string()))
+                                            item.set_index(Some((*index).to_string()));
                                         } else if container_mapping.contains(ContainerKind::Id) && item.id().is_none() {
                                             // Otherwise, if container mapping includes
                                             // @id item does not have the entry @id,
@@ -921,7 +921,7 @@ where
                                     }
 
                                     // Append item to expanded value.
-                                    expanded_value.push(item)
+                                    expanded_value.push(item);
                                 }
                             }
 

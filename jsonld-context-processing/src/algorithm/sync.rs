@@ -177,12 +177,16 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
         false
     }
 }
-
+// `needless_pass_by_value`: `ProcessingStack` is a single `Arc` handle and
+// `Nullable<ExpandableRef>` wraps a borrow, so by-value is the cheaper calling
+// convention here, and callers `.clone()` the stack deliberately to fork it per
+// branch. Taking references would add an indirection and push the clones inside.
 /// Loader-free mirror of `expand_iri_with` in `iri.rs`. Changes to either must be
 /// applied to both — see the module documentation.
 ///
 /// `depth` is the current recursion depth, checked against [`MAX_SYNC_DEPTH`] by
 /// [`define_sync`], which this function recurses through.
+#[allow(clippy::needless_pass_by_value)]
 pub fn expand_iri_with_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -242,7 +246,7 @@ where
                 }
             }
 
-            if value.find(':').map(|i| i > 0).unwrap_or(false) {
+            if value.find(':').is_some_and(|i| i > 0) {
                 if let Ok(blank_id) = BlankId::new(value) {
                     return Ok(Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id))))));
                 }
@@ -328,12 +332,16 @@ where
     env.warnings.handle(env.vocabulary, MalformedIri(value.clone()).into());
     Term::Id(Id::Invalid(value))
 }
-
+// `needless_pass_by_value`: `ProcessingStack` is a single `Arc` handle and
+// `Nullable<ExpandableRef>` wraps a borrow, so by-value is the cheaper calling
+// convention here, and callers `.clone()` the stack deliberately to fork it per
+// branch. Taking references would add an indirection and push the clones inside.
 /// Loader-free mirror of `define` in `define.rs`. Changes to either must be
 /// applied to both — see the module documentation.
 ///
 /// `depth` is the current recursion depth; exceeding [`MAX_SYNC_DEPTH`] returns
 /// [`Error::ContextOverflow`] rather than risking a stack overflow.
+#[allow(clippy::needless_pass_by_value)]
 pub fn define_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -382,7 +390,7 @@ where
                             return Err(Error::InvalidTermDefinition);
                         }
 
-                        definition.protected = protected
+                        definition.protected = protected;
                     }
 
                     if !options.override_protected
@@ -404,7 +412,7 @@ where
                     let key = unsafe { term.as_key().unwrap_unchecked() };
                     let previous_definition = active_context.set_normal(*key, None);
 
-                    let simple_term = !d.map(|d| d.is_expanded()).unwrap_or(false);
+                    let simple_term = !d.map(jsonld_syntax::context::TermDefinition::is_expanded).unwrap_or(false);
                     let value = term_definition::ExpandedRef::from(d);
 
                     let mut definition = NormalTermDefinition::<N::Iri, N::BlankId> {
@@ -491,12 +499,12 @@ where
                                     let container_value = Container::from_syntax(Nullable::Some(container_value)).map_err(|_| Error::InvalidReverseProperty)?;
 
                                     if matches!(container_value, Container::Set | Container::Index) {
-                                        definition.container = container_value
+                                        definition.container = container_value;
                                     } else {
                                         return Err(Error::InvalidReverseProperty);
                                     }
                                 }
-                            };
+                            }
                         }
 
                         definition.reverse_property = true;
@@ -570,7 +578,7 @@ where
                                     if !key.as_str().contains(':')
                                         && !key.as_str().contains('/')
                                         && simple_term
-                                        && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
+                                        && definition.value.as_ref().is_some_and(|v| is_gen_delim_or_blank(env.vocabulary, v))
                                     {
                                         definition.prefix = true;
                                     }
@@ -604,13 +612,13 @@ where
                                                 && let Some(prefix_iri) = prefix_key.as_iri()
                                                 && let Some(iri) = env.vocabulary.iri(prefix_iri)
                                             {
-                                                result = iri.to_string()
+                                                result = iri.to_string();
                                             }
 
                                             result.push_str(compact_iri.suffix());
 
                                             if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
+                                                definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))));
                                             } else {
                                                 return Err(Error::InvalidIriMapping);
                                             }
@@ -619,7 +627,7 @@ where
 
                                     if definition.value.is_none() {
                                         if let Ok(blank_id) = BlankId::new(term.as_str()) {
-                                            definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
+                                            definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))));
                                         } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
                                             match Iri::try_from(iri_ref) {
                                                 Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
@@ -633,7 +641,7 @@ where
                                                             Some(options.vocab),
                                                         )? {
                                                             Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
-                                                                definition.value = Some(arc)
+                                                                definition.value = Some(arc);
                                                             }
                                                             _ => return Err(Error::InvalidIriMapping),
                                                         }
@@ -648,7 +656,7 @@ where
                                                     let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
                                                     result.push_str(key.as_str());
                                                     if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                        definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
+                                                        definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))));
                                                     } else {
                                                         return Err(Error::InvalidIriMapping);
                                                     }
@@ -672,7 +680,7 @@ where
                                 | Nullable::Some(
                                     syntax::Container::Many(_) | syntax::Container::One(ContainerKind::Graph | ContainerKind::Id | ContainerKind::Type),
                                 ) => return Err(Error::InvalidContainerMapping),
-                                _ => (),
+                                Nullable::Some(_) => (),
                             }
                         }
 
@@ -687,7 +695,7 @@ where
                                     _ => return Err(Error::InvalidTypeMapping),
                                 }
                             } else {
-                                definition.typ = Some(Type::Id)
+                                definition.typ = Some(Type::Id);
                             }
                         }
                     }
@@ -710,7 +718,7 @@ where
                             _ => return Err(Error::InvalidTermDefinition),
                         }
 
-                        definition.index = Some(index_value.to_owned())
+                        definition.index = Some(index_value.to_owned());
                     }
 
                     if let Some(context) = value.context {
@@ -763,7 +771,7 @@ where
 
                         definition.prefix = prefix_value;
 
-                        if definition.prefix && definition.value.as_ref().map(|v| v.is_keyword()).unwrap_or(false) {
+                        if definition.prefix && definition.value.as_ref().is_some_and(|v| v.is_keyword()) {
                             return Err(Error::InvalidTermDefinition);
                         }
                     }
@@ -796,13 +804,17 @@ where
 
     Ok(())
 }
-
+// `needless_pass_by_value`: `ProcessingStack` is a single `Arc` handle and
+// `Nullable<ExpandableRef>` wraps a borrow, so by-value is the cheaper calling
+// convention here, and callers `.clone()` the stack deliberately to fork it per
+// branch. Taking references would add an indirection and push the clones inside.
 /// Loader-free mirror of `process_context` in `mod.rs`. Changes to either must be
 /// applied to both — see the module documentation.
 ///
 /// Call only after [`requires_loader`] has returned `false` for `local_context`:
 /// meeting a remote `@context` IRI or an `@import` here returns
 /// [`Error::LoadingDocumentFailed`] instead of loading it.
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn process_context_sync<'l: 'a, 'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -829,7 +841,7 @@ where
             return Err(Error::InvalidContextEntry);
         }
 
-        options.propagate = propagate
+        options.propagate = propagate;
     }
 
     if !options.propagate && result.previous_context().is_none() {
@@ -841,15 +853,14 @@ where
             syntax::ContextEntry::Null => {
                 if !options.override_protected && result.has_protected_items() {
                     return Err(Error::InvalidContextNullification);
-                } else {
-                    let previous_result = result;
+                }
+                let previous_result = result;
 
-                    result = Context::new(active_context.original_base_url().cloned());
-                    result.set_processing_mode(options.processing_mode);
+                result = Context::new(active_context.original_base_url().cloned());
+                result.set_processing_mode(options.processing_mode);
 
-                    if !options.propagate {
-                        result.set_previous_context(previous_result);
-                    }
+                if !options.propagate {
+                    result.set_previous_context(previous_result);
                 }
             }
 
@@ -881,13 +892,14 @@ where
                         syntax::Nullable::Null => {
                             result.set_base_iri(None);
                         }
-                        syntax::Nullable::Some(iri_ref) => match Iri::try_from(iri_ref.as_ref()) {
-                            Ok(iri) => result.set_base_iri(Some(env.vocabulary.insert(iri))),
-                            Err(_) => {
+                        syntax::Nullable::Some(iri_ref) => {
+                            if let Ok(iri) = Iri::try_from(iri_ref.as_ref()) {
+                                result.set_base_iri(Some(env.vocabulary.insert(iri)));
+                            } else {
                                 let resolved = resolve_iri(env.vocabulary, iri_ref.as_ref(), result.base_iri()).ok_or(Error::InvalidBaseIri)?;
-                                result.set_base_iri(Some(resolved))
+                                result.set_base_iri(Some(resolved));
                             }
-                        },
+                        }
                     }
                 }
 
@@ -964,7 +976,7 @@ where
                         protected,
                         options,
                         depth + 1,
-                    )?
+                    )?;
                 }
 
                 for (key, _binding) in context.bindings() {
@@ -983,7 +995,7 @@ where
                         protected,
                         options,
                         depth + 1,
-                    )?
+                    )?;
                 }
             }
         }

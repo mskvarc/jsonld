@@ -92,12 +92,14 @@ impl<I> Options<I> {
     /// Returns these options with the `ordered` flag set to `false`.
     ///
     /// This means entries will not be ordered by keys before being processed.
+    #[must_use]
     pub fn unordered(self) -> Self {
         Self { ordered: false, ..self }
     }
 
     /// Returns these options with the `expand_context` set to the given
     /// `context`.
+    #[must_use]
     pub fn with_expand_context(self, context: RemoteContextReference<I>) -> Self {
         Self {
             expand_context: Some(context),

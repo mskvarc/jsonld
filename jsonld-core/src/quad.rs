@@ -91,11 +91,11 @@ impl<'a, T, B> Quads<'a, T, B> {
     fn push_node(&mut self, graph: Option<&'a Id<T, B>>, node: &'a Node<T, B>) {
         if let Some(id) = &node.id {
             if let Some(graph_entry) = node.graph_entry() {
-                self.stack.push(QuadsFrame::IndexedObjectSlice(Some(id), graph_entry.iter()))
+                self.stack.push(QuadsFrame::IndexedObjectSlice(Some(id), graph_entry.iter()));
             }
 
             if let Some(included) = node.included_entry() {
-                self.stack.push(QuadsFrame::IndexedNodeSlice(graph, included.iter()))
+                self.stack.push(QuadsFrame::IndexedNodeSlice(graph, included.iter()));
             }
 
             if let Some(reverse_properties) = node.reverse_properties_entry() {

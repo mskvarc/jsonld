@@ -30,7 +30,7 @@ impl<T> Indexed<T> {
     /// Create a new (maybe) indexed value.
     #[inline(always)]
     pub fn new(value: T, index: Option<String>) -> Self {
-        Indexed { value, index }
+        Indexed { index, value }
     }
 
     /// Get a reference to the inner value.
@@ -62,7 +62,7 @@ impl<T> Indexed<T> {
     /// Sets the `@index` of the value, or removes it when given `None`.
     #[inline(always)]
     pub fn set_index(&mut self, index: Option<String>) {
-        self.index = index
+        self.index = index;
     }
 
     /// Consumes the indexed value, returning the inner value and its
@@ -88,6 +88,10 @@ impl<T> Indexed<T> {
     }
 
     /// Try to cast the inner value.
+    ///
+    /// # Errors
+    ///
+    /// Returns the index and the conversion error when the inner value does not convert.
     #[inline(always)]
     pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U>, Indexed<U::Error>> {
         match self.value.try_into() {

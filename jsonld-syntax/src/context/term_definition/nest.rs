@@ -16,6 +16,7 @@ pub enum Nest {
 
 impl Nest {
     /// Returns this value as it is spelled in the context.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Nest => "@nest",
@@ -25,6 +26,7 @@ impl Nest {
 
     /// Converts this value into an owned `String`, allocating for the `@nest`
     /// keyword.
+    #[must_use]
     pub fn into_string(self) -> String {
         match self {
             Self::Nest => "@nest".to_string(),
@@ -47,7 +49,7 @@ impl Eq for Nest {}
 
 impl Hash for Nest {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
+        self.as_str().hash(state);
     }
 }
 
@@ -88,7 +90,7 @@ impl<'de> serde::Deserialize<'de> for Nest {
     {
         struct Visitor;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
+        impl serde::de::Visitor<'_> for Visitor {
             type Value = Nest;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

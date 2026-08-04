@@ -43,17 +43,17 @@ impl IndexTerm {
         }
     }
 
-    fn from_id_index(id: jsonld::ValidId<IriIndex, BlankIdIndex>) -> Self {
+    fn from_id_index(id: &jsonld::ValidId<IriIndex, BlankIdIndex>) -> Self {
         match id {
-            jsonld::ValidId::Iri(i) => Self::Iri(i),
-            jsonld::ValidId::Blank(b) => Self::Blank(b),
+            jsonld::ValidId::Iri(i) => Self::Iri(*i),
+            jsonld::ValidId::Blank(b) => Self::Blank(*b),
         }
     }
 
     fn from_value(v: jsonld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>) -> Self {
         use jsonld::rdf::Value;
         match v {
-            Value::Id(id) => Self::from_id_index(id),
+            Value::Id(id) => Self::from_id_index(&id),
             Value::Literal(l) => Self::Literal(l),
         }
     }
@@ -153,7 +153,7 @@ impl to_rdf::Test {
             .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(self.async_run()))
             .unwrap();
 
-        child.join().unwrap()
+        child.join().unwrap();
     }
 
     async fn async_run(self) {
@@ -163,7 +163,7 @@ impl to_rdf::Test {
         }
 
         for comment in self.comments {
-            println!("{}", comment)
+            println!("{comment}");
         }
 
         let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
@@ -172,10 +172,10 @@ impl to_rdf::Test {
 
         let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
         if self.options.spec_version == Some("json-ld-1.0") {
-            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0
+            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0;
         }
         if let Some(p) = self.options.processing_mode {
-            options.processing_mode = p
+            options.processing_mode = p;
         }
 
         options.base = self.options.base.map(|iri| vocabulary.insert(iri));
@@ -197,10 +197,10 @@ impl to_rdf::Test {
                     .cloned()
                     .map(|rdfx::GeneralizedQuad(s, p, o, g)| {
                         rdfx::Quad(
-                            IndexTerm::from_id_index(s),
-                            IndexTerm::from_id_index(p),
+                            IndexTerm::from_id_index(&s),
+                            IndexTerm::from_id_index(&p),
                             IndexTerm::from_value(o),
-                            g.map(IndexTerm::from_id_index),
+                            g.as_ref().map(IndexTerm::from_id_index),
                         )
                     })
                     .collect();
@@ -252,7 +252,7 @@ impl to_rdf::Test {
                     }
                 }
 
-                assert!(success)
+                assert!(success);
             }
             to_rdf::Description::Negative { expected_error_code } => {
                 let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
@@ -261,7 +261,7 @@ impl to_rdf::Test {
                 match result {
                     Ok(expanded) => {
                         eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-                        panic!("expansion succeeded when it should have failed with `{}`", expected_error_code)
+                        panic!("expansion succeeded when it should have failed with `{expected_error_code}`")
                     }
                     Err(_e) => {
                         // The test only asserts that expansion failed, not that

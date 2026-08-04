@@ -45,7 +45,7 @@ pub(crate) enum LiteralValue<'a> {
     Inferred(jsonld_syntax::String),
 }
 
-impl<'a> LiteralValue<'a> {
+impl LiteralValue<'_> {
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::Given(v) => v.as_str(),
@@ -82,6 +82,7 @@ pub enum LiteralExpansionError {
 
 impl LiteralExpansionError {
     /// Returns the JSON-LD error code this error is reported under.
+    #[must_use]
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
@@ -134,9 +135,8 @@ where
         // `false` for vocab.
         Some(Type::Id) if let Some(s) = value.as_str() => {
             let mut node = Node::new();
-            let id_term = match expand_iri(&mut env, active_context, Nullable::Some(s.into()), true, None)? {
-                Some(t) => t,
-                None => return Err(LiteralExpansionError::IdExpansionEmpty),
+            let Some(id_term) = expand_iri(&mut env, active_context, Nullable::Some(s.into()), true, None)? else {
+                return Err(LiteralExpansionError::IdExpansionEmpty);
             };
             node.id = node_id_of_term(id_term);
             Ok(Object::node(node).into())
@@ -176,7 +176,7 @@ where
             // associated with the type mapping.
             let mut ty = None;
             match active_property_type {
-                None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
+                None | Some(Type::Id | Type::Vocab | Type::None) => {
                     // Otherwise, if value is a string:
                     if let Literal::String(s) = result {
                         // Initialize `language` to the language mapping for
@@ -218,7 +218,7 @@ where
 
                 Some(t) => {
                     if let Ok(t) = t.into_iri() {
-                        ty = Some(t)
+                        ty = Some(t);
                     } else {
                         return Err(LiteralExpansionError::InvalidTypeValue);
                     }

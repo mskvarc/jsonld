@@ -17,6 +17,7 @@ pub enum ProcessingMode {
 impl ProcessingMode {
     /// Returns the name of the processing mode.
     #[inline(always)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             ProcessingMode::JsonLd1_0 => "json-ld-1.0",

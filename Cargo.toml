@@ -40,6 +40,15 @@ unreachable = "deny"
 todo = "deny"
 unimplemented = "deny"
 too_many_arguments = "allow"
+pedantic = { level = "warn", priority = -1 }
+inline_always = "allow"
+too_many_lines = "allow"
+match_same_arms = "allow"
+wildcard_enum_match_arm = "allow"
+iter_without_into_iter = "allow"
+struct_excessive_bools = "allow"
+struct_field_names = "allow"
+format_push_string = "allow"
 
 [workspace.dependencies]
 jsonld = { path = "jsonld", version = "0.22.0" }

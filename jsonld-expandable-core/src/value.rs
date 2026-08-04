@@ -26,6 +26,7 @@ pub trait JsonValue: Sized {
     /// Builds a string value from a slice.
     fn string(s: &str) -> Self;
     /// Builds a string value from an owned string.
+    #[must_use]
     fn from_string(s: String) -> Self {
         Self::string(&s)
     }
@@ -127,14 +128,14 @@ impl<V: JsonValue, T: ToJsonValue<V> + ?Sized> ToJsonValue<V> for &T {
 impl<V: JsonValue, T: ToJsonValue<V>> ToJsonValue<V> for Vec<T> {
     #[inline]
     fn to_json_value(&self) -> V {
-        V::array(self.iter().map(|t| t.to_json_value()))
+        V::array(self.iter().map(ToJsonValue::to_json_value))
     }
 }
 
 impl<V: JsonValue, T: ToJsonValue<V>> ToJsonValue<V> for [T] {
     #[inline]
     fn to_json_value(&self) -> V {
-        V::array(self.iter().map(|t| t.to_json_value()))
+        V::array(self.iter().map(ToJsonValue::to_json_value))
     }
 }
 
@@ -148,7 +149,7 @@ impl<V: JsonValue, T: ToJsonValue<V>> ToJsonValue<V> for Option<T> {
     }
 }
 
-impl<V: JsonValue, K, T> ToJsonValue<V> for HashMap<K, T>
+impl<V: JsonValue, K, T, S> ToJsonValue<V> for HashMap<K, T, S>
 where
     K: AsRef<str>,
     T: ToJsonValue<V>,

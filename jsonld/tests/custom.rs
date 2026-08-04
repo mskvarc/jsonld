@@ -30,5 +30,5 @@ fn custom_01_high_memory() {
         .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(custom_01()))
         .unwrap();
 
-    child.join().unwrap()
+    child.join().unwrap();
 }

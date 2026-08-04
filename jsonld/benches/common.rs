@@ -234,7 +234,7 @@ pub fn vocabulary_corpus() -> Vec<Scenario> {
 /// this against an [`IndexVocabulary`] makes per-item interning cost visible.
 fn heavy_node_array(n: usize) -> Scenario {
     let context = r#"{"@vocab":"https://ex.org/vocab/","author":{"@id":"https://ex.org/vocab/author","@type":"@id"},"cites":{"@id":"https://ex.org/vocab/cites","@type":"@id"},"about":{"@id":"https://ex.org/vocab/about","@type":"@id"},"license":{"@id":"https://ex.org/vocab/license","@type":"@id"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -255,25 +255,21 @@ fn heavy_node_array(n: usize) -> Scenario {
 
 fn simple_flat() -> Scenario {
     let context = r#"{"name":"http://xmlns.com/foaf/0.1/name","homepage":{"@id":"http://xmlns.com/foaf/0.1/homepage","@type":"@id"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://example.org/alice","name":"Alice","homepage":"https://example.org/alice/home"}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@id":"https://example.org/alice","name":"Alice","homepage":"https://example.org/alice/home"}}"#);
     scenario("simple_flat", doc, context.to_string())
 }
 
 fn nested_objects() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/","knows":{"@id":"http://schema.org/knows"},"address":{"@id":"http://schema.org/address"}}"#;
     let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/alice","name":"Alice","address":{{"streetAddress":"1 Foo St","addressLocality":"Bar","postalCode":"12345"}},"knows":[{{"name":"Bob","address":{{"streetAddress":"2 Baz Ave","postalCode":"54321"}}}},{{"name":"Carol","address":{{"streetAddress":"3 Qux Rd","postalCode":"67890"}}}}]}}"#,
-        ctx = context
+        r#"{{"@context":{context},"@id":"https://ex.org/alice","name":"Alice","address":{{"streetAddress":"1 Foo St","addressLocality":"Bar","postalCode":"12345"}},"knows":[{{"name":"Bob","address":{{"streetAddress":"2 Baz Ave","postalCode":"54321"}}}},{{"name":"Carol","address":{{"streetAddress":"3 Qux Rd","postalCode":"67890"}}}}]}}"#
     );
     scenario("nested_objects", doc, context.to_string())
 }
 
 fn deep_nested(depth: usize) -> Scenario {
     let context = r#"{"name":"http://ex.org/name","child":"http://ex.org/child"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"name":"root""#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"name":"root""#);
     for i in 0..depth {
         doc.push_str(&format!(r#","child":{{"name":"n{i}""#));
     }
@@ -292,7 +288,7 @@ fn very_deep_nested(depth: usize) -> Scenario {
 
 fn wide_array_values(n: usize) -> Scenario {
     let context = r#"{"items":"http://ex.org/items"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"items":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"items":["#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -325,7 +321,7 @@ fn many_properties(n: usize) -> Scenario {
 
 fn many_entities(n: usize) -> Scenario {
     let context = r#"{"name":"http://xmlns.com/foaf/0.1/name","knows":{"@id":"http://xmlns.com/foaf/0.1/knows","@type":"@id"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -341,7 +337,7 @@ fn many_entities(n: usize) -> Scenario {
 
 fn type_coercion_iri() -> Scenario {
     let context = r#"{"author":{"@id":"http://schema.org/author","@type":"@id"},"creator":{"@id":"http://purl.org/dc/terms/creator","@type":"@id"},"editor":{"@id":"http://schema.org/editor","@type":"@id"},"reviewer":{"@id":"http://schema.org/reviewer","@type":"@id"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"@id":"https://ex.org/book","#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"@id":"https://ex.org/book","#);
     for (i, term) in ["author", "creator", "editor", "reviewer"].iter().enumerate() {
         if i > 0 {
             doc.push(',');
@@ -361,16 +357,13 @@ fn type_coercion_iri() -> Scenario {
 
 fn type_coercion_xsd() -> Scenario {
     let context = r#"{"date":{"@id":"http://schema.org/date","@type":"http://www.w3.org/2001/XMLSchema#dateTime"},"count":{"@id":"http://schema.org/count","@type":"http://www.w3.org/2001/XMLSchema#integer"},"price":{"@id":"http://schema.org/price","@type":"http://www.w3.org/2001/XMLSchema#decimal"},"active":{"@id":"http://schema.org/active","@type":"http://www.w3.org/2001/XMLSchema#boolean"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/r","date":"2026-04-27T10:00:00Z","count":"42","price":"19.99","active":"true"}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@id":"https://ex.org/r","date":"2026-04-27T10:00:00Z","count":"42","price":"19.99","active":"true"}}"#);
     scenario("type_coercion_xsd", doc, context.to_string())
 }
 
 fn container_list() -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@list"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"items":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"items":["#);
     for i in 0..200 {
         if i > 0 {
             doc.push(',');
@@ -383,7 +376,7 @@ fn container_list() -> Scenario {
 
 fn container_set() -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@set"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"items":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"items":["#);
     for i in 0..200 {
         if i > 0 {
             doc.push(',');
@@ -396,16 +389,13 @@ fn container_set() -> Scenario {
 
 fn container_language() -> Scenario {
     let context = r#"{"name":{"@id":"http://schema.org/name","@container":"@language"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"name":{{"en":"hello","fr":"salut","de":"hallo","es":"hola","it":"ciao","ja":"こんにちは","zh":"你好"}}}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"name":{{"en":"hello","fr":"salut","de":"hallo","es":"hola","it":"ciao","ja":"こんにちは","zh":"你好"}}}}"#);
     scenario("container_language", doc, context.to_string())
 }
 
 fn container_index() -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@index"},"name":"http://schema.org/name"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"items":{{"#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"items":{{"#);
     for i in 0..50 {
         if i > 0 {
             doc.push(',');
@@ -418,7 +408,7 @@ fn container_index() -> Scenario {
 
 fn container_id() -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@id"},"name":"http://schema.org/name"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"items":{{"#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"items":{{"#);
     for i in 0..50 {
         if i > 0 {
             doc.push(',');
@@ -432,110 +422,88 @@ fn container_id() -> Scenario {
 fn container_type() -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@type"},"name":"http://schema.org/name"}"#;
     let doc = format!(
-        r#"{{"@context":{ctx},"items":{{"http://schema.org/Person":{{"@id":"https://ex.org/p1","name":"Alice"}},"http://schema.org/Organization":{{"@id":"https://ex.org/o1","name":"Acme"}}}}}}"#,
-        ctx = context
+        r#"{{"@context":{context},"items":{{"http://schema.org/Person":{{"@id":"https://ex.org/p1","name":"Alice"}},"http://schema.org/Organization":{{"@id":"https://ex.org/o1","name":"Acme"}}}}}}"#
     );
     scenario("container_type", doc, context.to_string())
 }
 
 fn container_graph() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/","graph":{"@id":"http://ex.org/graph","@container":"@graph"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/c","graph":{{"name":"Alice","age":30}}}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@id":"https://ex.org/c","graph":{{"name":"Alice","age":30}}}}"#);
     scenario("container_graph", doc, context.to_string())
 }
 
 fn type_scoped() -> Scenario {
     let context = r#"{"@vocab":"http://ex.org/","Person":{"@id":"http://schema.org/Person","@context":{"name":"http://schema.org/name","age":"http://schema.org/age","email":"http://schema.org/email"}}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@type":"Person","name":"Alice","age":30,"email":"a@example.com"}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@type":"Person","name":"Alice","age":30,"email":"a@example.com"}}"#);
     scenario("type_scoped", doc, context.to_string())
 }
 
 fn property_scoped() -> Scenario {
     let context =
         r#"{"@vocab":"http://ex.org/","child":{"@id":"http://ex.org/child","@context":{"name":"http://schema.org/name","age":"http://schema.org/age"}}}"#;
-    let doc = format!(r#"{{"@context":{ctx},"child":{{"name":"Bob","age":12}}}}"#, ctx = context);
+    let doc = format!(r#"{{"@context":{context},"child":{{"name":"Bob","age":12}}}}"#);
     scenario("property_scoped", doc, context.to_string())
 }
 
 fn protected_terms() -> Scenario {
     let context = r#"{"@protected":true,"@vocab":"http://schema.org/","name":"http://schema.org/name","age":"http://schema.org/age"}"#;
-    let doc = format!(r#"{{"@context":{ctx},"name":"Alice","age":30}}"#, ctx = context);
+    let doc = format!(r#"{{"@context":{context},"name":"Alice","age":30}}"#);
     scenario("protected_terms", doc, context.to_string())
 }
 
 fn nested_keyword() -> Scenario {
     let context =
         r#"{"@vocab":"http://ex.org/","details":"@nest","name":"http://schema.org/name","age":"http://schema.org/age","email":"http://schema.org/email"}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"name":"Alice","details":{{"age":30,"email":"a@example.com"}}}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"name":"Alice","details":{{"age":30,"email":"a@example.com"}}}}"#);
     scenario("nested_keyword", doc, context.to_string())
 }
 
 fn included_keyword() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/","included":"@included"}"#;
     let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/a","name":"A","included":[{{"@id":"https://ex.org/b","name":"B"}},{{"@id":"https://ex.org/c","name":"C"}}]}}"#,
-        ctx = context
+        r#"{{"@context":{context},"@id":"https://ex.org/a","name":"A","included":[{{"@id":"https://ex.org/b","name":"B"}},{{"@id":"https://ex.org/c","name":"C"}}]}}"#
     );
     scenario("included_keyword", doc, context.to_string())
 }
 
 fn reverse_property() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/","wroteBy":{"@reverse":"author"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/book","wroteBy":[{{"@id":"https://ex.org/alice"}},{{"@id":"https://ex.org/bob"}}]}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@id":"https://ex.org/book","wroteBy":[{{"@id":"https://ex.org/alice"}},{{"@id":"https://ex.org/bob"}}]}}"#);
     scenario("reverse_property", doc, context.to_string())
 }
 
 fn value_object_lang_dir() -> Scenario {
     let context = r#"{"name":{"@id":"http://schema.org/name","@container":"@set"}}"#;
     let doc = format!(
-        r#"{{"@context":{ctx},"name":[{{"@value":"hello","@language":"en"}},{{"@value":"שלום","@language":"he","@direction":"rtl"}},{{"@value":"hola","@language":"es"}},{{"@value":"مرحبا","@language":"ar","@direction":"rtl"}}]}}"#,
-        ctx = context
+        r#"{{"@context":{context},"name":[{{"@value":"hello","@language":"en"}},{{"@value":"שלום","@language":"he","@direction":"rtl"}},{{"@value":"hola","@language":"es"}},{{"@value":"مرحبا","@language":"ar","@direction":"rtl"}}]}}"#
     );
     scenario("value_object_lang_dir", doc, context.to_string())
 }
 
 fn multiple_types() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/"}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/a","@type":["Person","Author","Researcher","Speaker","Educator"]}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@id":"https://ex.org/a","@type":["Person","Author","Researcher","Speaker","Educator"]}}"#);
     scenario("multiple_types", doc, context.to_string())
 }
 
 fn compact_iris_prefixes() -> Scenario {
     let context = r#"{"foaf":"http://xmlns.com/foaf/0.1/","schema":"http://schema.org/","dc":"http://purl.org/dc/terms/","ex":"http://example.org/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#","rdfs":"http://www.w3.org/2000/01/rdf-schema#","xsd":"http://www.w3.org/2001/XMLSchema#"}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"@id":"ex:alice","foaf:name":"Alice","schema:age":30,"dc:title":"About Alice","rdfs:label":"Alice"}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"@id":"ex:alice","foaf:name":"Alice","schema:age":30,"dc:title":"About Alice","rdfs:label":"Alice"}}"#);
     scenario("compact_iris_prefixes", doc, context.to_string())
 }
 
 fn vocab_expansion() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/"}"#;
     let doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/p","name":"Alice","age":30,"email":"a@example.com","telephone":"+1-555-1234","jobTitle":"Engineer"}}"#,
-        ctx = context
+        r#"{{"@context":{context},"@id":"https://ex.org/p","name":"Alice","age":30,"email":"a@example.com","telephone":"+1-555-1234","jobTitle":"Engineer"}}"#
     );
     scenario("vocab_expansion", doc, context.to_string())
 }
 
 fn graph_named() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"@id":"https://ex.org/g1","@graph":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"@id":"https://ex.org/g1","@graph":["#);
     for i in 0..50 {
         if i > 0 {
             doc.push(',');
@@ -548,25 +516,19 @@ fn graph_named() -> Scenario {
 
 fn nested_lists() -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@list"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"items":[{{"@list":[1,2,3,4,5]}},{{"@list":[6,7,8,9,10]}},{{"@list":[11,12,13,14,15]}}]}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"items":[{{"@list":[1,2,3,4,5]}},{{"@list":[6,7,8,9,10]}},{{"@list":[11,12,13,14,15]}}]}}"#);
     scenario("nested_lists", doc, context.to_string())
 }
 
 fn json_literal() -> Scenario {
     let context = r#"{"data":{"@id":"http://ex.org/data","@type":"@json"}}"#;
-    let doc = format!(
-        r#"{{"@context":{ctx},"data":{{"foo":"bar","nested":{{"a":1,"b":[2,3,4]}},"arr":[true,null,"x"]}}}}"#,
-        ctx = context
-    );
+    let doc = format!(r#"{{"@context":{context},"data":{{"foo":"bar","nested":{{"a":1,"b":[2,3,4]}},"arr":[true,null,"x"]}}}}"#);
     scenario("json_literal", doc, context.to_string())
 }
 
 fn blank_nodes_many(n: usize) -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/","knows":{"@id":"http://schema.org/knows","@type":"@id"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -581,8 +543,7 @@ fn blank_nodes_many(n: usize) -> Scenario {
 fn mixed_realistic() -> Scenario {
     let context = r#"{"@vocab":"http://schema.org/","foaf":"http://xmlns.com/foaf/0.1/","name":{"@id":"http://schema.org/name","@container":"@language"},"knows":{"@id":"http://schema.org/knows","@type":"@id"},"affiliations":{"@id":"http://schema.org/affiliation","@container":"@set"},"tags":{"@id":"http://schema.org/keywords","@container":"@list"},"docs":{"@id":"http://schema.org/document","@container":"@index"},"address":{"@id":"http://schema.org/address","@context":{"city":"http://schema.org/addressLocality","zip":"http://schema.org/postalCode"}}}"#;
     let mut doc = format!(
-        r#"{{"@context":{ctx},"@id":"https://ex.org/alice","@type":["Person","foaf:Person"],"name":{{"en":"Alice","fr":"Alice","de":"Alice"}},"knows":["https://ex.org/bob","https://ex.org/carol","https://ex.org/dan"],"affiliations":[{{"@id":"https://ex.org/acme","name":{{"en":"Acme"}}}},{{"@id":"https://ex.org/foo","name":{{"en":"Foo Inc"}}}}],"tags":["rdf","jsonld","semweb"],"docs":{{"alpha":{{"@id":"https://ex.org/d1","name":{{"en":"Doc 1"}}}},"beta":{{"@id":"https://ex.org/d2","name":{{"en":"Doc 2"}}}}}},"address":{{"city":"Paris","zip":"75000"}}"#,
-        ctx = context
+        r#"{{"@context":{context},"@id":"https://ex.org/alice","@type":["Person","foaf:Person"],"name":{{"en":"Alice","fr":"Alice","de":"Alice"}},"knows":["https://ex.org/bob","https://ex.org/carol","https://ex.org/dan"],"affiliations":[{{"@id":"https://ex.org/acme","name":{{"en":"Acme"}}}},{{"@id":"https://ex.org/foo","name":{{"en":"Foo Inc"}}}}],"tags":["rdf","jsonld","semweb"],"docs":{{"alpha":{{"@id":"https://ex.org/d1","name":{{"en":"Doc 1"}}}},"beta":{{"@id":"https://ex.org/d2","name":{{"en":"Doc 2"}}}}}},"address":{{"city":"Paris","zip":"75000"}}"#
     );
     doc.push_str(",\"colleagues\":[");
     for i in 0..20 {
@@ -597,7 +558,7 @@ fn mixed_realistic() -> Scenario {
 
 fn index_map_large(n: usize) -> Scenario {
     let context = r#"{"items":{"@id":"http://ex.org/items","@container":"@index"},"name":"http://schema.org/name","val":"http://ex.org/val"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"items":{{"#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"items":{{"#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -610,7 +571,7 @@ fn index_map_large(n: usize) -> Scenario {
 
 fn language_map_large(n: usize) -> Scenario {
     let context = r#"{"name":{"@id":"http://schema.org/name","@container":"@language"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"name":{{"#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"name":{{"#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -623,7 +584,7 @@ fn language_map_large(n: usize) -> Scenario {
 
 fn array_of_value_objects(n: usize) -> Scenario {
     let context = r#"{"vals":{"@id":"http://ex.org/vals","@container":"@set"}}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"vals":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"vals":["#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');
@@ -635,13 +596,17 @@ fn array_of_value_objects(n: usize) -> Scenario {
 }
 
 /// Representative NGSI-LD-shaped entity collection: a `@graph` of `n` entities,
-/// each with `id`, `type`, `observedAt`, a GeoProperty `location`, and ~10
+/// each with `id`, `type`, `observedAt`, a `GeoProperty` `location`, and ~10
 /// Property/Relationship attributes. Designed to stress per-entity expansion
 /// work — both the wide-graph (`many_entities`-like) and per-node nesting
 /// dimensions in a single fixture.
+// The casts below turn a small loop counter into coordinates and speeds for a
+// synthetic document. `n` is in the hundreds, so neither precision nor range is
+// in play; f64 loses nothing below 2^53 and the modulo results fit an i32.
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn ngsi_ld_entity_collection(n: usize) -> Scenario {
     let context = r#"{"@vocab":"https://uri.etsi.org/ngsi-ld/","Property":"https://uri.etsi.org/ngsi-ld/Property","Relationship":"https://uri.etsi.org/ngsi-ld/Relationship","GeoProperty":"https://uri.etsi.org/ngsi-ld/GeoProperty","value":{"@id":"https://uri.etsi.org/ngsi-ld/hasValue"},"object":{"@id":"https://uri.etsi.org/ngsi-ld/hasObject","@type":"@id"},"observedAt":{"@id":"https://uri.etsi.org/ngsi-ld/observedAt","@type":"https://uri.etsi.org/ngsi-ld/DateTime"},"location":"https://uri.etsi.org/ngsi-ld/location","speed":"https://example.org/vehicle/speed","heading":"https://example.org/vehicle/heading","brakes":"https://example.org/vehicle/brakes","fuelLevel":"https://example.org/vehicle/fuelLevel","operator":"https://example.org/vehicle/operator","carriesGoods":"https://example.org/vehicle/carriesGoods","status":"https://example.org/vehicle/status","tagId":"https://example.org/vehicle/tagId","route":"https://example.org/vehicle/route","battery":"https://example.org/vehicle/battery"}"#;
-    let mut doc = format!(r#"{{"@context":{ctx},"@graph":["#, ctx = context);
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
     for i in 0..n {
         if i > 0 {
             doc.push(',');

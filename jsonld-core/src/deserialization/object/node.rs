@@ -82,7 +82,7 @@ where
     {
         match self.graph() {
             Some(g) => {
-                for object in g.iter() {
+                for object in g {
                     visitor.subject(object.inner())?;
                 }
             }
@@ -116,7 +116,7 @@ where
 
 struct Types<'a, T, B>(&'a [crate::Id<T, B>]);
 
-impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Types<'a, T, B>
+impl<T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Types<'_, T, B>
 where
     T: LinkedDataResource<I> + LinkedDataSubject<I>,
     B: LinkedDataResource<I> + LinkedDataSubject<I>,
@@ -137,7 +137,7 @@ where
 
 struct Objects<'a, T, B>(&'a [IndexedObject<T, B>]);
 
-impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Objects<'a, T, B>
+impl<T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Objects<'_, T, B>
 where
     T: LinkedDataResource<I> + LinkedDataSubject<I>,
     B: LinkedDataResource<I> + LinkedDataSubject<I>,
@@ -156,7 +156,7 @@ where
 
 struct Nodes<'a, T, B>(&'a [IndexedNode<T, B>]);
 
-impl<'a, T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Nodes<'a, T, B>
+impl<T, B, I: Interpretation> LinkedDataPredicateObjects<I> for Nodes<'_, T, B>
 where
     T: LinkedDataResource<I> + LinkedDataSubject<I>,
     B: LinkedDataResource<I> + LinkedDataSubject<I>,

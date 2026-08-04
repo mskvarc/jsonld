@@ -143,8 +143,33 @@ pub enum Keyword {
 
 impl Keyword {
     /// Returns the spelling of this keyword, including the leading `@`.
+    #[must_use]
     pub fn into_str(self) -> &'static str {
-        use Keyword::*;
+        use Keyword::{
+            Base,
+            Container,
+            Context,
+            Direction,
+            Graph,
+            Id,
+            Import,
+            Included,
+            Index,
+            Json,
+            Language,
+            List,
+            Nest,
+            None,
+            Prefix,
+            Propagate,
+            Protected,
+            Reverse,
+            Set,
+            Type,
+            Value,
+            Version,
+            Vocab,
+        };
         match self {
             Base => "@base",
             Container => "@container",
@@ -177,7 +202,31 @@ impl<'a> TryFrom<&'a str> for Keyword {
     type Error = NotAKeyword<&'a str>;
 
     fn try_from(s: &'a str) -> Result<Keyword, NotAKeyword<&'a str>> {
-        use Keyword::*;
+        use Keyword::{
+            Base,
+            Container,
+            Context,
+            Direction,
+            Graph,
+            Id,
+            Import,
+            Included,
+            Index,
+            Json,
+            Language,
+            List,
+            Nest,
+            None,
+            Prefix,
+            Propagate,
+            Protected,
+            Reverse,
+            Set,
+            Type,
+            Value,
+            Version,
+            Vocab,
+        };
         match s {
             "@base" => Ok(Base),
             "@container" => Ok(Container),
@@ -220,6 +269,7 @@ impl fmt::Display for Keyword {
 }
 
 /// Checks whether the given string is one of the JSON-LD keywords.
+#[must_use]
 pub fn is_keyword(str: &str) -> bool {
     Keyword::try_from(str).is_ok()
 }
@@ -235,6 +285,7 @@ fn is_alpha(c: char) -> bool {
 /// Such strings are reserved for future revisions of JSON-LD. A keyword-like
 /// term that is not an actual keyword must be ignored during processing rather
 /// than treated as a term.
+#[must_use]
 pub fn is_keyword_like(s: &str) -> bool {
     if s.len() > 1 {
         for (i, c) in s.chars().enumerate() {
@@ -259,6 +310,7 @@ pub struct KeywordType;
 
 impl KeywordType {
     /// Returns `"@type"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         "@type"
     }

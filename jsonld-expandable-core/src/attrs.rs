@@ -70,7 +70,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
                 return Err(meta.error(format!(
                     "unknown jsonld container attribute `{}`; expected one of: \
                      type, fragment, debug, prefix",
-                    meta.path.get_ident().map_or("?".into(), |i| i.to_string())
+                    meta.path.get_ident().map_or("?".into(), std::string::ToString::to_string)
                 )));
             }
             Ok(())
@@ -176,7 +176,7 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
             } else {
                 return Err(meta.error(format!(
                     "unknown jsonld field attribute `{}`",
-                    meta.path.get_ident().map_or("?".into(), |i| i.to_string())
+                    meta.path.get_ident().map_or("?".into(), std::string::ToString::to_string)
                 )));
             }
             Ok(())

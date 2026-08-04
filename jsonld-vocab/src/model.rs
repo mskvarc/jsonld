@@ -196,7 +196,7 @@ pub struct ResolvedTerm {
 pub struct ResolvedModel {
     /// Resolved prefixes.
     pub prefixes: Vec<ResolvedPrefix>,
-    /// Class-like terms (TitleCase compact names).
+    /// Class-like terms (`TitleCase` compact names).
     pub class_terms: Vec<ResolvedTerm>,
     /// Property-like terms (lowerCase compact names).
     pub property_terms: Vec<ResolvedTerm>,

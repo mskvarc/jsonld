@@ -53,13 +53,13 @@ pub use options::*;
 pub use value::InvalidValue;
 pub use warning::*;
 
-pub(crate) use array::*;
+pub(crate) use array::expand_array;
 pub(crate) use document::filter_top_level_item;
-pub(crate) use element::*;
+pub(crate) use element::{ActiveProperty, ExpandedEntry, expand_element};
 pub(crate) use jsonld_context_processing::algorithm::expand_iri_simple as expand_iri;
-pub(crate) use literal::*;
-pub(crate) use node::*;
-pub(crate) use value::*;
+pub(crate) use literal::{GivenLiteralValue, LiteralValue, expand_literal};
+pub(crate) use node::{expand_node, node_id_of_term};
+pub(crate) use value::expand_value;
 
 /// Result of a document expansion, where `E` is the error type of the document
 /// loader used to fetch the remote contexts.

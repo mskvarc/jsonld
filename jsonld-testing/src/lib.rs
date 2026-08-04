@@ -36,7 +36,6 @@ impl WellKnown {
 
 struct MountAttribute {
     prefix: IriBuf,
-    _comma: syn::token::Comma,
     target: PathBuf,
 }
 
@@ -45,13 +44,12 @@ impl syn::parse::Parse for MountAttribute {
         let prefix: syn::LitStr = input.parse()?;
         let prefix = IriBuf::new(prefix.value()).map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
-        let _comma = input.parse()?;
+        let _: syn::token::Comma = input.parse()?;
 
         let target: syn::LitStr = input.parse()?;
 
         Ok(Self {
             prefix,
-            _comma,
             target: target.value().into(),
         })
     }
@@ -85,7 +83,6 @@ impl syn::parse::Parse for IriArg {
 
 struct PrefixBinding {
     prefix: String,
-    _eq: syn::token::Eq,
     iri: IriBuf,
 }
 
@@ -93,24 +90,17 @@ impl syn::parse::Parse for PrefixBinding {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let prefix: syn::LitStr = input.parse()?;
 
-        let _eq = input.parse()?;
+        let _: syn::token::Eq = input.parse()?;
 
         let iri: syn::LitStr = input.parse()?;
         let iri = IriBuf::new(iri.value()).map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
-        Ok(Self {
-            prefix: prefix.value(),
-            _eq,
-            iri,
-        })
+        Ok(Self { prefix: prefix.value(), iri })
     }
 }
 
 struct IgnoreAttribute {
     iri_ref: IriRefBuf,
-    _comma: syn::token::Comma,
-    _see: syn::Ident,
-    _eq: syn::token::Eq,
     link: String,
 }
 
@@ -119,22 +109,20 @@ impl syn::parse::Parse for IgnoreAttribute {
         let iri_ref: syn::LitStr = input.parse()?;
         let iri_ref = IriRefBuf::new(iri_ref.value()).map_err(|e| input.error(format!("invalid IRI reference `{}`", e.0)))?;
 
-        let _comma = input.parse()?;
+        let _: syn::token::Comma = input.parse()?;
 
-        let _see = input.parse()?;
+        // The keyword is fixed: `#[ignore_test("<iri>", see = "<url>")]`.
+        let keyword: syn::Ident = input.parse()?;
+        if keyword != "see" {
+            return Err(syn::Error::new(keyword.span(), "expected `see`"));
+        }
 
-        let _eq = input.parse()?;
+        let _: syn::token::Eq = input.parse()?;
 
         let link: syn::LitStr = input.parse()?;
         let link = link.value();
 
-        Ok(Self {
-            iri_ref,
-            _comma,
-            _see,
-            _eq,
-            link,
-        })
+        Ok(Self { iri_ref, link })
     }
 }
 
@@ -221,7 +209,7 @@ fn parse_input(
             } else {
                 PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default()).join(mount.target)
             };
-            loader.mount(mount.prefix, target)
+            loader.mount(mount.prefix, target);
         } else if attr.path().is_ident("iri_prefix") {
             let attr: PrefixBinding = attr.parse_args().map_err(|e| Box::new(e.into()))?;
             bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_ref()));
@@ -232,7 +220,7 @@ fn parse_input(
             let resolved_iri: iri_rs::Iri<String> = iri_rs::Iri::try_from(resolved).expect("resolved reference should be an absolute IRI");
             ignore.insert(vocabulary.insert(resolved_iri.as_ref()), attr.link);
         } else {
-            input.attrs.push(attr)
+            input.attrs.push(attr);
         }
     }
 
@@ -284,16 +272,15 @@ fn parse_struct_type(
             let iri = expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?;
             type_map.insert(iri, s.ident.clone());
         } else {
-            s.attrs.push(attr)
+            s.attrs.push(attr);
         }
     }
 
     for field in &mut s.fields {
         let span = field.span();
 
-        let id = match field.ident.clone() {
-            Some(id) => id,
-            None => return Err(parse_error(span, "only named fields are supported")),
+        let Some(id) = field.ident.clone() else {
+            return Err(parse_error(span, "only named fields are supported"));
         };
 
         let mut iri: Option<IriIndex> = None;
@@ -301,9 +288,9 @@ fn parse_struct_type(
         for attr in attrs {
             if attr.path().is_ident("iri") {
                 let attr: IriAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
-                iri = Some(expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?)
+                iri = Some(expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?);
             } else {
-                field.attrs.push(attr)
+                field.attrs.push(attr);
             }
         }
 
@@ -339,7 +326,7 @@ fn parse_enum_type(
             let iri = expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?;
             type_map.insert(iri, e.ident.clone());
         } else {
-            e.attrs.push(attr)
+            e.attrs.push(attr);
         }
     }
 
@@ -350,9 +337,9 @@ fn parse_enum_type(
         for attr in attrs {
             if attr.path().is_ident("iri") {
                 let attr: IriAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
-                iri = Some(expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?)
+                iri = Some(expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?);
             } else {
-                variant.attrs.push(attr)
+                variant.attrs.push(attr);
             }
         }
 
@@ -362,9 +349,8 @@ fn parse_enum_type(
 
                 for field in &mut variant.fields {
                     let field_span = field.span();
-                    let id = match field.ident.clone() {
-                        Some(id) => id,
-                        None => return Err(parse_error(field_span, "only named fields are supported")),
+                    let Some(id) = field.ident.clone() else {
+                        return Err(parse_error(field_span, "only named fields are supported"));
                     };
 
                     let mut field_iri: Option<IriIndex> = None;
@@ -372,15 +358,14 @@ fn parse_enum_type(
                     for attr in attrs {
                         if attr.path().is_ident("iri") {
                             let attr: IriAttribute = attr.parse_args().map_err(|e| Box::new(e.into()))?;
-                            field_iri = Some(expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?)
+                            field_iri = Some(expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?);
                         } else {
-                            field.attrs.push(attr)
+                            field.attrs.push(attr);
                         }
                     }
 
-                    let field_iri = match field_iri {
-                        Some(iri) => iri,
-                        None => return Err(parse_error(field_span, "no IRI specified for field")),
+                    let Some(field_iri) = field_iri else {
+                        return Err(parse_error(field_span, "no IRI specified for field"));
                     };
 
                     let ty_span = field.ty.span();
@@ -413,6 +398,10 @@ fn parse_enum_type(
 /// The span is that of the offending syntax, so the resulting compile error
 /// points at the field, variant or type that could not be interpreted rather
 /// than at the macro invocation.
+// The results in this crate carry `Box<Error>`: `Error` wraps an expansion
+// error, which is large, and boxing keeps every `Ok` path small. Returning it
+// unboxed here would only move the allocation to each of the call sites.
+#[allow(clippy::unnecessary_box_returns)]
 fn parse_error<M: fmt::Display>(span: Span, message: M) -> Box<Error> {
     Box::new(Error::Parse(syn::Error::new(span, message)))
 }
@@ -534,7 +523,7 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
             fn #func_id() {
                 #cons.run()
             }
-        })
+        });
     }
 
     Ok(tokens)
@@ -550,11 +539,11 @@ fn test_prefix(name: &str) -> String {
             buffer = String::new();
         }
 
-        buffer.push(c.to_lowercase().next().unwrap())
+        buffer.push(c.to_lowercase().next().unwrap());
     }
 
     if !buffer.is_empty() {
-        segments.push(buffer)
+        segments.push(buffer);
     }
 
     if segments.len() > 1 && segments.last().unwrap() == "test" {
@@ -565,7 +554,7 @@ fn test_prefix(name: &str) -> String {
 
     for segment in segments {
         result.push_str(&segment);
-        result.push('_')
+        result.push('_');
     }
 
     result
@@ -580,13 +569,13 @@ fn func_name(prefix: &str, id: &str) -> String {
 fn quad_to_owned(rdfx::GeneralizedQuad(subject, predicate, object, graph): jsonld::rdf::QuadRef<IriIndex, BlankIdIndex, LiteralIndex>) -> IndexQuad {
     use jsonld::rdf::Value;
     let object_term = match object {
-        Value::Id(id) => IndexTerm::from_id(id),
+        Value::Id(id) => IndexTerm::from_id(&id),
         Value::Literal(l) => IndexTerm::Literal(l),
     };
     Quad(
-        IndexTerm::from_id(subject.into_owned()),
-        IndexTerm::from_id(predicate.into_owned()),
+        IndexTerm::from_id(&subject),
+        IndexTerm::from_id(&predicate),
         object_term,
-        graph.cloned().map(IndexTerm::from_id),
+        graph.map(IndexTerm::from_id),
     )
 }

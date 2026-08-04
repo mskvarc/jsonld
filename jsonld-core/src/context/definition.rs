@@ -43,6 +43,7 @@ pub enum BindingTerm<'a> {
 
 impl<'a> BindingTerm<'a> {
     /// Returns this value as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Normal(key) => key.as_str(),
@@ -51,7 +52,7 @@ impl<'a> BindingTerm<'a> {
     }
 }
 
-impl<'a> fmt::Display for BindingTerm<'a> {
+impl fmt::Display for BindingTerm<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_str().fmt(f)
     }
@@ -59,6 +60,7 @@ impl<'a> fmt::Display for BindingTerm<'a> {
 
 impl<'a, T, B> BindingRef<'a, T, B> {
     /// Returns a reference to the bound term.
+    #[must_use]
     pub fn term(&self) -> BindingTerm<'a> {
         match self {
             Self::Normal(key, _) => BindingTerm::Normal(key),
@@ -67,6 +69,7 @@ impl<'a, T, B> BindingRef<'a, T, B> {
     }
 
     /// Returns a reference to the bound term definition.
+    #[must_use]
     pub fn definition(&self) -> TermDefinitionRef<'a, T, B> {
         match self {
             Self::Normal(_, d) => TermDefinitionRef::Normal(d),
@@ -96,16 +99,19 @@ impl<T, B> Default for Definitions<T, B> {
 
 impl<T, B> Definitions<T, B> {
     /// Consumes this `Definitions`, returning its parts.
+    #[must_use]
     pub fn into_parts(self) -> DefinitionParts<T, B> {
         (self.normal, self.type_)
     }
 
     /// Returns the number of defined terms.
+    #[must_use]
     pub fn len(&self) -> usize {
         if self.type_.is_some() { self.normal.len() + 1 } else { self.normal.len() }
     }
 
     /// Checks if no terms are defined.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.type_.is_none() && self.normal.is_empty()
     }
@@ -134,6 +140,7 @@ impl<T, B> Definitions<T, B> {
     }
 
     /// Returns a reference to the `@type` definition, if any.
+    #[must_use]
     pub fn get_type(&self) -> Option<&TypeTermDefinition> {
         self.type_.as_ref()
     }
@@ -184,6 +191,7 @@ impl<T, B> Definitions<T, B> {
     }
 
     /// Returns an iterator over the term definitions.
+    #[must_use]
     pub fn iter(&self) -> Iter<'_, T, B> {
         Iter {
             type_: self.type_.as_ref(),
@@ -286,11 +294,13 @@ impl TypeTermDefinition {
     /// Wraps this definition so that comparisons ignore the `@protected`
     /// flag, as required when checking whether a redefinition of a protected
     /// term actually changes it.
+    #[must_use]
     pub fn modulo_protected_field(&self) -> ModuloProtected<&Self> {
         ModuloProtected(self)
     }
 
     /// Consumes this `TypeTermDefinition`, returning its syntax definition.
+    #[must_use]
     pub fn into_syntax_definition(self) -> jsonld_syntax::context::definition::Type {
         jsonld_syntax::context::definition::Type {
             container: self.container,
@@ -437,12 +447,14 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     /// Wraps this definition so that comparisons ignore the `@protected`
     /// flag, as required when checking whether a redefinition of a protected
     /// term actually changes it.
+    #[must_use]
     pub fn modulo_protected_field(&self) -> ModuloProtected<Self> {
         ModuloProtected(*self)
     }
 
     /// Returns the term this definition maps to, if any (always `None` for
     /// `@type` definitions).
+    #[must_use]
     pub fn value(&self) -> Option<&'a Term<T, B>> {
         match self {
             Self::Type(_) => None,
@@ -452,6 +464,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
 
     /// Cheap-clonable handle to the IRI mapping, if present and the
     /// definition is a normal term definition.
+    #[must_use]
     pub fn value_arc(&self) -> Option<&'a Arc<Term<T, B>>> {
         match self {
             Self::Type(_) => None,
@@ -460,6 +473,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Checks whether the term may be used to expand compact IRIs.
+    #[must_use]
     pub fn prefix(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -468,6 +482,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Checks whether the term is protected against redefinition.
+    #[must_use]
     pub fn protected(&self) -> bool {
         match self {
             Self::Type(d) => d.protected,
@@ -476,6 +491,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Checks whether the term denotes a reverse property.
+    #[must_use]
     pub fn reverse_property(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -484,6 +500,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the base URL used to resolve relative IRIs of the term.
+    #[must_use]
     pub fn base_url(&self) -> Option<&'a T> {
         match self {
             Self::Type(_) => None,
@@ -492,6 +509,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the local context of the term (its `@context` entry), if any.
+    #[must_use]
     pub fn context(&self) -> Option<&'a jsonld_syntax::context::Context> {
         match self {
             Self::Type(_) => None,
@@ -500,6 +518,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the container mapping of the term.
+    #[must_use]
     pub fn container(&self) -> Container {
         match self {
             Self::Type(d) => d.container.into(),
@@ -508,6 +527,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the base direction of the term's string values.
+    #[must_use]
     pub fn direction(&self) -> Option<Nullable<Direction>> {
         match self {
             Self::Type(_) => None,
@@ -516,6 +536,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the index mapping of the term.
+    #[must_use]
     pub fn index(&self) -> Option<&'a Index> {
         match self {
             Self::Type(_) => None,
@@ -532,6 +553,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the nesting term the property is gathered under.
+    #[must_use]
     pub fn nest(&self) -> Option<&'a Nest> {
         match self {
             Self::Type(_) => None,
@@ -540,6 +562,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 
     /// Returns the type mapping of the term.
+    #[must_use]
     pub fn typ(&self) -> Option<&'a Type<T>> {
         match self {
             Self::Type(_) => None,
@@ -548,13 +571,13 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
     }
 }
 
-impl<'a, T, B> Clone for TermDefinitionRef<'a, T, B> {
+impl<T, B> Clone for TermDefinitionRef<'_, T, B> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, T, B> Copy for TermDefinitionRef<'a, T, B> {}
+impl<T, B> Copy for TermDefinitionRef<'_, T, B> {}
 
 #[derive(PartialEq, Eq, Clone)]
 /// Definition of an ordinary term, as processed from a context.
@@ -625,6 +648,10 @@ impl<T, B> NormalTermDefinition<T, B> {
     }
 
     /// Consumes this `NormalTermDefinition`, returning its syntax definition.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a term in the context cannot be represented in syntax form, which happens if the vocabulary has no IRI for an identifier it holds.
     pub fn into_syntax_definition(
         self,
         vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
@@ -774,7 +801,7 @@ impl<'b> PartialEq<ModuloProtected<&'b TypeTermDefinition>> for ModuloProtected<
 
 impl Eq for ModuloProtected<&TypeTermDefinition> {}
 
-impl<'a, 'b, T: PartialEq, B: PartialEq> PartialEq<ModuloProtected<TermDefinitionRef<'b, T, B>>> for ModuloProtected<TermDefinitionRef<'a, T, B>> {
+impl<'b, T: PartialEq, B: PartialEq> PartialEq<ModuloProtected<TermDefinitionRef<'b, T, B>>> for ModuloProtected<TermDefinitionRef<'_, T, B>> {
     fn eq(&self, other: &ModuloProtected<TermDefinitionRef<'b, T, B>>) -> bool {
         // NOTE we ignore the `protected` flag.
         self.0.prefix() == other.0.prefix()
@@ -791,4 +818,4 @@ impl<'a, 'b, T: PartialEq, B: PartialEq> PartialEq<ModuloProtected<TermDefinitio
     }
 }
 
-impl<'a, T: Eq, B: Eq> Eq for ModuloProtected<TermDefinitionRef<'a, T, B>> {}
+impl<T: Eq, B: Eq> Eq for ModuloProtected<TermDefinitionRef<'_, T, B>> {}

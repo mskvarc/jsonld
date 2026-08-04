@@ -2,6 +2,7 @@
 
 /// Returns true if `s` looks like a full IRI with a scheme component
 /// (matches `[a-zA-Z][a-zA-Z0-9+.-]*:`).
+#[must_use]
 pub fn looks_like_iri(s: &str) -> bool {
     let mut chars = s.chars();
     match chars.next() {
@@ -24,6 +25,7 @@ pub fn looks_like_iri(s: &str) -> bool {
 ///
 /// IRIs that already have a scheme (i.e. `looks_like_iri` returns true on the
 /// prefix portion) and the prefix is *not* in the table are returned as-is.
+#[must_use]
 pub fn expand_curie(s: &str, prefixes: &[(String, String)]) -> String {
     if let Some((prefix, suffix)) = s.split_once(':') {
         for (name, base) in prefixes {

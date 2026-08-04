@@ -79,7 +79,7 @@ impl flatten::Test {
             .spawn(|| RuntimeBuilder::new_current_thread().build().unwrap().block_on(self.async_run()))
             .unwrap();
 
-        child.join().unwrap()
+        child.join().unwrap();
     }
 
     async fn async_run(self) {
@@ -89,7 +89,7 @@ impl flatten::Test {
         }
 
         for comment in self.comments {
-            println!("{}", comment)
+            println!("{comment}");
         }
 
         let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
@@ -98,10 +98,10 @@ impl flatten::Test {
 
         let mut options: jsonld::Options<IriIndex> = jsonld::Options::default();
         if self.options.spec_version == Some("json-ld-1.0") {
-            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0
+            options.processing_mode = jsonld::ProcessingMode::JsonLd1_0;
         }
         if let Some(p) = self.options.processing_mode {
-            options.processing_mode = p
+            options.processing_mode = p;
         }
 
         options.base = self.options.base.map(|iri| vocabulary.insert(iri));
@@ -136,28 +136,22 @@ impl flatten::Test {
                     eprintln!("output=\n{}", flattened.with(&vocabulary).document().pretty_print());
                     eprintln!("expected=\n{}", expect.document().with(&vocabulary).pretty_print());
 
-                    assert!(success)
+                    assert!(success);
                 }
             }
             flatten::Description::Negative { expected_error_code } => {
-                match loader.load_with(&mut vocabulary, input).await {
-                    Ok(json_ld) => {
-                        let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
-                        let result = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &loader, options, ()).await;
+                if let Ok(json_ld) = loader.load_with(&mut vocabulary, input).await {
+                    let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
+                    let result = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &loader, options, ()).await;
 
-                        match result {
-                            Ok(expanded) => {
-                                eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-                                panic!("expansion succeeded when it should have failed with `{}`", expected_error_code)
-                            }
-                            Err(_) => {
-                                // ...
-                            }
-                        }
-                    }
-                    Err(_) => {
+                    if let Ok(expanded) = result {
+                        eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
+                        panic!("expansion succeeded when it should have failed with `{expected_error_code}`")
+                    } else {
                         // ...
                     }
+                } else {
+                    // ...
                 }
             }
         }

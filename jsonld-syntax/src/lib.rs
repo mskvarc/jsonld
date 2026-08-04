@@ -74,11 +74,13 @@ pub struct Unexpected(jstrict::Kind, &'static [jstrict::Kind]);
 
 impl Unexpected {
     /// Returns the kind of the value that was found.
+    #[must_use]
     pub fn found(&self) -> jstrict::Kind {
         self.0
     }
 
     /// Returns the kinds that were expected instead.
+    #[must_use]
     pub fn expected(&self) -> &'static [jstrict::Kind] {
         self.1
     }

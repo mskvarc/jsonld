@@ -67,7 +67,7 @@ impl PrintWithSize for ContextEntry {
     }
 }
 
-impl<'a> PrecomputeSize for definition::EntryValueRef<'a> {
+impl PrecomputeSize for definition::EntryValueRef<'_> {
     fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
         match self {
             Self::Base(v) => v.pre_compute_size(options, sizes),
@@ -84,7 +84,7 @@ impl<'a> PrecomputeSize for definition::EntryValueRef<'a> {
     }
 }
 
-impl<'a> PrintWithSize for definition::EntryValueRef<'a> {
+impl PrintWithSize for definition::EntryValueRef<'_> {
     fn fmt_with_size(&self, f: &mut fmt::Formatter, options: &Options, indent: usize, sizes: &[Size], index: &mut usize) -> fmt::Result {
         match self {
             Self::Base(v) => v.fmt_with(f, options, indent),
@@ -249,7 +249,7 @@ impl PrintWithSize for term_definition::Expanded {
     }
 }
 
-impl<'a> PrecomputeSize for term_definition::EntryRef<'a> {
+impl PrecomputeSize for term_definition::EntryRef<'_> {
     fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
         match self {
             Self::Id(v) => v.pre_compute_size(options, sizes),
@@ -268,7 +268,7 @@ impl<'a> PrecomputeSize for term_definition::EntryRef<'a> {
     }
 }
 
-impl<'a> PrintWithSize for term_definition::EntryRef<'a> {
+impl PrintWithSize for term_definition::EntryRef<'_> {
     fn fmt_with_size(&self, f: &mut fmt::Formatter, options: &Options, indent: usize, sizes: &[Size], index: &mut usize) -> fmt::Result {
         match self {
             Self::Id(v) => v.fmt_with(f, options, indent),
@@ -359,13 +359,13 @@ impl Print for definition::Key {
     }
 }
 
-impl<'a> PrecomputeSize for definition::EntryKeyRef<'a> {
+impl PrecomputeSize for definition::EntryKeyRef<'_> {
     fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
         Size::Width(jstrict::print::printed_string_size(self.as_str()))
     }
 }
 
-impl<'a> Print for definition::EntryKeyRef<'a> {
+impl Print for definition::EntryKeyRef<'_> {
     fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
         string_literal(self.as_str(), f)
     }

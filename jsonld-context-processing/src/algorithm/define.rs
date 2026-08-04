@@ -75,6 +75,7 @@ pub struct DefinedTerms(HashMap<KeyOrKeyword, DefinedTerm>);
 
 impl DefinedTerms {
     /// Creates an empty tracker, with no term defined or in progress.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -86,20 +87,17 @@ impl DefinedTerms {
     /// already fully defined (the caller should do nothing), and
     /// `Err(Error::CyclicIriMapping)` for one whose definition is still in
     /// progress further up the recursion.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the term is already being defined further up the stack, which is a cyclic IRI mapping.
     pub fn begin<E>(&mut self, key: &KeyOrKeyword) -> Result<bool, Error<E>> {
-        match self.0.get(key) {
-            Some(d) => {
-                if d.pending {
-                    Err(Error::CyclicIriMapping)
-                } else {
-                    Ok(false)
-                }
-            }
-            None => {
-                self.0.insert(key.clone(), DefinedTerm { pending: true });
+        if let Some(d) = self.0.get(key) {
+            if d.pending { Err(Error::CyclicIriMapping) } else { Ok(false) }
+        } else {
+            self.0.insert(key.clone(), DefinedTerm { pending: true });
 
-                Ok(true)
-            }
+            Ok(true)
         }
     }
 
@@ -109,7 +107,7 @@ impl DefinedTerms {
     /// Does nothing if the term was never passed to [`Self::begin`].
     pub fn end(&mut self, key: &KeyOrKeyword) {
         if let Some(term) = self.0.get_mut(key) {
-            term.pending = false
+            term.pending = false;
         }
     }
 }
@@ -136,6 +134,10 @@ pub struct DefinedTerm {
 /// `options.override_protected`.
 ///
 /// [1]: https://www.w3.org/TR/json-ld11-api/#create-term-definition
+///
+/// # Errors
+///
+/// Returns an error when a term definition is cyclic, protected and being redefined, or otherwise invalid, and propagates loader errors for remote contexts.
 pub async fn define<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -195,7 +197,7 @@ where
                             return Err(Error::InvalidTermDefinition);
                         }
 
-                        definition.protected = protected
+                        definition.protected = protected;
                     }
 
                     // If override protected is false and previous_definition exists and is protected;
@@ -225,7 +227,7 @@ where
                     // `active_context`, removing that term definition from active context.
                     let previous_definition = active_context.set_normal(*key, None);
 
-                    let simple_term = !d.map(|d| d.is_expanded()).unwrap_or(false);
+                    let simple_term = !d.map(jsonld_syntax::context::TermDefinition::is_expanded).unwrap_or(false);
                     let value = term_definition::ExpandedRef::from(d);
 
                     // Create a new term definition, `definition`, initializing `prefix` flag to
@@ -342,12 +344,12 @@ where
                                     let container_value = Container::from_syntax(Nullable::Some(container_value)).map_err(|_| Error::InvalidReverseProperty)?;
 
                                     if matches!(container_value, Container::Set | Container::Index) {
-                                        definition.container = container_value
+                                        definition.container = container_value;
                                     } else {
                                         return Err(Error::InvalidReverseProperty);
                                     }
                                 }
-                            };
+                            }
                         }
 
                         // Set the `reverse_property` flag of `definition` to `true`.
@@ -460,7 +462,7 @@ where
                                         if !key.as_str().contains(':')
                                             && !key.as_str().contains('/')
                                             && simple_term
-                                            && definition.value.as_ref().map(|v| is_gen_delim_or_blank(env.vocabulary, v)).unwrap_or(false)
+                                            && definition.value.as_ref().is_some_and(|v| is_gen_delim_or_blank(env.vocabulary, v))
                                         {
                                             definition.prefix = true;
                                         }
@@ -470,7 +472,7 @@ where
                             Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => {
                                 // Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
                                 // `@type`.
-                                definition.value = Some(Arc::new(Term::Keyword(Keyword::Type)))
+                                definition.value = Some(Arc::new(Term::Keyword(Keyword::Type)));
                             }
                             _ => {
                                 // Otherwise if the `term` contains a colon (:) anywhere after the first
@@ -508,13 +510,13 @@ where
                                                 && let Some(prefix_iri) = prefix_key.as_iri()
                                                 && let Some(iri) = env.vocabulary.iri(prefix_iri)
                                             {
-                                                result = iri.to_string()
+                                                result = iri.to_string();
                                             }
 
                                             result.push_str(compact_iri.suffix());
 
                                             if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))))
+                                                definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri)))));
                                             } else {
                                                 return Err(Error::InvalidIriMapping);
                                             }
@@ -524,7 +526,7 @@ where
                                     // not a compact IRI
                                     if definition.value.is_none() {
                                         if let Ok(blank_id) = BlankId::new(term.as_str()) {
-                                            definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))))
+                                            definition.value = Some(Arc::new(Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)))));
                                         } else if let Ok(iri_ref) = IriRef::parse(term.as_str()) {
                                             match Iri::try_from(iri_ref) {
                                                 Ok(iri) => definition.value = Some(Arc::new(Term::Id(Id::iri(env.vocabulary.insert(iri))))),
@@ -541,7 +543,7 @@ where
                                                             Some(options.vocab),
                                                         )? {
                                                             Some(arc) if matches!(arc.as_ref(), Term::Id(Id::Valid(ValidId::Iri(_)))) => {
-                                                                definition.value = Some(arc)
+                                                                definition.value = Some(arc);
                                                             }
                                                             // If the resulting IRI mapping is not an IRI, an invalid IRI mapping
                                                             // error has been detected and processing is aborted.
@@ -564,7 +566,7 @@ where
                                                     let mut result = env.vocabulary.iri(vocabulary_iri).map(|i| i.to_string()).unwrap_or_default();
                                                     result.push_str(key.as_str());
                                                     if let Ok(iri) = Iri::parse(result.as_str()) {
-                                                        definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))))
+                                                        definition.value = Some(Arc::new(Term::<N::Iri, N::BlankId>::from(env.vocabulary.insert(iri))));
                                                     } else {
                                                         return Err(Error::InvalidIriMapping);
                                                     }
@@ -595,7 +597,7 @@ where
                                     jsonld_syntax::Container::Many(_)
                                     | jsonld_syntax::Container::One(ContainerKind::Graph | ContainerKind::Id | ContainerKind::Type),
                                 ) => return Err(Error::InvalidContainerMapping),
-                                _ => (),
+                                Nullable::Some(_) => (),
                             }
                         }
 
@@ -628,7 +630,7 @@ where
                                 }
                             } else {
                                 // If type mapping in definition is undefined, set it to @id.
-                                definition.typ = Some(Type::Id)
+                                definition.typ = Some(Type::Id);
                             }
                         }
                     }
@@ -659,7 +661,7 @@ where
                             _ => return Err(Error::InvalidTermDefinition),
                         }
 
-                        definition.index = Some(index_value.to_owned())
+                        definition.index = Some(index_value.to_owned());
                     }
 
                     // If `value` contains the entry `@context`:
@@ -752,7 +754,7 @@ where
                         // If the `prefix` flag of `definition` is set to `true`, and its IRI
                         // mapping is a keyword, an invalid term definition has been detected and
                         // processing is aborted.
-                        if definition.prefix && definition.value.as_ref().map(|v| v.is_keyword()).unwrap_or(false) {
+                        if definition.prefix && definition.value.as_ref().is_some_and(|v| v.is_keyword()) {
                             return Err(Error::InvalidTermDefinition);
                         }
                     }

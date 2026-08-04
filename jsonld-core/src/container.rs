@@ -63,11 +63,16 @@ impl Default for Container {
 
 impl Container {
     /// Creates a new `Container`.
+    #[must_use]
     pub fn new() -> Container {
         Container::None
     }
 
     /// Builds a container mapping from its syntactic form.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the `@container` value is not one of the combinations the grammar allows.
     pub fn from_syntax(r: Nullable<&jsonld_syntax::Container>) -> Result<Self, InvalidContainer> {
         match r {
             Nullable::Null => Ok(Self::None),
@@ -87,6 +92,10 @@ impl Container {
     }
 
     /// Builds a container mapping from the `@container` values it combines.
+    ///
+    /// # Errors
+    ///
+    /// Returns the offending `@container` entry when the combination is not allowed by the grammar.
     pub fn from<'a, I: IntoIterator<Item = &'a ContainerKind>>(iter: I) -> Result<Container, ContainerKind> {
         let mut container = Container::new();
         for item in iter {
@@ -99,8 +108,27 @@ impl Container {
     }
 
     /// Returns the combined `@container` values as a slice.
+    #[must_use]
     pub fn as_slice(&self) -> &[ContainerKind] {
-        use Container::*;
+        use Container::{
+            Graph,
+            GraphId,
+            GraphIdSet,
+            GraphIndex,
+            GraphIndexSet,
+            GraphSet,
+            Id,
+            IdSet,
+            Index,
+            IndexSet,
+            Language,
+            LanguageSet,
+            List,
+            None,
+            Set,
+            SetType,
+            Type,
+        };
         match self {
             None => &[],
             Graph => &[ContainerKind::Graph],
@@ -128,22 +156,26 @@ impl Container {
     }
 
     /// Returns the number of combined `@container` values.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.as_slice().len()
     }
 
     /// Checks whether the container mapping is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         matches!(self, Container::None)
     }
 
     /// Checks whether the mapping includes the given `@container` value.
+    #[must_use]
     pub fn contains(&self, c: ContainerKind) -> bool {
         self.as_slice().contains(&c)
     }
 
     /// Returns this mapping extended with the given `@container` value, or
     /// `None` if the combination is not allowed by the JSON-LD grammar.
+    #[must_use]
     pub fn with(&self, c: ContainerKind) -> Option<Container> {
         let new_container = match (self, c) {
             (Container::None, c) => c.into(),
@@ -216,6 +248,7 @@ impl Container {
     /// Converts the mapping into its syntactic form: a single `@container`
     /// value when it combines exactly one, an array when it combines several,
     /// and `None` when it is empty.
+    #[must_use]
     pub fn into_syntax(self) -> Option<jsonld_syntax::Container> {
         let slice = self.as_slice();
 

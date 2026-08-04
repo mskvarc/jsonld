@@ -95,7 +95,7 @@ where
 
             match self.quads.next() {
                 Some(crate::quad::QuadRef(graph, subject, property, object)) => {
-                    let rdf_graph: Option<&'a ValidId<N::Iri, N::BlankId>> = match graph.map(|r| r.try_into()) {
+                    let rdf_graph: Option<&'a ValidId<N::Iri, N::BlankId>> = match graph.map(std::convert::TryInto::try_into) {
                         Some(Ok(r)) => Some(r),
                         None => None,
                         _ => continue,
@@ -147,7 +147,7 @@ pub struct ClonedQuads<'a, N: Vocabulary, G: LocalGenerator, W = ()> {
     inner: Quads<'a, N, G, W>,
 }
 
-impl<'a, N: Vocabulary + VocabularyMut, G: LocalGenerator, W> Iterator for ClonedQuads<'a, N, G, W>
+impl<N: Vocabulary + VocabularyMut, G: LocalGenerator, W> Iterator for ClonedQuads<'_, N, G, W>
 where
     N::Iri: Clone,
     N::BlankId: Clone,

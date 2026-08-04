@@ -207,7 +207,7 @@ impl Struct {
                     let mut items = Vec::new();
 
                     for object in objects {
-                        items.push(field.ty.generate(vocabulary, spec, dataset, object)?)
+                        items.push(field.ty.generate(vocabulary, spec, dataset, object)?);
                     }
 
                     quote! {
@@ -227,18 +227,15 @@ impl Struct {
                             quote! { ::core::default::Default::default() }
                         }
                     }
+                } else if let Some(object) = objects.next() {
+                    let value = field.ty.generate(vocabulary, spec, dataset, object)?;
+                    quote! { Some(#value) }
                 } else {
-                    match objects.next() {
-                        Some(object) => {
-                            let value = field.ty.generate(vocabulary, spec, dataset, object)?;
-                            quote! { Some(#value) }
-                        }
-                        None => quote! { None },
-                    }
+                    quote! { None }
                 }
             };
 
-            fields.push(quote! { #ident: #value })
+            fields.push(quote! { #ident: #value });
         }
 
         Ok(quote! { #path { #(#fields),* } })

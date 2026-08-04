@@ -157,7 +157,7 @@ impl<I: PartialEq, B: PartialEq> indexmap::Equivalent<Id<I, B>> for ValidId<I, B
     fn equivalent(&self, key: &Id<I, B>) -> bool {
         match key {
             Id::Valid(id) => self == id,
-            _ => false,
+            Id::Invalid(_) => false,
         }
     }
 }
@@ -216,6 +216,7 @@ impl<I, B> TryFromJson<I, B> for Id<I, B> {
 impl<I: From<IriBuf>, B: From<BlankIdBuf>> Id<I, B> {
     /// Parses an identifier from a string, keeping it as invalid if it is
     /// neither an IRI nor a blank node identifier.
+    #[must_use]
     pub fn from_string(s: String) -> Self {
         match IriBuf::new(s) {
             Ok(iri) => Self::Valid(ValidId::Iri(iri.into())),
@@ -547,6 +548,10 @@ pub enum GeneratedIdError {
 ///
 /// Returns an error if the generator yields a literal or a triple term, neither
 /// of which can identify a node.
+///
+/// # Errors
+///
+/// Returns an error when the generator runs out of identifiers.
 pub fn generator_next_id<V, G>(vocabulary: &mut V, generator: &mut G) -> Result<ValidId<V::Iri, V::BlankId>, GeneratedIdError>
 where
     V: VocabularyMut,
@@ -563,6 +568,10 @@ where
 pub trait IdentifyAll<T, B> {
     /// Assigns an identifier to every anonymous node, interning them in the
     /// given vocabulary.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     fn identify_all_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
@@ -573,6 +582,10 @@ pub trait IdentifyAll<T, B> {
         B: Eq + Hash;
 
     /// Assigns an identifier to every anonymous node.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     fn identify_all<G: LocalGenerator>(&mut self, generator: &mut G) -> Result<(), GeneratedIdError>
     where
         T: Eq + Hash,
@@ -587,6 +600,10 @@ pub trait IdentifyAll<T, B> {
 pub trait Relabel<T, B> {
     /// Relabels every blank node, recording the mapping so shared nodes keep
     /// the same new identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     fn relabel_with<N: VocabularyMut<Iri = T, BlankId = B>, G: LocalGenerator>(
         &mut self,
         vocabulary: &mut N,
@@ -598,6 +615,10 @@ pub trait Relabel<T, B> {
         B: Clone + Eq + Hash;
 
     /// Relabels every blank node, recording the mapping.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the generator runs out of identifiers.
     fn relabel<G: LocalGenerator>(&mut self, generator: &mut G, relabeling: &mut HashMap<B, ValidId<T, B>>) -> Result<(), GeneratedIdError>
     where
         T: Clone + Eq + Hash,

@@ -37,17 +37,20 @@ pub enum ContainerKind {
 
 impl ContainerKind {
     /// Returns the keyword naming this container, taking `self` by value.
+    #[must_use]
     pub fn into_keyword(self) -> Keyword {
         self.into()
     }
 
     /// Returns the keyword naming this container.
+    #[must_use]
     pub fn keyword(&self) -> Keyword {
         self.into_keyword()
     }
 
     /// Returns the keyword naming this container as a string, such as
     /// `"@set"`.
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         self.into_keyword().into_str()
     }
@@ -57,7 +60,7 @@ impl<'a> TryFrom<&'a str> for ContainerKind {
     type Error = &'a str;
 
     fn try_from(str: &'a str) -> Result<ContainerKind, &'a str> {
-        use ContainerKind::*;
+        use ContainerKind::{Graph, Id, Index, Language, List, Set, Type};
         match str {
             "@graph" => Ok(Graph),
             "@id" => Ok(Id),
@@ -75,7 +78,7 @@ impl TryFrom<Keyword> for ContainerKind {
     type Error = Keyword;
 
     fn try_from(k: Keyword) -> Result<ContainerKind, Keyword> {
-        use ContainerKind::*;
+        use ContainerKind::{Graph, Id, Index, Language, List, Set, Type};
         match k {
             Keyword::Graph => Ok(Graph),
             Keyword::Id => Ok(Id),
@@ -91,7 +94,7 @@ impl TryFrom<Keyword> for ContainerKind {
 
 impl From<ContainerKind> for Keyword {
     fn from(c: ContainerKind) -> Keyword {
-        use ContainerKind::*;
+        use ContainerKind::{Graph, Id, Index, Language, List, Set, Type};
         match c {
             Graph => Keyword::Graph,
             Id => Keyword::Id,
@@ -122,6 +125,7 @@ pub enum Container {
 
 impl Container {
     /// Checks whether this entry is written as a JSON array.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Many(_))
     }
@@ -130,6 +134,7 @@ impl Container {
     ///
     /// The iterator is empty for a single container, which is written as a
     /// string and therefore has no items of its own.
+    #[must_use]
     pub fn sub_fragments(&self) -> SubValues<'_> {
         match self {
             Self::One(_) => SubValues::None,
@@ -164,9 +169,9 @@ impl<'a> Iterator for SubValues<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for SubValues<'a> {}
+impl ExactSizeIterator for SubValues<'_> {}
 
-impl<'a> DoubleEndedIterator for SubValues<'a> {
+impl DoubleEndedIterator for SubValues<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self {
             Self::None => None,
