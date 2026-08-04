@@ -14,7 +14,7 @@ mod stack;
 
 pub use cache::ProcessingCache;
 pub use processed::*;
-pub use stack::ProcessingStack;
+pub use stack::{MAX_REMOTE_CONTEXTS, ProcessingStack};
 
 /// Warnings that can be raised during context processing.
 pub enum Warning {
@@ -141,6 +141,14 @@ pub enum Error<E = std::convert::Infallible> {
     /// rely on it) and reports [`ErrorCode::ContextOverflow`] instead.
     RecursiveContextInclusion,
 
+    #[error("Context overflow")]
+    /// The chain of remote contexts exceeded the processor limit
+    /// ([`MAX_REMOTE_CONTEXTS`]), as mandated by the [context processing
+    /// algorithm][1] to protect against unbounded remote context chains.
+    ///
+    /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
+    ContextOverflow,
+
     #[error("Use of forbidden `@vocab`")]
     /// Use of forbidden `@vocab`.
     ForbiddenVocab,
@@ -178,6 +186,7 @@ impl<E> Error<E> {
             Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
             Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
             Self::RecursiveContextInclusion => ErrorCode::RecursiveContextInclusion,
+            Self::ContextOverflow => ErrorCode::ContextOverflow,
             Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
         }
     }

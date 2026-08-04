@@ -60,6 +60,21 @@ pub enum Command {
         no_undef: bool,
     },
 
+    /// Compact the given JSON-LD document with a context.
+    Compact {
+        /// URL or file path of the JSON-LD context to compact with.
+        context: IriOrPath,
+
+        /// URL or file path of the document to compact.
+        ///
+        /// Of none, the standard input is used.
+        url_or_path: Option<IriOrPath>,
+
+        /// Base URL to use when reading from the standard input or file system.
+        #[arg(short, long)]
+        base_url: Option<IriBuf>,
+    },
+
     /// Flatten a document into node objects.
     Flatten {
         /// URL or file path of the document to flatten.
@@ -114,6 +129,9 @@ enum CliError {
 
     #[error(transparent)]
     Expand(#[from] jsonld::ExpandError<ReqwestLoaderError>),
+
+    #[error("unable to extract JSON-LD context: {0}")]
+    ContextExtraction(#[from] jsonld::ExtractContextError),
 
     #[error(transparent)]
     Compact(#[from] jsonld::CompactError<ReqwestLoaderError>),
@@ -198,6 +216,17 @@ async fn run() -> Result<(), CliError> {
 
             println!("{}", expanded.with(&vocabulary).pretty_print());
         }
+        Command::Compact {
+            context,
+            url_or_path,
+            base_url,
+        } => {
+            let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url.clone())?;
+            let context = get_remote_context(&mut vocabulary, context, base_url)?;
+
+            let compacted = remote_document.compact_with(&mut vocabulary, context, &loader).await?;
+            println!("{}", compacted.pretty_print());
+        }
         Command::Flatten { url_or_path, base_url } => {
             let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url)?;
 
@@ -209,6 +238,27 @@ async fn run() -> Result<(), CliError> {
     }
 
     Ok(())
+}
+
+fn get_remote_context(
+    vocabulary: &mut impl IriVocabularyMut<Iri = IriIndex>,
+    url_or_path: IriOrPath,
+    base_url: Option<IriBuf>,
+) -> Result<jsonld::RemoteContextReference<IriIndex>, CliError> {
+    match url_or_path {
+        IriOrPath::Iri(url) => {
+            let url = vocabulary.insert(url.as_ref());
+            Ok(jsonld::RemoteContextReference::iri(url))
+        }
+        IriOrPath::Path(path) => {
+            use jsonld::ExtractContext;
+            let url = base_url.map(|iri| vocabulary.insert(iri.as_ref()));
+            let content = std::fs::read_to_string(path)?;
+            let (document, _) = jsonld::syntax::Value::parse_str(&content)?;
+            let context = document.into_ld_context()?;
+            Ok(jsonld::RemoteContextReference::Loaded(RemoteDocument::new(url, Some(ld_json_mime()), context)))
+        }
+    }
 }
 
 fn get_remote_document(

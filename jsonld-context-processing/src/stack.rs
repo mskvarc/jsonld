@@ -1,5 +1,15 @@
 use std::sync::Arc;
 
+/// Maximum depth of the remote context chain.
+///
+/// The [context processing algorithm][1] mandates a processor-defined limit
+/// on the number of entries in the `remote contexts` array; exceeding it is a
+/// `context overflow` error. This bounds the damage a hostile loader can do
+/// by serving an endless chain of distinct context IRIs.
+///
+/// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
+pub const MAX_REMOTE_CONTEXTS: usize = 64;
+
 /// Single frame of the context processing stack.
 struct StackNode<I> {
     /// Previous frame.
@@ -48,6 +58,17 @@ impl<I> ProcessingStack<I> {
     /// Checks if the stack is empty.
     pub fn is_empty(&self) -> bool {
         self.head.is_none()
+    }
+
+    /// Returns the number of URLs in the stack.
+    pub fn len(&self) -> usize {
+        let mut len = 0;
+        let mut node = &self.head;
+        while let Some(frame) = node {
+            len += 1;
+            node = &frame.previous;
+        }
+        len
     }
 
     /// Checks if the given URL is already in the stack.

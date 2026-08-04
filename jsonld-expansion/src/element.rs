@@ -440,6 +440,7 @@ where
                 let expanded_value = expand_value(
                     &mut env,
                     options.policy.vocab,
+                    options.processing_mode,
                     input_type.as_deref(),
                     type_scoped_context,
                     expanded_entries,

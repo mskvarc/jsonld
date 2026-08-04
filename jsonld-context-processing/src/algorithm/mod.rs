@@ -258,6 +258,10 @@ where
                 // contexts, and only the entry limit (context overflow) applies.
                 // JSON-LD 1.0 had no such allowance: a repeat is a recursive
                 // context inclusion error.
+                if remote_contexts.len() >= crate::MAX_REMOTE_CONTEXTS {
+                    return Err(Error::ContextOverflow);
+                }
+
                 let fresh = remote_contexts.push(context_iri.clone());
                 if !fresh && options.processing_mode == ProcessingMode::JsonLd1_0 {
                     return Err(Error::RecursiveContextInclusion);

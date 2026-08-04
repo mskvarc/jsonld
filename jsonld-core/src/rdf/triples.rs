@@ -192,7 +192,7 @@ impl<T: Clone> crate::object::Value<T> {
 }
 
 // <https://www.w3.org/TR/xmlschema11-2/#f-doubleLexmap>
-const XSD_CANONICAL_FLOAT: pretty_dtoa::FmtFloatConfig = pretty_dtoa::FmtFloatConfig::default().force_e_notation().capitalize_e(true);
+pub(crate) const XSD_CANONICAL_FLOAT: pretty_dtoa::FmtFloatConfig = pretty_dtoa::FmtFloatConfig::default().force_e_notation().capitalize_e(true);
 
 impl<T: Clone, B: Clone> Node<T, B> {
     fn rdf_value<L>(&self) -> Option<Value<T, B, L>> {

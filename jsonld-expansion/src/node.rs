@@ -729,8 +729,17 @@ where
                                     map_context = ContextRef::owned(processed)
                                 }
 
-                                // Otherwise, set map context to active context.
-                                // TODO What?
+                                // Spec step 13.8.3 says "Otherwise, set map
+                                // context to active context", which would
+                                // discard the `previous_context` selected in
+                                // step 13.8.1 whenever the index term has no
+                                // type-scoped local context. Like upstream
+                                // `json-ld` (and untested by the W3C suite),
+                                // this implementation keeps the context from
+                                // step 13.8.1 instead: reverting here would
+                                // make 13.8.1's assignment observable only
+                                // through 13.8.2, which reads as a spec
+                                // editing artifact rather than intent.
 
                                 // Initialize `expanded_index` to the result of IRI
                                 // expanding index.

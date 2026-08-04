@@ -1,6 +1,6 @@
 use crate::{Action, ExpandedEntry, Warning, WarningHandler, expand_iri};
 use jsonld_context_processing::algorithm::RejectVocab;
-use jsonld_core::{Context, Environment, Id, Indexed, IndexedObject, LangString, Object, Term, ValidId, Value, object::value::Literal};
+use jsonld_core::{Context, Environment, Id, Indexed, IndexedObject, LangString, Object, ProcessingMode, Term, ValidId, Value, object::value::Literal};
 use jsonld_syntax::{Direction, ErrorCode, Keyword, LenientLangTagBuf, Nullable};
 use rdfx::vocabulary::VocabularyMut;
 
@@ -58,6 +58,7 @@ pub type ValueExpansionResult<T, B> = Result<Option<IndexedObject<T, B>>, Invali
 pub(crate) fn expand_value<N, L, W>(
     env: &mut Environment<N, L, W>,
     vocab_policy: Action,
+    processing_mode: ProcessingMode,
     input_type: Option<&Term<N::Iri, N::BlankId>>,
     type_scoped_context: &Context<N::Iri, N::BlankId>,
     expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>>,
@@ -98,7 +99,9 @@ where
             Term::Keyword(Keyword::Direction) => {
                 // If processing mode is json-ld-1.0, continue with the next key
                 // from element.
-                // TODO processing mode.
+                if processing_mode == ProcessingMode::JsonLd1_0 {
+                    continue;
+                }
 
                 // If value is neither "ltr" nor "rtl", an invalid base direction
                 // error has been detected and processing is aborted.

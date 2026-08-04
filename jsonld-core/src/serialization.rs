@@ -269,7 +269,6 @@ impl<I, B> ExpandedDocument<I, B> {
 
             match rdf_property(vocabulary, interpretation, quad.1) {
                 Some(RdfProperty::Type) => {
-                    rdf_terms.first = Some(quad.1);
                     let ty = rdf_type(vocabulary, interpretation, quad.2);
 
                     if ty.is_list() {
@@ -295,7 +294,10 @@ impl<I, B> ExpandedDocument<I, B> {
                     }
 
                     subject.list.rest.insert(quad.2);
-                    graph.resource_mut(quad.2).list.reverse_rest.insert(quad.1);
+                    // Record the *subject* pointing at this object through
+                    // `rdf:rest`, so list chains can be walked backwards from
+                    // `rdf:nil` when folding them into `@list` values.
+                    graph.resource_mut(quad.2).list.reverse_rest.insert(quad.0);
                 }
                 None => {
                     subject.insert(quad.1, quad.2);
