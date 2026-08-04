@@ -4,14 +4,50 @@
 //! it can be unit-tested without `trybuild`.
 
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
 use syn::{DeriveInput, parse_macro_input};
+
+/// Resolves the path the generated code uses to reach the runtime crate.
+///
+/// The generated `impl` is compiled inside the consuming crate, so the path has
+/// to name a crate that crate depends on. That is either
+/// `jsonld-expandable-core` directly, giving `::jsonld_expandable_core`, or the
+/// umbrella `jsonld` crate with an `expandable*` feature, giving
+/// `::jsonld::expandable_core`. Either may be renamed in `Cargo.toml`.
+fn runtime_path(span: proc_macro2::Span) -> syn::Result<TokenStream2> {
+    if let Ok(found) = crate_name("jsonld-expandable-core") {
+        return Ok(match found {
+            FoundCrate::Itself => quote!(crate),
+            FoundCrate::Name(name) => {
+                let ident = format_ident!("{}", name);
+                quote!(::#ident)
+            }
+        });
+    }
+
+    match crate_name("jsonld") {
+        Ok(FoundCrate::Itself) => Ok(quote!(crate::expandable_core)),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = format_ident!("{}", name);
+            Ok(quote!(::#ident::expandable_core))
+        }
+        Err(_) => Err(syn::Error::new(
+            span,
+            "`Expandable` needs its runtime crate as a dependency: add `jsonld` with an \
+             `expandable` feature, or `jsonld-expandable-core` directly",
+        )),
+    }
+}
 
 /// Derive `Expandable` to generate an `expand::<V>()` impl producing expanded
 /// JSON-LD for any `V: JsonValue` backend.
 ///
 /// ```ignore
-/// // The derive macro, plus the trait it implements — `expand()` is a trait
-/// // method, so both names must be in scope.
+/// // The derive macro, plus the trait it implements: `expand()` is a trait
+/// // method, so both names must be in scope. Deriving through the umbrella
+/// // `jsonld` crate, a single `use jsonld::Expandable;` brings both.
 /// use jsonld_expandable::Expandable;
 /// use jsonld_expandable_core::Expandable as _;
 ///
@@ -37,11 +73,15 @@ use syn::{DeriveInput, parse_macro_input};
 /// | `type = "IRI-or-CURIE"` | Static `@type` for every expanded node. |
 /// | `fragment` | Emit the object without `@type` (a sub-fragment of a parent node). Mutually exclusive with `type` and a `type_value` field. |
 /// | `prefix(name = "IRI", ...)` | Declare CURIE prefixes used by `type`, `property`, and `coerce` values. Hyphenated names work bare (`prefix(ngsi-ld = "...")`) or quoted (`prefix("ngsi-ld" = "...")`). |
-/// | `crate = "path"` | Path of the runtime crate in generated code. Defaults to `::jsonld_expandable_core`, which only resolves for crates that depend on the core crate directly — **users of the umbrella `jsonld` crate must set `#[jsonld(crate = "jsonld::expandable_core")]`**. |
 /// | `debug` | Report the generated code as a compile error (for inspection). |
 ///
 /// Exactly one of `type = "..."`, a `type_value` field, or `fragment` is
 /// required.
+///
+/// The generated code reaches its runtime support through
+/// `jsonld-expandable-core` or through the umbrella `jsonld` crate's re-export
+/// of it, whichever the consuming crate depends on, following a renamed
+/// dependency to the name it was given.
 ///
 /// # Field attributes
 ///
@@ -75,5 +115,8 @@ use syn::{DeriveInput, parse_macro_input};
 #[proc_macro_derive(Expandable, attributes(jsonld))]
 pub fn derive_expandable(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    jsonld_expandable_core::derive_expandable(ast).into()
+    match runtime_path(ast.ident.span()) {
+        Ok(runtime) => jsonld_expandable_core::derive_expandable(ast, &runtime).into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }

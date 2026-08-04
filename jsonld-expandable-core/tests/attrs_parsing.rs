@@ -200,7 +200,10 @@ fn removed_type_field_attribute_is_rejected() {
 
 fn generate(src: &str) -> syn::Result<String> {
     let input: syn::DeriveInput = syn::parse_str(src).unwrap();
-    jsonld_expandable_core::codegen::generate(&input).map(|ts| ts.to_string())
+    // The derive resolves this from the consuming crate's manifest; these tests
+    // exercise codegen directly, so they pin the direct-dependant path.
+    let runtime = quote::quote!(::jsonld_expandable_core);
+    jsonld_expandable_core::codegen::generate(&input, &runtime).map(|ts| ts.to_string())
 }
 
 #[test]

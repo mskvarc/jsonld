@@ -3,8 +3,6 @@
 //! it possible to unit-test the parser and snapshot codegen output without
 //! reaching for `trybuild`.
 
-use proc_macro2::TokenStream;
-
 #[derive(Debug, Default)]
 /// Container a field's values are laid out in.
 pub struct ContainerIr {
@@ -13,8 +11,6 @@ pub struct ContainerIr {
     pub type_iri: Option<String>,
     /// Emit object without `@type` (sub-fragment).
     pub fragment: bool,
-    /// Override of the runtime crate path (default `::jsonld_expandable_core`).
-    pub crate_path: Option<TokenStream>,
     /// Local CURIE prefix table.
     pub prefixes: Vec<(String, String)>,
     /// Print generated code as a compile error.

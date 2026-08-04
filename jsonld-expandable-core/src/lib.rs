@@ -16,12 +16,11 @@
 //!   derive, not covered by semver.
 //!
 //! Application code rarely depends on this crate directly; instead enable an
-//! `expandable*` feature on the umbrella `jsonld` crate. When deriving
-//! through the umbrella crate (which re-exports this crate as
-//! `jsonld::expandable_core`), point the generated code at that path with
-//! `#[jsonld(crate = "jsonld::expandable_core")]` — the default
-//! `::jsonld_expandable_core` only resolves for crates that depend on this
-//! crate directly.
+//! `expandable*` feature on the umbrella `jsonld` crate, which re-exports both
+//! the derive and this crate (as `jsonld::expandable_core`). The derive reads
+//! the consuming crate's manifest and points the code it generates at whichever
+//! of the two that crate depends on, following a renamed dependency to the name
+//! it was given.
 //!
 //! # Limitations
 //!
@@ -90,10 +89,14 @@ pub trait ExpandableLanguageMap {
 ///
 /// Lives here so the parser, IR, and codegen can be exercised by ordinary
 /// `#[test]` functions; proc-macro crates cannot host normal tests.
+///
+/// `runtime` is the path the generated code uses to reach this crate. Only the
+/// derive can determine it, since it depends on how the *consuming* crate
+/// depends on this one.
 #[cfg(feature = "codegen")]
 #[doc(hidden)]
-pub fn derive_expandable(input: syn::DeriveInput) -> proc_macro2::TokenStream {
-    match codegen::generate(&input) {
+pub fn derive_expandable(input: syn::DeriveInput, runtime: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    match codegen::generate(&input, runtime) {
         Ok(ts) => ts,
         Err(err) => err.to_compile_error(),
     }

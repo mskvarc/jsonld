@@ -10,7 +10,12 @@ use quote::quote;
 use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type};
 
 /// Generates the `Expandable` implementation for a derive input.
-pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
+///
+/// `runtime` is the path the generated code uses to reach this crate. The
+/// derive resolves it from the consuming crate's manifest, so it is
+/// `::jsonld_expandable_core` for a direct dependant and
+/// `::jsonld::expandable_core` for a consumer of the umbrella crate.
+pub fn generate(input: &DeriveInput, runtime: &TokenStream) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -28,7 +33,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
-    let crate_path = container.crate_path.clone().unwrap_or_else(|| quote!(::jsonld_expandable_core));
+    let crate_path = runtime;
 
     let mut id_stmt: Option<TokenStream> = None;
     let mut type_stmt: Option<TokenStream> = None;
@@ -207,7 +212,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
         seen_property_iris.push(property_iri.clone());
 
-        let value_expr = build_field_expr(&field_ident, &f, is_option, &crate_path, &container.prefixes)?;
+        let value_expr = build_field_expr(&field_ident, &f, is_option, crate_path, &container.prefixes)?;
 
         prop_stmts.push(if is_option {
             quote! {

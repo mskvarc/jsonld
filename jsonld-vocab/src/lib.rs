@@ -11,26 +11,22 @@
 //!
 //! # Requirements
 //!
-//! The generated code references `::iri_rs` (the [`iri-rs`] crate) with its
-//! `static` feature enabled, so the **calling crate** must depend on it:
+//! The calling crate needs [`iri-rs`] as a dependency:
 //!
 //! ```toml
 //! [dependencies]
 //! iri-rs = { version = "3", features = ["static"] }
 //! ```
 //!
-//! If you use the umbrella `jsonld` crate with its `vocab` feature you do not
-//! need a direct `iri-rs` dependency — point the generated code at the
-//! facade's re-export instead with the `iri_crate` field:
+//! This cannot be routed through another crate's re-export of `iri-rs`. The
+//! constants are built by `iri-rs`'s `iri!` macro, which resolves `iri-rs`
+//! against the calling crate's own manifest when it expands, so naming a
+//! re-exported path fails inside that macro. Renaming the dependency is fine:
+//! this macro looks the name up rather than assuming `iri_rs`.
 //!
-//! ```ignore
-//! mod vocab {
-//!     jsonld::vocab! {
-//!         contexts: ["contexts/core.jsonld"],
-//!         iri_crate: "jsonld::iri_rs",
-//!     }
-//! }
-//! ```
+//! Depending on the umbrella `jsonld` crate with its `vocab` feature covers the
+//! `static` part, since features unify, so a plain `iri-rs = "3"` alongside it
+//! is enough.
 //!
 //! [`iri-rs`]: https://docs.rs/iri-rs
 mod codegen;
@@ -43,7 +39,33 @@ use crate::{
     resolve::load_contexts,
 };
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
+use proc_macro2::Span;
+use quote::{format_ident, quote};
 use syn::parse_macro_input;
+
+/// Resolves the path the generated constants use to reach `iri-rs`.
+///
+/// The constants are built by `iri-rs`'s own `iri!` macro, which resolves
+/// `iri-rs` against the calling crate's manifest when it expands. Reaching it
+/// through another crate's re-export therefore cannot work, and `iri-rs` has to
+/// be a dependency of the calling crate. Looking the name up here means a
+/// renamed dependency still works, and a missing one gets an error naming the
+/// macro that needs it.
+fn iri_path(span: Span) -> syn::Result<proc_macro2::TokenStream> {
+    match crate_name("iri-rs") {
+        Ok(FoundCrate::Itself) => Ok(quote!(crate)),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = format_ident!("{}", name);
+            Ok(quote!(::#ident))
+        }
+        Err(_) => Err(syn::Error::new(
+            span,
+            "the generated constants are `iri-rs` types, so the calling crate needs \
+             `iri-rs = { version = \"3\", features = [\"static\"] }` as a dependency",
+        )),
+    }
+}
 
 /// Generate JSON-LD vocabulary constants from one or more local context files.
 ///
@@ -65,11 +87,10 @@ use syn::parse_macro_input;
 /// Relative paths are resolved against the calling crate's
 /// `CARGO_MANIFEST_DIR`; absolute paths are used as-is. (The
 /// `JSONLD_VOCAB_BASE_DIR` environment variable overrides the base directory
-/// for relative paths — a test-harness escape hatch, not rebuild-tracked.)
+/// for relative paths, a test-harness escape hatch that is not rebuild-tracked.)
 ///
-/// The optional `iri_crate` field overrides the path the generated constants
-/// use to reach the `iri_rs` crate (default `::iri_rs`); see the crate-level
-/// docs for the umbrella-crate setup.
+/// `contexts` is the only field. See the crate-level docs for the `iri-rs`
+/// dependency the generated constants are built from.
 #[proc_macro]
 pub fn generate(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as MacroInput);
@@ -80,11 +101,7 @@ pub fn generate(input: TokenStream) -> TokenStream {
 fn expand(input: MacroInput) -> syn::Result<proc_macro2::TokenStream> {
     let contexts = InputContexts::resolve(&input)?;
     let resolved = load_contexts(&contexts)?;
-
-    let iri_crate = match &input.iri_crate {
-        Some(path) => quote::quote!(#path),
-        None => quote::quote!(::iri_rs),
-    };
+    let iri_crate = iri_path(input.contexts_span)?;
 
     generate_tokens(&resolved, &iri_crate)
 }

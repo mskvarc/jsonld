@@ -20,6 +20,11 @@ proc-macro = true
 
 [dependencies]
 jsonld-expandable-core = { workspace = true, features = ["codegen"] }
+proc-macro2 = "1.0.107"
+# Resolves how the consuming crate depends on the runtime crate, so generated
+# code needs no `crate = "..."` configuration.
+proc-macro-crate = "3.5.0"
+quote = "1.0.47"
 syn = { version = "3.0.3", features = ["full", "extra-traits"] }
 
 [dev-dependencies]

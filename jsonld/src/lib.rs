@@ -365,8 +365,7 @@
 //! #[derive(Expandable)]
 //! #[jsonld(
 //!     type = "https://schema.org/Person",
-//!     prefix(schema = "https://schema.org/"),
-//!     crate = "jsonld::expandable_core"
+//!     prefix(schema = "https://schema.org/")
 //! )]
 //! struct Person {
 //!     #[jsonld(id)]
@@ -393,12 +392,8 @@
 //! [`JsonValue`] trait, so the same type can render into
 //! [`serde_json::Value`], `sonic_rs::Value`, or [`jstrict::Value`] depending
 //! on which backend feature is enabled. Field attributes cover `@type`
-//! coercion, language maps, nesting, flattening and more — see
-//! [`Expandable`] for the full attribute reference.
-//!
-//! **Note:** because the derive macro generates paths into its support crate,
-//! users of this umbrella crate must set
-//! `#[jsonld(crate = "jsonld::expandable_core")]`, as above.
+//! coercion, language maps, nesting, flattening and more; see [`Expandable`]
+//! for the full attribute reference.
 //!
 //! ## Compile-time vocabularies with `vocab!`
 //!
@@ -410,8 +405,7 @@
 //! ```ignore
 //! mod vocab {
 //!     jsonld::vocab! {
-//!         contexts: ["contexts/schema.jsonld"],
-//!         iri_crate: "jsonld::iri_rs"
+//!         contexts: ["contexts/schema.jsonld"]
 //!     }
 //! }
 //!
@@ -422,9 +416,13 @@
 //!
 //! The macro also emits the compact-to-expanded term mapping, letting you go
 //! from a term to its IRI without a runtime context lookup. See [`vocab!`] for
-//! the full syntax. The generated code needs `iri-rs` with its `static`
-//! feature; `iri_crate: "jsonld::iri_rs"` points it at this crate's
-//! re-export, so the calling crate needs no `iri-rs` dependency of its own.
+//! the full syntax.
+//!
+//! The constants are `iri-rs` types built by that crate's `iri!` macro, which
+//! resolves `iri-rs` against your crate's manifest as it expands. So `vocab!`
+//! needs `iri-rs` among your own dependencies, and a re-exported path cannot
+//! stand in for it. A plain `iri-rs = "3"` is enough: the `vocab` feature turns
+//! on the `static` feature that `iri!` lives behind.
 //!
 //! # Feature flags
 //!
@@ -563,8 +561,6 @@ pub use jsonld_vocab::generate as vocab;
 mod processor;
 pub use processor::*;
 
-#[doc(hidden)]
-pub use iri_rs;
 pub use iri_rs::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
 
 pub use rdfx::{self, BlankId, BlankIdBuf};

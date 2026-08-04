@@ -16,16 +16,12 @@ pub struct MacroInput {
     pub contexts: Vec<LitStr>,
     /// Span pointing at the `contexts` field for diagnostics.
     pub contexts_span: Span,
-    /// Override of the path the generated code uses to reach `iri_rs`
-    /// (default `::iri_rs`).
-    pub iri_crate: Option<syn::Path>,
 }
 
 impl Parse for MacroInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let mut contexts: Option<Vec<LitStr>> = None;
         let mut contexts_span: Option<Span> = None;
-        let mut iri_crate: Option<syn::Path> = None;
 
         while !input.is_empty() {
             let key: syn::Ident = input.parse()?;
@@ -38,15 +34,8 @@ impl Parse for MacroInput {
                 let punct: Punctuated<LitStr, Token![,]> = Punctuated::parse_terminated(&bracketed_content)?;
                 contexts_span = Some(span);
                 contexts = Some(punct.into_iter().collect());
-            } else if key == "iri_crate" {
-                let lit: LitStr = input.parse()?;
-                let path = syn::parse_str::<syn::Path>(&lit.value()).map_err(|error| syn::Error::new(lit.span(), error.to_string()))?;
-                iri_crate = Some(path);
             } else {
-                return Err(syn::Error::new(
-                    key.span(),
-                    format!("unknown field `{key}`, expected `contexts` or `iri_crate`"),
-                ));
+                return Err(syn::Error::new(key.span(), format!("unknown field `{key}`, expected `contexts`")));
             }
 
             let _ = input.parse::<Option<Token![,]>>()?;
@@ -59,11 +48,7 @@ impl Parse for MacroInput {
             return Err(syn::Error::new(contexts_span, "`contexts` must contain at least one path"));
         }
 
-        Ok(Self {
-            contexts,
-            contexts_span,
-            iri_crate,
-        })
+        Ok(Self { contexts, contexts_span })
     }
 }
 

@@ -5,8 +5,8 @@ use syn::Ident;
 
 /// Generate the final Rust token stream for the resolved vocabulary model.
 ///
-/// `iri_crate` is the path the generated code uses to reach the `iri_rs`
-/// crate (`::iri_rs` unless overridden by the macro's `iri_crate` field).
+/// `iri_crate` is the path the generated code uses to reach the `iri_rs` crate,
+/// resolved from the calling crate's manifest.
 pub fn generate_tokens(model: &ResolvedModel, iri_crate: &TokenStream) -> syn::Result<TokenStream> {
     let include_paths = model
         .include_paths

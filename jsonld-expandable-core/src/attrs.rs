@@ -39,10 +39,6 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
                 out.type_iri = Some(iri);
             } else if meta.path.is_ident("fragment") {
                 out.fragment = true;
-            } else if meta.path.is_ident("crate") {
-                let lit: syn::LitStr = meta.value()?.parse()?;
-                let path: syn::Path = syn::parse_str(&lit.value())?;
-                out.crate_path = Some(quote::quote!(#path));
             } else if meta.path.is_ident("debug") {
                 out.debug = true;
             } else if meta.path.is_ident("prefix") {
@@ -73,7 +69,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
             } else {
                 return Err(meta.error(format!(
                     "unknown jsonld container attribute `{}`; expected one of: \
-                     type, fragment, crate, debug, prefix",
+                     type, fragment, debug, prefix",
                     meta.path.get_ident().map_or("?".into(), |i| i.to_string())
                 )));
             }

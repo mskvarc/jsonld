@@ -21,6 +21,9 @@ proc-macro = true
 [dependencies]
 heck = "0.5.0"
 proc-macro2 = "1.0.107"
+# Resolves how the calling crate depends on `iri-rs`, so the generated
+# constants need no crate-path configuration.
+proc-macro-crate = "3.5.0"
 quote = "1.0.47"
 serde_json = "1.0.151"
 syn = { version = "3.0.3", features = ["full", "extra-traits"] }
