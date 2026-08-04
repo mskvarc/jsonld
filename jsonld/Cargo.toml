@@ -12,8 +12,19 @@ description = "JSON-LD implementation"
 documentation = "https://docs.rs/jsonld"
 readme.workspace = true
 # The W3C conformance suite lives in a 34MB git submodule; shipping it would
-# blow past the crates.io package size limit (and it is W3C-licensed).
-exclude = ["tests/json-ld-api"]
+# blow past the crates.io package size limit (and it is W3C-licensed). The four
+# runners below generate their cases from that submodule's manifests through
+# `jsonld-testing`, which is unpublished and depended on by path, so in a
+# published crate they would fail to compile rather than run: neither their
+# fixtures nor their macro is there. The remaining test targets, the benchmarks
+# and the example are self-contained and do ship.
+exclude = [
+    "tests/json-ld-api",
+    "tests/compact.rs",
+    "tests/expand.rs",
+    "tests/flatten.rs",
+    "tests/to_rdf.rs",
+]
 # `benches/common.rs` is a shared fixture module, not a benchmark. Auto-
 # discovery would turn it into a libtest-harness bench target, which rejects
 # the criterion flags before `expansion` or `compaction` ever run.

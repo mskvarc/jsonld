@@ -96,7 +96,7 @@ fn runtime_path(span: proc_macro2::Span) -> syn::Result<TokenStream2> {
 /// | `coerce = "IRI-or-CURIE"` | Typed literal: emits `[{"@value": v, "@type": "<datatype>"}]`. CURIEs expand through the container's `prefix(...)` table. |
 /// | `container = "list"` | Wrap values as `[{"@list": [...]}]`. Composes with `coerce` and `nested` for per-item shapes. |
 /// | `container = "set"` | Emit the value's `ToJsonValue` form verbatim (JSON array). |
-/// | `container = "language"` | Language map via the `ExpandableLanguageMap` trait. |
+/// | `container = "language"` | Language map: `HashMap`/`BTreeMap` of tag to text work as they are, other shapes implement `ExpandableLanguageMap`. |
 /// | `container = "index"` | Index map: emits `[{"@index": k, "@value": v}, ...]` from an iterable of pairs. |
 /// | `nested` | Field is itself `Expandable`; recurse. With `vec`, expands each element. |
 /// | `vec` | Field is a `Vec`-like iterable; combine with `nested` or an `@id`/`@vocab` coercion. |

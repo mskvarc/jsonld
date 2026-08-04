@@ -89,12 +89,15 @@ pub enum Error {
     MultipleContextLinkHeaders,
 
     #[error("too many redirections")]
-    /// The loader followed [`Options::max_redirections`] `Link` headers
+    /// The loader followed [`Options::max_redirections`](crate::loader::reqwest::Options::max_redirections)
+    /// `Link` headers
     /// without reaching a JSON-LD document.
     TooManyRedirections,
 
     #[error("document exceeds the size limit ({0} bytes)")]
-    /// The response body exceeded [`Options::max_document_size`]. Carries
+    /// The response body exceeded
+    /// [`Options::max_document_size`](crate::loader::reqwest::Options::max_document_size).
+    /// Carries
     /// the limit that was exceeded, in bytes.
     TooLarge(usize),
 
@@ -108,7 +111,7 @@ pub enum Error {
 /// Only works with the [`tokio`](https://tokio.rs/) runtime.
 ///
 /// Follows HTTP redirections and JSON-LD `Link` headers, up to
-/// [`Options::max_redirections`].
+/// [`Options::max_redirections`](crate::loader::reqwest::Options::max_redirections).
 ///
 /// Loaded documents are not cached: a new network request is made each time a
 /// URL is loaded, even if it has been fetched before.

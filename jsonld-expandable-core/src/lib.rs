@@ -75,14 +75,44 @@ pub trait ExpandableTypeValue {
     fn to_type_array<V: JsonValue>(&self) -> V;
 }
 
-/// Field marker for `@container: @language` maps backed by user-defined types.
+/// Renders a field tagged `#[jsonld(container = "language")]`.
 ///
-/// `HashMap<String, T>` automatically routes through the built-in language-map
-/// codegen path; implement this when you need a custom type to participate.
+/// Implemented here for `HashMap` and `BTreeMap` whose keys and values are both
+/// `AsRef<str>`, which covers the ordinary language map of tag to text. A
+/// language that carries several strings, or values that are not strings, needs
+/// its own implementation.
 pub trait ExpandableLanguageMap {
     /// Renders the map in expanded language-map form: a JSON array of
     /// `{"@value": ..., "@language": ...}` objects in the chosen backend `V`.
     fn to_expanded_language_map<V: JsonValue>(&self) -> V;
+}
+
+fn language_entries<'a, V: JsonValue, I>(entries: I) -> V
+where
+    I: IntoIterator<Item = (&'a str, &'a str)>,
+{
+    V::array(
+        entries
+            .into_iter()
+            .map(|(lang, text)| V::object([("@value".to_string(), V::string(text)), ("@language".to_string(), V::string(lang))])),
+    )
+}
+
+impl<K: AsRef<str>, T: AsRef<str>, S> ExpandableLanguageMap for std::collections::HashMap<K, T, S> {
+    fn to_expanded_language_map<V: JsonValue>(&self) -> V {
+        // `HashMap` iteration order varies between processes. Sorting by
+        // language tag keeps the emitted array stable, which matters as soon as
+        // the output is compared, hashed or golden-tested.
+        let mut entries: Vec<(&str, &str)> = self.iter().map(|(k, v)| (k.as_ref(), v.as_ref())).collect();
+        entries.sort_unstable_by_key(|(lang, _)| *lang);
+        language_entries(entries)
+    }
+}
+
+impl<K: AsRef<str>, T: AsRef<str>> ExpandableLanguageMap for std::collections::BTreeMap<K, T> {
+    fn to_expanded_language_map<V: JsonValue>(&self) -> V {
+        language_entries(self.iter().map(|(k, v)| (k.as_ref(), v.as_ref())))
+    }
 }
 
 /// Driver entry used by the proc-macro shell crate.

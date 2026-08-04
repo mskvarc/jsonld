@@ -31,11 +31,20 @@ fn main() {
     assert_eq!(obj["@type"], serde_json::json!(["https://example.com/Parent"]));
     assert_eq!(obj["https://example.com/name"], serde_json::json!([{"@value": "n"}]));
     // Each map entry's key becomes a top-level property whose value is the
-    // recursively expanded `Sub`, emitted as a bare object rather than wrapped
-    // in the single-element array that a plain `property` field would produce.
-    let a = &obj["https://example.com/a"];
-    assert_eq!(a["@type"], serde_json::json!(["https://example.com/Sub"]));
-    assert_eq!(a["https://example.com/v"], serde_json::json!([{"@value": 1}]));
-    let b = &obj["https://example.com/b"];
-    assert_eq!(b["https://example.com/v"], serde_json::json!([{"@value": 2}]));
+    // recursively expanded `Sub`, in the single-element array that expanded form
+    // requires of every property value.
+    assert_eq!(
+        obj["https://example.com/a"],
+        serde_json::json!([{
+            "@type": ["https://example.com/Sub"],
+            "https://example.com/v": [{"@value": 1}]
+        }])
+    );
+    assert_eq!(
+        obj["https://example.com/b"],
+        serde_json::json!([{
+            "@type": ["https://example.com/Sub"],
+            "https://example.com/v": [{"@value": 2}]
+        }])
+    );
 }

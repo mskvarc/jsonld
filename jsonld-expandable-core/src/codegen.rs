@@ -168,11 +168,16 @@ pub fn generate(input: &DeriveInput, runtime: &TokenStream) -> syn::Result<Token
         }
 
         if f.flatten_map {
+            // Each value is wrapped in an array, like `nested` and every other
+            // property path: in expanded form a property's value is an array of
+            // node objects, not a bare one.
             let map_stmt = quote! {
                 for (__k, __v) in __src.iter() {
                     __entries.push((
                         ::std::string::ToString::to_string(::core::convert::AsRef::<str>::as_ref(__k)),
-                        #crate_path::Expandable::expand::<V>(__v),
+                        <V as #crate_path::JsonValue>::array(::std::iter::once(
+                            #crate_path::Expandable::expand::<V>(__v),
+                        )),
                     ));
                 }
             };
