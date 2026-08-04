@@ -754,7 +754,7 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
 impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, N> for IndexedEntryKeyRef<'a, T, B> {
     fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
         match self {
-            IndexedEntryKeyRef::Index => "@value",
+            IndexedEntryKeyRef::Index => "@index",
             IndexedEntryKeyRef::Object(e) => e.into_with(vocabulary).into_str(),
         }
     }
@@ -1095,8 +1095,8 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
     pub fn is_json_object(&self) -> bool {
         match self {
             Self::Object(_) | Self::IndexedObject(_) | Self::Node(_) | Self::IndexedNode(_) => true,
-            Self::ValueFragment(i) => i.is_json_array(),
-            Self::NodeFragment(i) => i.is_json_array(),
+            Self::ValueFragment(i) => i.is_json_object(),
+            Self::NodeFragment(i) => i.is_json_object(),
             _ => false,
         }
     }
@@ -1112,7 +1112,8 @@ impl<'a, T, B> FragmentRef<'a, T, B> {
             Self::IndexedNodeList(l) => SubFragments::IndexedNodeList(l.iter()),
             Self::ValueFragment(i) => SubFragments::Value(i.sub_fragments()),
             Self::NodeFragment(i) => SubFragments::Node(i.sub_fragments()),
-            _ => SubFragments::None,
+            Self::ListFragment(l) => SubFragments::List(l.sub_fragments()),
+            Self::IndexKey | Self::IndexValue(_) => SubFragments::None,
         }
     }
 }
@@ -1151,6 +1152,8 @@ pub enum SubFragments<'a, T, B> {
     Value(value::SubFragments<'a, T>),
     /// A node object.
     Node(node::SubFragments<'a, T, B>),
+    /// A list object.
+    List(list::SubFragments<'a, T, B>),
     /// A list of indexed node objects.
     IndexedNodeList(std::slice::Iter<'a, IndexedNode<T, B>>),
 }
@@ -1168,6 +1171,7 @@ impl<'a, T, B> Iterator for SubFragments<'a, T, B> {
             },
             Self::Value(i) => i.next().map(FragmentRef::ValueFragment),
             Self::Node(i) => i.next(),
+            Self::List(i) => i.next(),
             Self::IndexedNodeList(i) => i.next().map(FragmentRef::IndexedNode),
         }
     }

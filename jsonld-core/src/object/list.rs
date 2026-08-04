@@ -210,6 +210,27 @@ pub enum FragmentRef<'a, T, B> {
     Value(&'a [IndexedObject<T, B>]),
 }
 
+impl<'a, T, B> FragmentRef<'a, T, B> {
+    /// Returns the sub-fragments of this fragment: the objects of the list.
+    pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
+        match self {
+            Self::Entry(e) | Self::Value(e) => SubFragments(e.iter()),
+            Self::Key => SubFragments([].iter()),
+        }
+    }
+}
+
+/// Iterator over the sub-fragments of a list fragment.
+pub struct SubFragments<'a, T, B>(core::slice::Iter<'a, IndexedObject<T, B>>);
+
+impl<'a, T, B> Iterator for SubFragments<'a, T, B> {
+    type Item = super::FragmentRef<'a, T, B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(super::FragmentRef::IndexedObject)
+    }
+}
+
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for List<T, B> {
     fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
         let mut obj = jstrict::Object::new();

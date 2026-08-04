@@ -1348,7 +1348,7 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<
         }
 
         if let Some(included) = self.included {
-            obj.insert("@include".into(), included.into_with(vocabulary).into_json());
+            obj.insert("@included".into(), included.into_with(vocabulary).into_json());
         }
 
         if let Some(reverse_properties) = self.reverse_properties {

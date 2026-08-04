@@ -164,7 +164,7 @@ impl Container {
             (Container::GraphSet, ContainerKind::Graph) => *self,
             (Container::GraphSet, ContainerKind::Set) => *self,
             (Container::GraphSet, ContainerKind::Id) => Container::GraphIdSet,
-            (Container::GraphSet, ContainerKind::Index) => Container::GraphIdSet,
+            (Container::GraphSet, ContainerKind::Index) => Container::GraphIndexSet,
             (Container::GraphId, ContainerKind::Graph) => *self,
             (Container::GraphId, ContainerKind::Id) => *self,
             (Container::GraphId, ContainerKind::Set) => Container::GraphIdSet,
