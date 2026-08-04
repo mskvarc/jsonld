@@ -55,7 +55,7 @@ use syntax::context::definition::KeyOrKeywordRef;
 /// 1.0 required the value to be an absolute IRI or a blank node identifier;
 /// document-relative resolution only arrived in 1.1. A bare `_:` prefix counts,
 /// as it is what makes `@vocab` map properties to blank nodes.
-pub(crate) fn is_legacy_vocab(value: &syntax::context::definition::Vocab) -> bool {
+pub(crate) fn is_valid_vocab_json_ld_1_0(value: &syntax::context::definition::Vocab) -> bool {
     value.as_str().starts_with("_:") || Iri::new(value.as_str()).is_ok()
 }
 
@@ -458,12 +458,12 @@ where
                             // 1.0 required an absolute IRI or blank node identifier, and rejects
                             // `""` and `/relative` (`expand#t0115`, `expand#t0116`). A bare `_:`
                             // prefix stays valid in 1.0 (`expand#t0075`).
-                            let legacy = options.processing_mode == ProcessingMode::JsonLd1_0;
-                            if legacy && !is_legacy_vocab(value) {
+                            let json_ld_1_0 = options.processing_mode == ProcessingMode::JsonLd1_0;
+                            if json_ld_1_0 && !is_valid_vocab_json_ld_1_0(value) {
                                 return Err(Error::InvalidVocabMapping);
                             }
 
-                            match expand_iri_simple(&mut env, &result, Nullable::Some(value.into()), !legacy, Some(options.vocab))? {
+                            match expand_iri_simple(&mut env, &result, Nullable::Some(value.into()), !json_ld_1_0, Some(options.vocab))? {
                                 Some(arc) if matches!(arc.as_ref(), Term::Id(_)) => {
                                     let term = std::sync::Arc::try_unwrap(arc).unwrap_or_else(|a| (*a).clone());
                                     result.set_vocabulary(Some(term));

@@ -37,9 +37,6 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
                     ));
                 }
                 out.type_iri = Some(iri);
-            } else if meta.path.is_ident("type_field") {
-                // Marker only; the actual `@type` source is the field carrying
-                // `#[jsonld(type_value)]`, which codegen discovers itself.
             } else if meta.path.is_ident("fragment") {
                 out.fragment = true;
             } else if meta.path.is_ident("crate") {
@@ -76,7 +73,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
             } else {
                 return Err(meta.error(format!(
                     "unknown jsonld container attribute `{}`; expected one of: \
-                     type, type_field, fragment, crate, debug, prefix",
+                     type, fragment, crate, debug, prefix",
                     meta.path.get_ident().map_or("?".into(), |i| i.to_string())
                 )));
             }

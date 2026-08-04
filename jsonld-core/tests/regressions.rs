@@ -40,8 +40,7 @@ fn node_included_serializes_as_included_keyword() {
     assert!(object.get_unique("@include").unwrap().is_none());
 }
 
-/// The `@index` entry key must render as `"@index"` (it used to render as
-/// `"@value"`).
+/// The `@index` entry key must render as `"@index"`, not as `"@value"`.
 #[test]
 fn indexed_entry_key_renders_as_index_keyword() {
     let key: IndexedEntryKeyRef<'_, IriBuf, BlankIdBuf> = IndexedEntryKeyRef::Index;
@@ -158,9 +157,12 @@ mod interpretation {
     }
 }
 
-/// `from_interpreted_quads` must fold well-formed RDF lists back into
-/// `@list` values; `reverse_rest` used to record the predicate instead of
-/// the subject, so the folding never fired.
+/// `from_interpreted_quads` must fold well-formed RDF lists back into `@list`
+/// values.
+///
+/// The folding is driven by `reverse_rest`, which has to record the *subject*
+/// of each `rdf:rest` quad; recording the predicate instead leaves it empty and
+/// no list is ever recognised.
 #[test]
 fn from_rdf_folds_lists() {
     use interpretation::TestInterpretation;
@@ -219,8 +221,8 @@ fn linked_data_serialization_keeps_literals() {
     assert_eq!(literal.as_str(), "hello");
 }
 
-/// Traversal must descend into `@list` contents; `blank_ids` used to miss
-/// every blank node identifier inside a list.
+/// Traversal must descend into `@list` contents, so that `blank_ids` reports
+/// blank node identifiers nested inside a list and not just top-level ones.
 #[test]
 fn traverse_descends_into_lists() {
     let blank = BlankIdBuf::new("_:b0".to_string()).unwrap();

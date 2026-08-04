@@ -44,7 +44,7 @@
 //! [`MAX_SYNC_DEPTH`]. A crafted deeply nested `@context` fails with
 //! [`Error::ContextOverflow`] rather than overflowing the stack.
 
-use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_legacy_vocab, resolve_iri};
+use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_valid_vocab_json_ld_1_0, resolve_iri};
 use crate::{
     Error,
     Options,
@@ -898,7 +898,7 @@ where
                         }
                         // Document-relative `@vocab` is a JSON-LD 1.1 addition; see `mod.rs`.
                         syntax::Nullable::Some(value) => {
-                            if options.processing_mode == ProcessingMode::JsonLd1_0 && !is_legacy_vocab(value) {
+                            if options.processing_mode == ProcessingMode::JsonLd1_0 && !is_valid_vocab_json_ld_1_0(value) {
                                 return Err(Error::InvalidVocabMapping);
                             }
 

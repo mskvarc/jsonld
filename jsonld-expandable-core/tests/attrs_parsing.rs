@@ -194,9 +194,9 @@ fn fragment_with_container_type_errors() {
 }
 
 #[test]
-fn type_field_marker_no_longer_clears_fragment() {
-    let c = parse_container_attrs("#[jsonld(fragment, type_field)]");
-    assert!(c.fragment);
+fn removed_type_field_attribute_is_rejected() {
+    let item: syn::ItemStruct = syn::parse_str("#[jsonld(fragment, type_field)] struct S { pub x: String }").unwrap();
+    assert!(parse_container(&item.attrs).is_err());
 }
 
 fn generate(src: &str) -> syn::Result<String> {

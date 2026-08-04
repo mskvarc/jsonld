@@ -11,9 +11,10 @@
 //! # The `fast-hash` feature does not apply here
 //!
 //! Despite its name, the crate's default `fast-hash` feature has no effect on
-//! [`DefaultBuildHasher`]: it only forwards to `iri-rs/fast-hash`, changing
-//! how *that* crate hashes IRIs. Switching the hasher used by the collections
-//! below requires the `ahash` or `gxhash` feature.
+//! [`DefaultBuildHasher`], and selects no hasher at all. It only forwards to
+//! `iri-rs/fast-hash`, which makes that crate compare, hash and order IRIs
+//! byte-wise instead of by RFC 3987 normalization. Switching the hasher used
+//! by the collections below requires the `ahash` or `gxhash` feature.
 //!
 //! Enabling `ahash` also adds no new dependency: `lasso`, which backs the
 //! [string interner](crate::intern), enables its `ahasher` feature

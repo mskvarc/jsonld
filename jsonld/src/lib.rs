@@ -403,13 +403,37 @@
 //!
 //! No feature other than `fast-hash` is enabled by default.
 //!
-//! ## Hashing
+//! ## IRI comparison
 //!
 //! | Feature | Effect |
 //! |---|---|
-//! | `fast-hash` *(default)* | Use [`foldhash`](https://docs.rs/foldhash) instead of the standard-library SipHash for the crate's internal maps and sets. Faster, but not resistant to hash-flooding from untrusted input. |
-//! | `ahash` | Use [`ahash`](https://docs.rs/ahash) as the default hasher instead. |
-//! | `gxhash` | Use [`gxhash`](https://docs.rs/gxhash) as the default hasher instead. Requires a CPU with AES intrinsics and will fail to build without them. |
+//! | `fast-hash` *(default)* | Forwarded to `iri-rs`, where it makes `Iri`/`IriRef` compare, hash and order **byte-wise** rather than by RFC 3987 normalization. |
+//!
+//! This matches how JSON-LD produces IRIs. The [IRI Expansion algorithm][1]
+//! resolves against the base IRI using only the basic algorithm of RFC 3986
+//! §5.2, and states that "neither Syntax-Based Normalization nor Scheme-Based
+//! Normalization are performed" — so IRIs reach the algorithms in whatever form
+//! the document wrote them, and comparing them bytewise compares exactly what
+//! the specification produced. Byte comparison is also considerably cheaper.
+//!
+//! Turning the feature off buys normalization-aware equality, where two
+//! spellings of the same IRI compare equal, at the cost of normalizing on every
+//! comparison. The W3C test suites pass either way. Note that this feature does
+//! **not** select the hasher used by this crate's own maps and sets; see below.
+//!
+//! [1]: https://www.w3.org/TR/json-ld11-api/#iri-expansion
+//!
+//! ## Hashing
+//!
+//! The collections used internally are hashed with
+//! [`foldhash`](https://docs.rs/foldhash) by default (via `hashbrown`), which
+//! is fast but not resistant to hash-flooding from untrusted input. Two
+//! features swap that out:
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `ahash` | Use [`ahash`](https://docs.rs/ahash) as the default hasher. |
+//! | `gxhash` | Use [`gxhash`](https://docs.rs/gxhash) as the default hasher. Requires a CPU with AES intrinsics and fails to build without them. |
 //!
 //! ## JSON interop
 //!

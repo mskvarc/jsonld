@@ -32,7 +32,6 @@ use syn::{DeriveInput, parse_macro_input};
 /// | Attribute | Meaning |
 /// |---|---|
 /// | `type = "IRI-or-CURIE"` | Static `@type` for every expanded node. |
-/// | `type_field` | Documentation marker: the `@type` comes from the field tagged `type_value`. |
 /// | `fragment` | Emit the object without `@type` (a sub-fragment of a parent node). Mutually exclusive with `type` and a `type_value` field. |
 /// | `prefix(name = "IRI", ...)` | Declare CURIE prefixes used by `type`, `property`, and `coerce` values. Hyphenated names work bare (`prefix(ngsi-ld = "...")`) or quoted (`prefix("ngsi-ld" = "...")`). |
 /// | `crate = "path"` | Path of the runtime crate in generated code. Defaults to `::jsonld_expandable_core`, which only resolves for crates that depend on the core crate directly — **users of the umbrella `jsonld` crate must set `#[jsonld(crate = "jsonld::expandable_core")]`**. |

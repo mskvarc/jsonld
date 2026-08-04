@@ -542,10 +542,11 @@ pub enum GeneratedIdError {
     UnsupportedTerm,
 }
 
-/// Helper used in place of the legacy `generator.next(vocabulary)` API:
-/// produces a [`ValidId`] from the next term yielded by `generator`, inserting
-/// it into `vocabulary`. Returns an error if the generator produces a literal
-/// or a triple term.
+/// Produces a [`ValidId`] from the next term yielded by `generator`, interning
+/// it in `vocabulary`.
+///
+/// Returns an error if the generator yields a literal or a triple term, neither
+/// of which can identify a node.
 pub fn generator_next_id<V, G>(vocabulary: &mut V, generator: &mut G) -> Result<ValidId<V::Iri, V::BlankId>, GeneratedIdError>
 where
     V: VocabularyMut,

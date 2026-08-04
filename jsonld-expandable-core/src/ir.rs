@@ -58,7 +58,8 @@ pub enum ContainerKind {
 pub struct FieldIr {
     /// Field is the `@id` of the surrounding node.
     pub is_id: bool,
-    /// Field provides the dynamic `@type` (matches container.type_field).
+    /// Field supplies the node's `@type` at runtime, in place of a fixed
+    /// container-level `type = "..."`.
     pub is_type_value: bool,
     /// Skip this field entirely.
     pub skip: bool,

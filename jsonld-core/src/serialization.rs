@@ -8,8 +8,12 @@ use rdfx::{
     vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary},
 };
 
-/// Local two-variant term enum used during serialization (an Id or a literal
-/// value). Mirrors the shape of the legacy `rdf_types::Term<I, L>`.
+/// Term as it appears while serializing: either a node identifier or a literal
+/// value.
+///
+/// `rdfx` models terms with a richer type than serialization needs here, so
+/// this local two-variant enum keeps the match arms below exhaustive without
+/// carrying cases that cannot occur.
 enum SerTerm<I, L> {
     Id(I),
     Literal(L),
