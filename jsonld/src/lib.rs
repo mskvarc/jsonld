@@ -17,7 +17,7 @@
 //!
 //! **Experimental.** This crate is a fork of
 //! [`json-ld`](https://crates.io/crates/json-ld) by Timothée Haudebourg,
-//! retargeted onto a different dependency stack ([`rdfx`],
+//! retargeted onto a different dependency stack ([`rdfx`](https://docs.rs/rdfx),
 //! [`jstrict`](https://docs.rs/jstrict), [`iri-rs`](https://docs.rs/iri-rs))
 //! and extended for the needs of an
 //! [NGSI-LD](https://www.etsi.org/committee/cim) context broker: deriving
@@ -25,13 +25,21 @@
 //! vocabularies ([`vocab!`]), context memoization, and explicit conversions to
 //! and from `serde_json` / `sonic-rs` at the HTTP boundary.
 //!
-//! The W3C JSON-LD API test suite covers the four algorithms implemented here
-//! — expansion, compaction, flattening and RDF serialization — and 1,152 of
-//! its 1,156 tests pass, the remaining four skipped against open upstream
-//! issues. `fromRdf`, HTML script extraction and HTTP content negotiation are
-//! *not* implemented. What is not settled is the API: names, error types and
-//! trait shapes are still moving, and no compatibility promise is made before
-//! 1.0. Pin an exact version.
+//! The W3C JSON-LD API test suite covers the four algorithms implemented here,
+//! namely expansion, compaction, flattening and RDF serialization, and 1,152 of
+//! its 1,156 tests pass. The other four are skipped against open upstream
+//! issues; the repository README breaks the numbers down per manifest.
+//! `fromRdf`, HTML script extraction and HTTP content negotiation are *not*
+//! implemented. What is not settled is the API: names, error types and trait
+//! shapes are still moving, and no compatibility promise is made before 1.0.
+//! Pin an exact version.
+//!
+//! The performance work behind this fork was aimed at that broker workload, and
+//! a changed performance profile is not the same as a faster one. Memoizing
+//! processed contexts and interning term keys spend memory and bookkeeping that
+//! only pay off when the same contexts and terms recur, so a workload that
+//! looks nothing like NGSI-LD can come out behind. Measure your own corpus
+//! rather than assuming this fork is the faster choice for it.
 //!
 //! Two operational notes for untrusted input: the default hasher is fast but
 //! not hash-flooding resistant (see [Hashing](#hashing) for alternatives), and
@@ -284,8 +292,8 @@
 //! ## Interop with other JSON crates
 //!
 //! This crate represents JSON values as [`jstrict::Value`], whose object type
-//! preserves entry order and tolerates duplicate keys — both of which the
-//! JSON-LD algorithms depend on. Two feature flags convert to and from the
+//! preserves entry order and tolerates duplicate keys. The JSON-LD algorithms
+//! depend on both. Two feature flags convert to and from the
 //! common alternatives without manual unpacking:
 //!
 //! | Feature | Type it bridges to |
@@ -303,7 +311,7 @@
 //! ### Output
 //!
 //! - [`JsonLdProcessor::compact`] and [`JsonLdProcessor::flatten`] return a
-//!   [`jstrict::Value`] — call its inherent `into_serde_json` /
+//!   [`jstrict::Value`]; call its inherent `into_serde_json` /
 //!   `into_sonic_rs` method.
 //! - [`ExpandedDocument`] gains `into_serde_json_with` / `into_sonic_rs_with`,
 //!   and `into_serde_json` / `into_sonic_rs` for the default no-vocabulary
@@ -391,9 +399,11 @@
 //! The derive is backend-agnostic: [`Expandable::expand`] is generic over the
 //! [`JsonValue`] trait, so the same type can render into
 //! [`serde_json::Value`], `sonic_rs::Value`, or [`jstrict::Value`] depending
-//! on which backend feature is enabled. Field attributes cover `@type`
-//! coercion, language maps, nesting, flattening and more; see [`Expandable`]
-//! for the full attribute reference.
+//! on which backend feature is enabled, and `expandable-chrono` lets `chrono`
+//! temporal types take part without a newtype wrapper. Field attributes cover
+//! `@type` coercion, language maps, nesting, flattening and more; see
+//! [`Expandable`] for the full attribute reference. Generic structs are not
+//! supported yet.
 //!
 //! ## Compile-time vocabularies with `vocab!`
 //!
@@ -418,6 +428,17 @@
 //! from a term to its IRI without a runtime context lookup. See [`vocab!`] for
 //! the full syntax.
 //!
+//! The split into `classes` and `properties` is a naming convention, the one
+//! NGSI-LD and most RDF vocabularies follow, rather than anything the JSON-LD
+//! specification mandates: a term whose first character is uppercase becomes a
+//! class, everything else becomes a property. Contexts that name things some
+//! other way still get a constant per term and complete lookup tables, but the
+//! module names stop describing their contents. Casing matters more than that in
+//! one place: constant names are the term in SHOUTY_SNAKE_CASE, so `createdAt`
+//! and `created_at` both want `CREATED_AT` and collide, which is an error rather
+//! than generated code. A context consistent about one style is fine, one that
+//! mixes both for the same concept is not. See [`vocab!`] for the details.
+//!
 //! The constants are `iri-rs` types built by that crate's `iri!` macro, which
 //! resolves `iri-rs` against your crate's manifest as it expands. So `vocab!`
 //! needs `iri-rs` among your own dependencies, and a re-exported path cannot
@@ -437,7 +458,7 @@
 //! This matches how JSON-LD produces IRIs. The [IRI Expansion algorithm][1]
 //! resolves against the base IRI using only the basic algorithm of RFC 3986
 //! §5.2, and states that "neither Syntax-Based Normalization nor Scheme-Based
-//! Normalization are performed" — so IRIs reach the algorithms in whatever form
+//! Normalization are performed", so IRIs reach the algorithms in whatever form
 //! the document wrote them, and comparing them bytewise compares exactly what
 //! the specification produced. Byte comparison is also considerably cheaper.
 //!
