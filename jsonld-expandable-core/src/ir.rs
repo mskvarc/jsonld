@@ -81,6 +81,6 @@ pub struct FieldIr {
     pub flatten_map: bool,
     /// Field's `Expandable` impl (manual or derived) produces the final
     /// JSON-LD form for this property — emit it verbatim, no wrapping in
-    /// `[{"@value": ...}]` or `[obj]`. Legacy spelling: `#[jsonld(custom)]`.
+    /// `[{"@value": ...}]` or `[obj]`.
     pub passthrough: bool,
 }

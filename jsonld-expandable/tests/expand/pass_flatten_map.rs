@@ -30,9 +30,9 @@ fn main() {
     let obj = v.as_object().unwrap();
     assert_eq!(obj["@type"], serde_json::json!(["https://example.com/Parent"]));
     assert_eq!(obj["https://example.com/name"], serde_json::json!([{"@value": "n"}]));
-    // Each map entry's key is now a top-level property pointing at the
-    // recursively expanded Sub object (single object, not wrapped in an array
-    // — matches andromeda's legacy behavior).
+    // Each map entry's key becomes a top-level property whose value is the
+    // recursively expanded `Sub`, emitted as a bare object rather than wrapped
+    // in the single-element array that a plain `property` field would produce.
     let a = &obj["https://example.com/a"];
     assert_eq!(a["@type"], serde_json::json!(["https://example.com/Sub"]));
     assert_eq!(a["https://example.com/v"], serde_json::json!([{"@value": 1}]));

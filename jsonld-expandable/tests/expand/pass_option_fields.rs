@@ -10,13 +10,13 @@ pub struct Thing {
     #[jsonld(property = "https://example.com/count")]
     pub count: Option<i64>,
 
-    #[jsonld(property = "https://example.com/names", vocab_vec)]
+    #[jsonld(property = "https://example.com/names", coerce = "@id", vec)]
     pub names: Option<Vec<String>>,
 
-    #[jsonld(property = "https://example.com/category", vocab)]
+    #[jsonld(property = "https://example.com/category", coerce = "@id")]
     pub category: Option<String>,
 
-    #[jsonld(property = "https://example.com/tags", vocab_vec)]
+    #[jsonld(property = "https://example.com/tags", coerce = "@id", vec)]
     pub tags: Vec<String>,
 }
 

@@ -19,9 +19,9 @@ impl<T: AsRef<str>> jsonld_expandable_core::Expandable for OneOrMany<T> {
 pub struct Rel {
     #[jsonld(id)]
     pub id: String,
-    #[jsonld(property = "https://example.com/object", custom)]
+    #[jsonld(property = "https://example.com/object", passthrough)]
     pub object: OneOrMany<String>,
-    #[jsonld(property = "https://example.com/maybeObject", custom)]
+    #[jsonld(property = "https://example.com/maybeObject", passthrough)]
     pub maybe_object: Option<OneOrMany<String>>,
 }
 

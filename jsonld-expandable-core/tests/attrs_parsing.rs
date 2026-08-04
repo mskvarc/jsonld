@@ -1,5 +1,5 @@
-//! Unit tests for the attribute parser. Covers both new spec-aligned
-//! spellings and legacy NGSI-flavored aliases.
+//! Unit tests for the `#[jsonld(...)]` attribute parser: which spellings
+//! lower to which IR, and which combinations are rejected.
 
 #![allow(clippy::unwrap_used)]
 
@@ -49,53 +49,39 @@ fn field_property_only() {
 }
 
 #[test]
-fn legacy_vocab_lowers_to_coerce_id() {
-    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", vocab)]");
-    assert_eq!(f.coerce, Some(Coerce::Id));
-}
-
-#[test]
-fn legacy_vocab_vec_lowers_to_coerce_id_plus_vec() {
-    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", vocab_vec)]");
+fn coerce_id_plus_vec_parses() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", coerce = \"@id\", vec)]");
     assert_eq!(f.coerce, Some(Coerce::Id));
     assert!(f.is_vec);
 }
 
 #[test]
-fn legacy_typed_value_lowers_to_coerce_datatype() {
-    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", typed_value, datatype = \"http://www.w3.org/2001/XMLSchema#dateTime\")]");
-    assert_eq!(f.coerce, Some(Coerce::Datatype("http://www.w3.org/2001/XMLSchema#dateTime".into())));
-}
-
-#[test]
-fn new_coerce_id_equivalent() {
+fn coerce_id_parses() {
     let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", coerce = \"@id\")]");
     assert_eq!(f.coerce, Some(Coerce::Id));
 }
 
 #[test]
-fn new_container_list_equivalent_to_legacy_list() {
-    let a = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", list)]");
-    let b = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", container = \"list\")]");
-    assert_eq!(a.container, Some(ContainerKind::List));
-    assert_eq!(a.container, b.container);
+fn container_list_parses() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", container = \"list\")]");
+    assert_eq!(f.container, Some(ContainerKind::List));
 }
 
 #[test]
-fn legacy_language_map_lowers_to_container_language() {
-    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", language_map)]");
+fn container_language_parses() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", container = \"language\")]");
     assert_eq!(f.container, Some(ContainerKind::Language));
 }
 
 #[test]
-fn legacy_flatten_object_lowers_to_flatten() {
-    let f = parse_field_attrs("#[jsonld(flatten_object)]");
+fn flatten_parses() {
+    let f = parse_field_attrs("#[jsonld(flatten)]");
     assert!(f.flatten);
     assert!(!f.flatten_map);
 }
 
 #[test]
-fn legacy_flatten_map_lowers_to_flatten_map() {
+fn flatten_map_parses() {
     let f = parse_field_attrs("#[jsonld(flatten_map)]");
     assert!(f.flatten_map);
     assert!(!f.flatten);
@@ -104,21 +90,21 @@ fn legacy_flatten_map_lowers_to_flatten_map() {
 
 #[test]
 fn flatten_with_property_errors() {
-    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(flatten_object, property = \"https://e.com/p\")] pub x: String, }").unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(flatten, property = \"https://e.com/p\")] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
 
 #[test]
 fn flatten_and_flatten_map_mutually_exclusive() {
-    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(flatten_object, flatten_map)] pub x: String, }").unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(flatten, flatten_map)] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
 
 #[test]
-fn legacy_custom_lowers_to_passthrough() {
-    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", custom)]");
+fn passthrough_parses() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", passthrough)]");
     assert!(f.passthrough);
     assert!(f.coerce.is_none());
     assert!(f.container.is_none());
@@ -127,20 +113,21 @@ fn legacy_custom_lowers_to_passthrough() {
 
 #[test]
 fn passthrough_with_coerce_errors() {
-    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", custom, vocab)] pub x: String, }").unwrap();
+    let item: syn::ItemStruct =
+        syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", passthrough, coerce = \"@id\")] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
 
 #[test]
 fn list_plus_coerce_id_parses() {
-    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", list, id_ref)]");
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", container = \"list\", coerce = \"@id\")]");
     assert_eq!(f.container, Some(ContainerKind::List));
     assert_eq!(f.coerce, Some(Coerce::Id));
 }
 
 #[test]
-fn legacy_nested_no_op_marker() {
+fn nested_plus_vec_parses() {
     let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", nested, vec)]");
     assert!(f.nested);
     assert!(f.is_vec);

@@ -6,7 +6,7 @@ pub struct Conflicting {
     #[jsonld(id)]
     pub id: String,
 
-    #[jsonld(property = "https://example.com/value", nested, vocab)]
+    #[jsonld(property = "https://example.com/value", nested, coerce = "@id")]
     pub value: String,
 }
 

@@ -64,13 +64,6 @@ use syn::{DeriveInput, parse_macro_input};
 ///
 /// `Option<T>` fields omit their entry when `None`.
 ///
-/// Legacy aliases from the original `json-ld-expandable` crate are accepted:
-/// `custom` (= `passthrough`), `list` (= `container = "list"`),
-/// `vocab` / `id_ref` (= `coerce = "@id"`), `vocab_vec` (= `coerce = "@id"` +
-/// `vec`), `language_map` (= `container = "language"`), `flatten_object`
-/// (= `flatten`), `typed_value` + `datatype = "..."` (= `coerce = "<iri>"`),
-/// `json_value` (= `coerce = "@json"`).
-///
 /// # Limitations
 ///
 /// Generic structs are not supported: the derive cannot yet add the

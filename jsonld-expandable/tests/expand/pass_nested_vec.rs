@@ -23,13 +23,13 @@ pub struct Parent {
     #[jsonld(property = "https://example.com/child", nested)]
     pub child: Detail,
 
-    #[jsonld(property = "https://example.com/tags", list)]
+    #[jsonld(property = "https://example.com/tags", container = "list")]
     pub tags: Vec<String>,
 
-    #[jsonld(property = "https://example.com/category", vocab)]
+    #[jsonld(property = "https://example.com/category", coerce = "@id")]
     pub category: String,
 
-    #[jsonld(property = "https://example.com/types", vocab_vec)]
+    #[jsonld(property = "https://example.com/types", coerce = "@id", vec)]
     pub types: Vec<String>,
 
     #[jsonld(skip)]

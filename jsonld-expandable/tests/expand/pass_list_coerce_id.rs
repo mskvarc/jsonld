@@ -4,11 +4,11 @@ use jsonld_expandable_core::Expandable as _;
 #[derive(Expandable)]
 #[jsonld(type = "https://example.com/ListRel")]
 pub struct ListRel {
-    #[jsonld(property = "https://example.com/objectList", list, id_ref)]
+    #[jsonld(property = "https://example.com/objectList", container = "list", coerce = "@id")]
     pub object_list: Vec<String>,
-    #[jsonld(property = "https://example.com/prevObjectList", list, id_ref)]
+    #[jsonld(property = "https://example.com/prevObjectList", container = "list", coerce = "@id")]
     pub prev_object_list: Option<Vec<String>>,
-    #[jsonld(property = "https://example.com/valueList", list)]
+    #[jsonld(property = "https://example.com/valueList", container = "list")]
     pub value_list: Vec<i64>,
 }
 

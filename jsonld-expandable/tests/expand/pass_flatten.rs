@@ -13,7 +13,7 @@ pub struct System {
 pub struct Common {
     #[jsonld(property = "https://example.com/datasetId", coerce = "@id")]
     pub dataset_id: String,
-    #[jsonld(flatten_object)]
+    #[jsonld(flatten)]
     pub system: System,
 }
 
@@ -22,9 +22,9 @@ pub struct Common {
 pub struct Property {
     #[jsonld(property = "https://example.com/value")]
     pub value: String,
-    #[jsonld(flatten_object)]
+    #[jsonld(flatten)]
     pub common: Common,
-    #[jsonld(flatten_object)]
+    #[jsonld(flatten)]
     pub maybe_extra: Option<System>,
 }
 

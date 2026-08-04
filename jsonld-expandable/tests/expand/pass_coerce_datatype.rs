@@ -9,8 +9,7 @@ pub struct Event {
 
     #[jsonld(
         property = "https://example.com/observedAt",
-        typed_value,
-        datatype = "http://www.w3.org/2001/XMLSchema#dateTime"
+        coerce = "http://www.w3.org/2001/XMLSchema#dateTime"
     )]
     pub observed_at: String,
 }

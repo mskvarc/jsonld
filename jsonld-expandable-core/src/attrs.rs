@@ -1,8 +1,8 @@
 //! `#[jsonld(...)]` attribute parser.
 //!
-//! Accepts both the spec-aligned attribute names and the legacy
-//! NGSI-flavored names from the original `json-ld-expandable` crate, lowering
-//! both to the same [`crate::ir`] form.
+//! Lowers the container and field attributes of a `#[derive(Expandable)]`
+//! input into the [`crate::ir`] form that codegen consumes, rejecting
+//! combinations that cannot expand to valid JSON-LD.
 
 use crate::{
     ir::{Coerce, ContainerIr, ContainerKind, FieldIr},
@@ -98,8 +98,6 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
 pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
     let mut out = FieldIr::default();
     let mut span: Option<Span> = None;
-    let mut datatype: Option<String> = None;
-    let mut typed_value_seen = false;
 
     for attr in attrs {
         if !attr.path().is_ident("jsonld") {
@@ -108,7 +106,6 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
         span = Some(attr.span());
 
         attr.parse_nested_meta(|meta| {
-            // ----- new spec-aligned forms ------------------------------------
             if meta.path.is_ident("id") {
                 out.is_id = true;
             } else if meta.path.is_ident("type_value") {
@@ -171,39 +168,18 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
                 });
             } else if meta.path.is_ident("flatten") {
                 out.flatten = true;
-            } else if meta.path.is_ident("nest") || meta.path.is_ident("reverse") {
-                return Err(meta.error("`nest` / `reverse` are reserved but not yet implemented"));
-            // ----- legacy aliases (additive compatibility) -------------------
+            } else if meta.path.is_ident("flatten_map") {
+                out.flatten_map = true;
             } else if meta.path.is_ident("nested") {
                 out.nested = true;
             } else if meta.path.is_ident("vec") {
                 out.is_vec = true;
-            } else if meta.path.is_ident("custom") || meta.path.is_ident("passthrough") {
+            } else if meta.path.is_ident("passthrough") {
                 // Field's own Expandable impl produces the final shape;
                 // codegen calls expand() and inserts the value verbatim.
                 out.passthrough = true;
-            } else if meta.path.is_ident("list") {
-                out.container = Some(ContainerKind::List);
-            } else if meta.path.is_ident("vocab") || meta.path.is_ident("id_ref") {
-                out.coerce = Some(Coerce::Id);
-            } else if meta.path.is_ident("vocab_vec") {
-                out.coerce = Some(Coerce::Id);
-                out.is_vec = true;
-            } else if meta.path.is_ident("language_map") {
-                out.container = Some(ContainerKind::Language);
-            } else if meta.path.is_ident("flatten_map") {
-                out.flatten_map = true;
-            } else if meta.path.is_ident("flatten_object") {
-                out.flatten = true;
-            } else if meta.path.is_ident("typed_value") {
-                typed_value_seen = true;
-            } else if meta.path.is_ident("datatype") {
-                let lit: syn::LitStr = meta.value()?.parse()?;
-                datatype = Some(lit.value());
-            } else if meta.path.is_ident("json_value") {
-                out.coerce = Some(Coerce::Json);
-            } else if meta.path.is_ident("vocab_polymorphic") {
-                return Err(meta.error("`vocab_polymorphic` is no longer supported; use a concrete enum"));
+            } else if meta.path.is_ident("nest") || meta.path.is_ident("reverse") {
+                return Err(meta.error("`nest` / `reverse` are reserved but not yet implemented"));
             } else {
                 return Err(meta.error(format!(
                     "unknown jsonld field attribute `{}`",
@@ -212,27 +188,6 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
             }
             Ok(())
         })?;
-    }
-
-    if typed_value_seen {
-        let dt = datatype.ok_or_else(|| {
-            syn::Error::new(
-                span.unwrap_or_else(Span::call_site),
-                "`typed_value` requires a `datatype = \"...\"` companion attribute",
-            )
-        })?;
-        if !looks_like_iri(&dt) && !is_curie(&dt) {
-            return Err(syn::Error::new(
-                span.unwrap_or_else(Span::call_site),
-                format!("invalid datatype IRI \"{dt}\": expected a full IRI with a scheme or a CURIE backed by `prefix(...)`"),
-            ));
-        }
-        out.coerce = Some(Coerce::Datatype(dt));
-    } else if datatype.is_some() {
-        return Err(syn::Error::new(
-            span.unwrap_or_else(Span::call_site),
-            "`datatype` is only valid alongside `typed_value`",
-        ));
     }
 
     validate_field(&out, span)?;
@@ -252,12 +207,12 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
         return Err(syn::Error::new(span, "`skip` cannot be combined with other attributes"));
     }
     if f.flatten && f.flatten_map {
-        return Err(syn::Error::new(span, "`flatten` / `flatten_object` and `flatten_map` are mutually exclusive"));
+        return Err(syn::Error::new(span, "`flatten` and `flatten_map` are mutually exclusive"));
     }
     if (f.flatten || f.flatten_map) && f.property.is_some() {
         return Err(syn::Error::new(
             span,
-            "`flatten` / `flatten_object` / `flatten_map` cannot be combined with `property`",
+            "`flatten` / `flatten_map` cannot be combined with `property`",
         ));
     }
     if (f.flatten || f.flatten_map) && (f.coerce.is_some() || f.container.is_some() || f.nested) {

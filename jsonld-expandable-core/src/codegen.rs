@@ -259,8 +259,8 @@ fn build_field_expr(
         quote!(&self.#id)
     };
 
-    // `passthrough` (legacy `custom`): emit the field's own Expandable
-    // output verbatim — the user supplies the wrapping shape.
+    // `passthrough`: emit the field's own Expandable output verbatim — the
+    // user supplies the wrapping shape.
     if f.passthrough {
         return Ok(quote! {
             #crate_path::Expandable::expand::<V>(#src)
