@@ -30,7 +30,7 @@ syn = { version = "3.0.3", features = ["full", "extra-traits"] }
 [dev-dependencies]
 jsonld-expandable-core = { workspace = true, features = ["serde-json"] }
 serde_json = "1.0.151"
-trybuild = { version = "1.0.118", features = ["diff"] }
+trybuild = { version = "1.0.120", features = ["diff"] }
 
 [lints]
 workspace = true

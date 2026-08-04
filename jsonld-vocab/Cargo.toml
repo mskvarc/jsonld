@@ -30,7 +30,7 @@ syn = { version = "3.0.3", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
 iri-rs = { version = "3.3.7", features = ["static"] }
-trybuild = { version = "1.0.118", features = ["diff"] }
+trybuild = { version = "1.0.120", features = ["diff"] }
 
 [lints]
 workspace = true

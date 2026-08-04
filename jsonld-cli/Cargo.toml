@@ -24,13 +24,13 @@ ahash = ["jsonld/ahash"]
 gxhash = ["jsonld/gxhash"]
 
 [dependencies]
-clap = { version = "4.6.4", features = ["derive"] }
+clap = { version = "4.6.5", features = ["derive"] }
 contextual = "0.1.6"
 iri-rs = { version = "3.3.7", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
 jstrict = "0.14.0"
 log = "0.4.33"
-mediatype = "0.22.0"
+mediatype = "0.23.0"
 rdfx = "0.24.0"
 stderrlog = "0.6.0"
 thiserror = "2.0.19"
