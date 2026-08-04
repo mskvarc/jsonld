@@ -217,16 +217,8 @@ impl<T> InverseDefinition<T> {
         self.map.get(container)
     }
 
-    fn contains(&self, container: &Container) -> bool {
-        self.map.contains_key(container)
-    }
-
     fn reference_mut<F: FnOnce() -> InverseContainer<T>>(&mut self, container: &Container, insert: F) -> &mut InverseContainer<T> {
-        if !self.contains(container) {
-            self.map.insert(*container, insert());
-        }
-        // SAFETY: just inserted above if not present.
-        unsafe { self.map.get_mut(container).unwrap_unchecked() }
+        self.map.entry(*container).or_insert_with(insert)
     }
 
     /// Returns the select of this `InverseDefinition`.
@@ -319,11 +311,7 @@ impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
         T: Clone,
         B: Clone,
     {
-        if !self.contains(term) {
-            self.insert(term.clone(), insert());
-        }
-        // SAFETY: just inserted above if not present.
-        unsafe { self.map.get_mut(term).unwrap_unchecked() }
+        self.map.entry(term.clone()).or_insert_with(insert)
     }
 
     /// Returns the select of this `Selection`.

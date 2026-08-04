@@ -4,7 +4,10 @@ use std::{borrow::Borrow, fmt, hash::Hash, ops::Deref};
 use crate::utils::{case_insensitive_cmp, case_insensitive_eq, case_insensitive_hash};
 
 /// Language tag that may not be well-formed.
+// `repr(transparent)` guarantees the layout assumed by the `&str` transmutes
+// in `new` and `as_lenient_lang_tag_ref`.
 #[derive(Debug)]
+#[repr(transparent)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct LenientLangTag(str);

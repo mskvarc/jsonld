@@ -116,9 +116,10 @@ where
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
 {
-    // If expanded item is a graph object
-    // SAFETY: `compact_property_graph` is only invoked when `node.is_graph()`.
-    let graph = unsafe { node.graph().unwrap_unchecked() };
+    // If expanded item is a graph object.
+    // `compact_property_graph` is only invoked when `node.is_graph()`, so
+    // this never actually returns early.
+    let Some(graph) = node.graph() else { return Ok(()) };
     let mut compacted_item =
         Box::pin(graph.compact_fragment_full(vocabulary, active_context, active_context, Some(item_active_property), loader, options)).await?;
 
@@ -131,8 +132,14 @@ where
             nest_result.insert(item_active_property.into(), jsonld_syntax::Object::default().into());
         }
 
-        let map_object = unsafe { nest_result.get_unique_mut(item_active_property).ok().flatten().unwrap_unchecked() };
-        let map_object = unsafe { map_object.as_object_mut().unwrap_unchecked() };
+        // The entry exists (just inserted above if absent), but may hold a
+        // non-map value if an earlier expanded item was routed through the
+        // fall-through branch below (e.g. a named graph mixed with simple
+        // graphs under the same property); the spec defines no output for
+        // that state.
+        let Some(map_object) = nest_result.get_unique_mut(item_active_property).ok().flatten().and_then(jstrict::Value::as_object_mut) else {
+            return Err(Error::CollidingEntry);
+        };
 
         // Initialize `map_key` by IRI compacting the value of @id in
         // `expanded_item` or @none if no such value exists
@@ -159,8 +166,12 @@ where
             nest_result.insert(item_active_property.into(), jsonld_syntax::Object::default().into());
         }
 
-        let map_object = unsafe { nest_result.get_unique_mut(item_active_property).ok().flatten().unwrap_unchecked() };
-        let map_object = unsafe { map_object.as_object_mut().unwrap_unchecked() };
+        // Same collision case as the `@graph`+`@id` branch above: an earlier
+        // named graph routed through the fall-through branch may have stored
+        // a non-map value under this key.
+        let Some(map_object) = nest_result.get_unique_mut(item_active_property).ok().flatten().and_then(jstrict::Value::as_object_mut) else {
+            return Err(Error::CollidingEntry);
+        };
 
         // Initialize `map_key` the value of @index in `expanded_item`
         // or @none, if no such value exists.
@@ -270,11 +281,13 @@ where
                     }
 
                     // Initialize `nest_result` to the value of `nest_term` in result.
-                    // SAFETY: just inserted above if not present.
-                    let value = unsafe { result.get_unique_mut(nest_term.as_str()).ok().flatten().unwrap_unchecked() };
-                    // SAFETY: we inserted an `Object` value above.
-                    unsafe { value.as_object_mut().unwrap_unchecked() }
-                    // SubObject::Sub(...)
+                    // The entry exists (just inserted above if absent), but may hold
+                    // a non-map value if another property already compacted to the
+                    // same key; the spec defines no output for that state.
+                    match result.get_unique_mut(nest_term.as_str()).ok().flatten().and_then(jstrict::Value::as_object_mut) {
+                        Some(object) => object,
+                        None => return Err(Error::CollidingEntry),
+                    }
                 }
                 None => {
                     // Otherwise, initialize `nest_result` to result.
@@ -411,8 +424,13 @@ where
                             nest_result.insert((&*item_active_property).into(), jstrict::Object::default().into());
                         }
 
-                        let map_object = unsafe { nest_result.get_unique_mut(&*item_active_property).ok().flatten().unwrap_unchecked() };
-                        let map_object = unsafe { map_object.as_object_mut().unwrap_unchecked() };
+                        // The entry exists (just inserted above if absent), but may
+                        // hold a non-map value if another property already compacted
+                        // to the same key with a different container shape; the spec
+                        // defines no output for that state.
+                        let Some(map_object) = nest_result.get_unique_mut(&*item_active_property).ok().flatten().and_then(jstrict::Value::as_object_mut) else {
+                            return Err(Error::CollidingEntry);
+                        };
 
                         // Initialize container key by IRI compacting either
                         // @language, @index, @id, or @type based on the contents of container.
@@ -562,10 +580,10 @@ where
                             if let Some(map) = compacted_item.as_object()
                                 && map.len() == 1
                                 && map.get_unique("@id").ok().flatten().is_some()
+                                // An `@id`-only map implies the expanded item has an
+                                // `id`, so this last condition always holds here.
+                                && let Some(id) = expanded_item.id()
                             {
-                                // SAFETY: an `@id`-only map implies the expanded
-                                // item has an `id`.
-                                let id = unsafe { expanded_item.id().unwrap_unchecked() };
                                 let obj = Object::node(Node::with_id(id.clone()));
                                 compacted_item = Box::pin(obj.compact_indexed_fragment(
                                     vocabulary,

@@ -223,6 +223,12 @@ pub enum SerializationError {
 
     #[error("invalid number value")]
     Number(Box<ld_core::ContextIris>, String),
+
+    #[error("literal handle does not resolve in the given vocabulary")]
+    /// A literal handle of the interpretation does not resolve in the given
+    /// vocabulary: the `vocabulary` and `interpretation` arguments do not
+    /// belong together.
+    UnresolvedLiteral,
 }
 
 #[derive(Clone, Copy)]
@@ -320,12 +326,14 @@ impl<I, B> ExpandedDocument<I, B> {
                 {
                     let mut values = Vec::new();
 
-                    loop {
-                        // SAFETY: `head.is_list_node()` implies non-empty
-                        // `first` and `reverse_rest`.
-                        let first = unsafe { head.list.first.iter().next().copied().unwrap_unchecked() };
-                        let parent_id = unsafe { head.list.reverse_rest.iter().next().copied().unwrap_unchecked() };
+                    // `head.is_list_node()` guarantees a non-empty `first`;
+                    // `reverse_rest` is empty at the head of the list, in
+                    // which case the chain ends there.
+                    while let Some(first) = head.list.first.iter().next().copied() {
                         values.push(first);
+                        let Some(parent_id) = head.list.reverse_rest.iter().next().copied() else {
+                            break;
+                        };
 
                         if is_anonymous(interpretation, parent_id)
                             && let Some(parent) = graph.get(&parent_id)
@@ -511,8 +519,8 @@ where
             let mut values = values.into_iter();
 
             while values.len() > 1 {
-                // SAFETY: `values.len() > 1` was just checked.
-                let value = unsafe { values.next().unwrap_unchecked() };
+                // `values.len() > 1` guarantees the iterator is not exhausted.
+                let Some(value) = values.next() else { break };
                 let v = render_object_or_reference(vocabulary, interpretation, rdf_terms, graph, value, context)?;
                 node.insert(prop.clone(), v);
             }
@@ -608,15 +616,16 @@ where
         Some(id) => Ok(Some(SerTerm::Id(id))),
         None => match rdfx::interpretation::ReverseLiteralInterpretation::literals_of(interpretation, resource).next() {
             Some(l) => {
-                // SAFETY: `l` was returned by `literals_of` of this interpretation,
-                // which sources literals from this vocabulary.
-                let l = unsafe { vocabulary.literal(l).unwrap_unchecked() };
+                // Fails only when `interpretation` does not belong to
+                // `vocabulary`.
+                let l = vocabulary.literal(l).ok_or(SerializationError::UnresolvedLiteral)?;
                 let value = match l.type_ {
                     LiteralTypeRef::Any(d) => {
                         let ty = d.as_iri();
-                        // SAFETY: literal types are inserted into the vocabulary as
-                        // part of literal insertion.
-                        let ty_handle = unsafe { vocabulary.get(ty).unwrap_unchecked() };
+                        // Literal types are inserted into the vocabulary as
+                        // part of literal insertion, so this fails only on a
+                        // mismatched `vocabulary`.
+                        let ty_handle = vocabulary.get(ty).ok_or(SerializationError::UnresolvedLiteral)?;
                         if ty == RDF_JSON {
                             let (json, _) = jstrict::Value::parse_str(l.value)
                                 .map_err(|e| SerializationError::InvalidJson(Box::new(context.into_iris(interpretation)), e))?;

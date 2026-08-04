@@ -96,6 +96,12 @@ pub enum InvalidContextError {
     #[error(transparent)]
     /// A context key is invalid.
     InvalidContextKey(#[from] InvalidContextKey),
+
+    #[error("IRI handle does not resolve in the given vocabulary")]
+    /// An IRI handle of the context does not resolve in the vocabulary passed
+    /// to [`Context::into_syntax_definition`]; the context was built with a
+    /// different vocabulary.
+    UnresolvedIri,
 }
 
 /// Processed JSON-LD context.
@@ -603,13 +609,18 @@ impl<T, B> Context<T, B> {
             None => None,
         };
 
+        let base = match self.base_iri {
+            Some(i) => {
+                // Fails only when `vocabulary` is not the vocabulary this
+                // context was built with.
+                let iri: iri_rs::IriBuf = vocabulary.iri(&i).ok_or(InvalidContextError::UnresolvedIri)?.into();
+                Some(Nullable::Some(iri.into()))
+            }
+            None => None,
+        };
+
         Ok(jsonld_syntax::context::Definition {
-            base: self.base_iri.map(|i| {
-                // SAFETY: `i` was inserted into `vocabulary` when this context
-                // was built.
-                let iri: iri_rs::IriBuf = unsafe { vocabulary.iri(&i).unwrap_unchecked() }.into();
-                Nullable::Some(iri.into())
-            }),
+            base,
             import: None,
             language: self.default_language.map(Nullable::Some),
             direction: self.default_base_direction.map(Nullable::Some),

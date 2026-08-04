@@ -544,29 +544,6 @@ where
     }
 }
 
-/// Internal infallible variant of [`generator_next_id`] used inside
-/// non-fallible code paths.
-///
-/// # Safety
-///
-/// `generator.next_local_term()` must yield either [`LocalTerm::BlankId`] or
-/// [`LocalTerm::Named`] wrapping an IRI. The two stock generators provided by
-/// `rdfx` (the blank-id generator and the UUID-based generator) satisfy this
-/// contract.
-#[inline]
-pub unsafe fn generator_next_id_unchecked<V, G>(vocabulary: &mut V, generator: &mut G) -> ValidId<V::Iri, V::BlankId>
-where
-    V: VocabularyMut,
-    G: LocalGenerator,
-{
-    match generator.next_local_term() {
-        LocalTerm::BlankId(b) => ValidId::Blank(vocabulary.insert_owned_blank_id(b)),
-        LocalTerm::Named(RdfTerm::Iri(iri)) => ValidId::Iri(vocabulary.insert_owned(iri)),
-        // SAFETY: contract above forbids the other variants.
-        _ => unsafe { std::hint::unreachable_unchecked() },
-    }
-}
-
 /// Fragments whose anonymous nodes can all be given identifiers.
 pub trait IdentifyAll<T, B> {
     /// Assigns an identifier to every anonymous node, interning them in the

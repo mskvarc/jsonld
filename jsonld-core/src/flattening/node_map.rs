@@ -224,25 +224,25 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         T: Clone,
         B: Clone,
     {
-        if let Some(entry) = self.nodes.get_mut(&id) {
-            match (entry.index(), index) {
-                (Some(entry_index), Some(index)) if entry_index != index => {
-                    return Err(ConflictingIndexes {
-                        node_id: id,
-                        defined_index: entry_index.to_string(),
-                        conflicting_index: index.to_string(),
-                    });
+        match self.nodes.entry(id) {
+            indexmap::map::Entry::Occupied(occupied) => match (occupied.get().index(), index) {
+                (Some(entry_index), Some(index)) if entry_index != index => Err(ConflictingIndexes {
+                    node_id: occupied.key().clone(),
+                    defined_index: entry_index.to_string(),
+                    conflicting_index: index.to_string(),
+                }),
+                (None, Some(index)) => {
+                    let entry = occupied.into_mut();
+                    entry.set_index(Some(index.to_owned()));
+                    Ok(entry)
                 }
-                (None, Some(index)) => entry.set_index(Some(index.to_owned())),
-                _ => (),
+                _ => Ok(occupied.into_mut()),
+            },
+            indexmap::map::Entry::Vacant(vacant) => {
+                let node = Indexed::new(Node::with_id(vacant.key().clone()), index.map(ToOwned::to_owned));
+                Ok(vacant.insert(node))
             }
-        } else {
-            self.nodes
-                .insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index.map(ToOwned::to_owned)));
         }
-
-        // SAFETY: just inserted above if not present.
-        Ok(unsafe { self.nodes.get_mut(&id).unwrap_unchecked() })
     }
 
     /// Merge this graph with `other`.
@@ -274,16 +274,16 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         let (node, index) = node.into_parts();
 
         if let Some(id) = &node.id {
-            if let Some(entry) = self.nodes.get_mut(id) {
-                if let Some(index) = index {
-                    entry.set_index(Some(index))
+            let flat_node = match self.nodes.entry(id.clone()) {
+                indexmap::map::Entry::Occupied(occupied) => {
+                    let entry = occupied.into_mut();
+                    if let Some(index) = index {
+                        entry.set_index(Some(index))
+                    }
+                    entry
                 }
-            } else {
-                self.nodes.insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index));
-            }
-
-            // SAFETY: just inserted above if not present.
-            let flat_node = unsafe { self.nodes.get_mut(id).unwrap_unchecked() };
+                indexmap::map::Entry::Vacant(vacant) => vacant.insert(Indexed::new(Node::with_id(id.clone()), index)),
+            };
 
             if let Some(types) = node.types {
                 flat_node.types_mut_or_default().extend(types);

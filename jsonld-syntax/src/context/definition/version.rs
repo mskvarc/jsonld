@@ -31,11 +31,13 @@ impl Version {
 
     /// Consumes this `Version`, returning its JSON number.
     pub fn into_json_number(self) -> &'static jstrict::Number {
+        // SAFETY: `into_bytes` only returns `b"1.1"`, a valid JSON number.
         unsafe { jstrict::Number::new_unchecked(self.into_bytes()) }
     }
 
     /// Consumes this `Version`, returning its JSON number buf.
     pub fn into_json_number_buf(self) -> jstrict::NumberBuf {
+        // SAFETY: `into_bytes` only returns `b"1.1"`, a valid JSON number.
         unsafe { jstrict::NumberBuf::new_unchecked(self.into_bytes().into()) }
     }
 }

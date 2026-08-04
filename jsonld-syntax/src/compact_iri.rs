@@ -5,6 +5,9 @@ pub struct InvalidCompactIri<T>(pub T);
 
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 /// Compact IRI: a prefix and a suffix separated by a colon.
+// `repr(transparent)` guarantees the layout assumed by the `&str` transmute
+// in `new_unchecked`.
+#[repr(transparent)]
 pub struct CompactIri(str);
 
 impl CompactIri {

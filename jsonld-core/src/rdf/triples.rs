@@ -14,17 +14,20 @@ use smallvec::SmallVec;
 pub type Triple<T, B, L> = rdfx::GeneralizedTriple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
 
 /// Build a [`rdfx::Datatype`] from a static IRI constant. The IRIs used by
-/// jsonld-core are never `rdf:langString` / `rdf:dirLangString`, so we fall
-/// back to [`Datatype::new_unchecked`] only as a defensive last resort.
+/// jsonld-core are never `rdf:langString` / `rdf:dirLangString`, so the
+/// `xsd:string` fallback is unreachable.
 fn static_datatype(iri: iri_rs::Iri<&'static str>) -> rdfx::Datatype {
-    rdfx::Datatype::new(IriBuf::from(iri)).unwrap_or_else(|e| unsafe { rdfx::Datatype::new_unchecked(e.into_iri()) })
+    rdfx::Datatype::new(IriBuf::from(iri)).unwrap_or_else(|_| rdfx::Datatype::xsd_string())
 }
 
 /// Build a [`rdfx::Datatype`] from a vocabulary handle.
-fn datatype_of<V: rdfx::vocabulary::IriVocabulary>(vocabulary: &V, iri: &V::Iri) -> rdfx::Datatype {
-    // SAFETY: `iri` was obtained from `vocabulary`.
-    let buf = IriBuf::from(unsafe { vocabulary.iri(iri).unwrap_unchecked() });
-    rdfx::Datatype::new(buf).unwrap_or_else(|e| unsafe { rdfx::Datatype::new_unchecked(e.into_iri()) })
+///
+/// Returns `None` if the handle does not resolve in `vocabulary`, or if the
+/// IRI is reserved and cannot be used as a plain datatype (`rdf:langString` /
+/// `rdf:dirLangString`).
+fn datatype_of<V: rdfx::vocabulary::IriVocabulary>(vocabulary: &V, iri: &V::Iri) -> Option<rdfx::Datatype> {
+    let buf = IriBuf::from(vocabulary.iri(iri)?);
+    rdfx::Datatype::new(buf).ok()
 }
 
 impl<T: Clone, B: Clone> Id<T, B> {
@@ -104,16 +107,19 @@ impl<T: Clone> crate::object::Value<T> {
                 match direction {
                     Some(direction) => match rdf_direction {
                         Some(RdfDirection::I18nDatatype) => {
-                            let ty = rdfx::Datatype::new(i18n(language, *direction)).unwrap_or_else(|e| unsafe { rdfx::Datatype::new_unchecked(e.into_iri()) });
+                            // `i18n` IRIs are never reserved datatypes, so the
+                            // fallback is unreachable.
+                            let ty = rdfx::Datatype::new(i18n(language, *direction)).unwrap_or_else(|_| rdfx::Datatype::xsd_string());
                             Some(CompoundLiteral {
                                 value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(string.to_string(), rdfx::LiteralType::Any(ty)))),
                                 triples: None,
                             })
                         }
                         Some(RdfDirection::CompoundLiteral) => {
-                            // SAFETY: caller-supplied generators in this codebase only emit
-                            // blank ids or IRIs.
-                            let id = unsafe { crate::id::generator_next_id_unchecked(vocabulary, generator) };
+                            // A generator yielding anything but a blank id or
+                            // an IRI has no RDF representation; the literal is
+                            // dropped like a malformed language tag.
+                            let id = crate::id::generator_next_id(vocabulary, generator).ok()?;
                             Some(CompoundLiteral {
                                 value: Value::from_id(id),
                                 triples: None,
@@ -165,7 +171,11 @@ impl<T: Clone> crate::object::Value<T> {
                 };
 
                 let rdf_ty = match ty {
-                    Some(id) => Some(datatype_of(vocabulary, id)),
+                    // A type without RDF representation (unresolvable handle,
+                    // or a reserved datatype IRI like `rdf:langString` on a
+                    // plain typed value) drops the whole literal, like a
+                    // malformed language tag above.
+                    Some(id) => Some(datatype_of(vocabulary, id)?),
                     None => preferred_rdf_ty,
                 };
 
@@ -213,9 +223,9 @@ impl<T: Clone, B: Clone> Object<T, B> {
                         triples: None,
                     })
                 } else {
-                    // SAFETY: caller-supplied generators in this codebase only emit
-                    // blank ids or IRIs.
-                    let id = unsafe { crate::id::generator_next_id_unchecked(vocabulary, generator) };
+                    // A generator yielding anything but a blank id or an IRI
+                    // has no RDF representation; the list value is dropped.
+                    let id = crate::id::generator_next_id(vocabulary, generator).ok()?;
                     Some(CompoundValue {
                         value: Value::from_id(id.clone()),
                         triples: Some(CompoundValueTriples::List(ListTriples::new(list.as_slice(), id))),
@@ -290,16 +300,14 @@ impl<'a, T, B> NestedListTriples<'a, T, B> {
         if let Some(next) = self.iter.next() {
             let id = match self.head_ref.take() {
                 Some(id) => id,
-                // SAFETY: caller-supplied generators in this codebase only emit
-                // blank ids or IRIs.
-                None => unsafe { crate::id::generator_next_id_unchecked(vocabulary, generator) },
+                // A generator yielding anything but a blank id or an IRI has
+                // no RDF representation; the list is truncated here.
+                None => crate::id::generator_next_id(vocabulary, generator).ok()?,
             };
 
-            self.previous = Some(id);
-            // SAFETY: just assigned `Some` above.
             Some(ListNode {
                 object: next,
-                id: unsafe { self.previous.as_ref().unwrap_unchecked() },
+                id: self.previous.insert(id),
             })
         } else {
             None
@@ -499,8 +507,9 @@ fn i18n(language: Option<LangTagBuf>, direction: Direction) -> IriBuf {
         None => format!("https://www.w3.org/ns/i18n#{direction}"),
     };
 
-    // SAFETY: built from constants and a parsed `LangTag` / `Direction`.
-    unsafe { IriBuf::new(iri).unwrap_unchecked() }
+    // Built from constants and a parsed `LangTag` / `Direction`, so the
+    // bare-namespace fallback is unreachable.
+    IriBuf::new(iri).unwrap_or_else(|_| IriBuf::from(iri_rs::iri!("https://www.w3.org/ns/i18n#")))
 }
 
 /// RDF object value: either a node identifier or a literal handle.

@@ -113,14 +113,18 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
         };
 
         for (graph_id, graph) in named_graphs {
-            // SAFETY: `graph_id` was not previously declared in `default_graph`.
-            let entry = unsafe { default_graph.declare_node(graph_id, None).unwrap_unchecked() };
+            // `declare_node` with no index is infallible (only a conflicting
+            // index can fail it), so the skip is unreachable.
+            let Ok(entry) = default_graph.declare_node(graph_id, None) else {
+                continue;
+            };
             let nodes: Vec<_> = if ordered {
                 let mut decorated: Vec<_> = graph
                     .into_nodes()
                     .map(|n| {
-                        // SAFETY: every node in a node-map graph has an `id`.
-                        let key = unsafe { n.id.as_ref().unwrap_unchecked() }.with(vocabulary).as_str().to_string();
+                        // Every node in a node-map graph has an `id`, so the
+                        // empty-key fallback is unreachable.
+                        let key = n.id.as_ref().map(|id| id.with(vocabulary).as_str().to_string()).unwrap_or_default();
                         (key, n)
                     })
                     .collect();
@@ -137,8 +141,9 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
                 .into_nodes()
                 .filter_map(filter_graph)
                 .map(|n| {
-                    // SAFETY: every node in a node-map graph has an `id`.
-                    let key = unsafe { n.id.as_ref().unwrap_unchecked() }.with(vocabulary).as_str().to_string();
+                    // Every node in a node-map graph has an `id`, so the
+                    // empty-key fallback is unreachable.
+                    let key = n.id.as_ref().map(|id| id.with(vocabulary).as_str().to_string()).unwrap_or_default();
                     (key, n)
                 })
                 .collect();
@@ -156,8 +161,11 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash> NodeMap<T, B> {
         let (mut default_graph, named_graphs) = self.into_parts();
 
         for (graph_id, graph) in named_graphs {
-            // SAFETY: `graph_id` was not previously declared in `default_graph`.
-            let entry = unsafe { default_graph.declare_node(graph_id, None).unwrap_unchecked() };
+            // `declare_node` with no index is infallible (only a conflicting
+            // index can fail it), so the skip is unreachable.
+            let Ok(entry) = default_graph.declare_node(graph_id, None) else {
+                continue;
+            };
             entry.set_graph_entry(Some(graph.into_nodes().filter_map(filter_sub_graph).collect()));
         }
 

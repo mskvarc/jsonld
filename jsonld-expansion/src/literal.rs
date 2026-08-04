@@ -25,10 +25,6 @@ impl<'a> GivenLiteralValue<'a> {
         }
     }
 
-    pub fn is_string(&self) -> bool {
-        matches!(self, Self::String(_))
-    }
-
     pub fn as_str(&self) -> Option<&'a str> {
         match self {
             Self::String(s) => Some(s),
@@ -43,13 +39,6 @@ pub(crate) enum LiteralValue<'a> {
 }
 
 impl<'a> LiteralValue<'a> {
-    pub fn is_string(&self) -> bool {
-        match self {
-            Self::Given(v) => v.is_string(),
-            Self::Inferred(_) => true,
-        }
-    }
-
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::Given(v) => v.as_str(),
@@ -121,9 +110,7 @@ where
         // `value` is a string, return a new map containing a single entry where the key is `@id` and
         // the value is the result of IRI expanding `value` using `true` for `document_relative` and
         // `false` for vocab.
-        Some(Type::Id) if value.is_string() => {
-            // SAFETY: `value.is_string()` was just checked.
-            let s = unsafe { value.as_str().unwrap_unchecked() };
+        Some(Type::Id) if let Some(s) = value.as_str() => {
             let mut node = Node::new();
             let id_term = match expand_iri(&mut env, active_context, Nullable::Some(s.into()), true, None)? {
                 Some(t) => t,
@@ -137,9 +124,7 @@ where
         // value is a string, return a new map containing a single entry where the key is
         // `@id` and the value is the result of IRI expanding `value` using `true` for
         // document relative.
-        Some(Type::Vocab) if value.is_string() => {
-            // SAFETY: `value.is_string()` was just checked.
-            let s = unsafe { value.as_str().unwrap_unchecked() };
+        Some(Type::Vocab) if let Some(s) = value.as_str() => {
             let mut node = Node::new();
 
             let ty = expand_iri(&mut env, active_context, Nullable::Some(s.into()), true, Some(vocab_policy))?;
@@ -158,7 +143,7 @@ where
             let result: Literal = match value {
                 LiteralValue::Given(v) => match v {
                     GivenLiteralValue::Boolean(b) => Literal::Boolean(b),
-                    GivenLiteralValue::Number(n) => Literal::Number(unsafe { jstrict::NumberBuf::new_unchecked(n.as_bytes().into()) }),
+                    GivenLiteralValue::Number(n) => Literal::Number(jstrict::NumberBuf::from_number(n)),
                     GivenLiteralValue::String(s) => Literal::String(s.into()),
                 },
                 LiteralValue::Inferred(s) => Literal::String(s),

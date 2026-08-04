@@ -86,9 +86,12 @@ impl DefinedTerms {
     }
 
     /// Marks a term as fully defined.
+    ///
+    /// Does nothing if the term was never passed to [`Self::begin`].
     pub fn end(&mut self, key: &KeyOrKeyword) {
-        // SAFETY: `end` is paired with a successful `begin`.
-        unsafe { self.0.get_mut(key).unwrap_unchecked() }.pending = false
+        if let Some(term) = self.0.get_mut(key) {
+            term.pending = false
+        }
     }
 }
 

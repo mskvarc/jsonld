@@ -491,15 +491,18 @@ pub trait Loader {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Loads the document behind the given IRI, using the given vocabulary.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `url` does not resolve in `vocabulary`, i.e. if it was
+    /// obtained from a different vocabulary.
     async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
         V::Iri: Clone + Eq + Hash,
     {
-        // SAFETY: `url` was obtained from `vocabulary`, so the lookup must
-        // succeed. Misusing this method by passing an `Iri` from a different
-        // vocabulary is the caller's responsibility.
-        let lexical_url = unsafe { vocabulary.iri(&url).unwrap_unchecked() };
+        #[allow(clippy::expect_used)]
+        let lexical_url = vocabulary.iri(&url).expect("`url` does not resolve in the given vocabulary");
         let document = self.load(lexical_url).await?;
         Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
     }

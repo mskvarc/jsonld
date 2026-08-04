@@ -122,8 +122,8 @@ where
     active_context.default_base_direction().hash(&mut hasher);
 
     // Local context content hash: stream Print output into the hasher
-    // instead of materializing it as a `String`.
-    // SAFETY: `HashWriter`'s `fmt::Write` impl is infallible — it cannot fail.
+    // instead of materializing it as a `String`. The ignored `Result` is
+    // always `Ok`: `HashWriter`'s `fmt::Write` impl is infallible.
     let _ = write!(HashWriter(&mut hasher), "{}", local_context.pretty_print());
 
     base_url.hash(&mut hasher);

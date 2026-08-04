@@ -44,6 +44,13 @@ pub enum Error<E = std::convert::Infallible> {
     /// Invalid `@nest` value.
     InvalidNestValue,
 
+    #[error("Colliding compacted entry")]
+    /// The compaction target of a map-based container or `@nest` entry
+    /// already holds a non-map value: two terms compacted to the same key
+    /// with incompatible shapes. The JSON-LD specification does not define
+    /// an output for this state.
+    CollidingEntry,
+
     #[error("Context processing failed: {0}")]
     /// Context processing failed: the given value.
     ContextProcessing(jsonld_context_processing::Error<E>),
@@ -55,6 +62,7 @@ impl<E> Error<E> {
         match self {
             Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
             Self::InvalidNestValue => ErrorCode::InvalidNestValue,
+            Self::CollidingEntry => ErrorCode::ConflictingIndexes,
             Self::ContextProcessing(e) => e.code(),
         }
     }
@@ -358,8 +366,9 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
             // Pre-arrange the entry shape exactly as the original two-pass code did:
             // wrap an existing scalar into a single-element array, or insert an
             // empty array when `as_array` is set and the entry is absent.
-            // SAFETY: `add_value` only mutates compaction-built objects, which never have duplicate keys.
-            match unsafe { map.get_unique_mut(key).unwrap_unchecked() } {
+            // Compaction-built objects never have duplicate keys, so the `Err`
+            // (duplicate key) case of `get_unique_mut` is treated as absent.
+            match map.get_unique_mut(key).ok().flatten() {
                 Some(existing) if !existing.is_array() => {
                     let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new()));
                     if let jstrict::Value::Array(arr) = existing {
@@ -375,10 +384,9 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
                 add_value(map, key, v, false);
             }
         }
-        scalar => match unsafe { map.get_unique_mut(key).unwrap_unchecked() } {
-            Some(existing) if existing.is_array() => {
-                // SAFETY: `is_array()` guarantees `as_array_mut()` returns Some.
-                unsafe { existing.as_array_mut().unwrap_unchecked() }.push(scalar);
+        scalar => match map.get_unique_mut(key).ok().flatten() {
+            Some(jstrict::Value::Array(arr)) => {
+                arr.push(scalar);
             }
             Some(existing) => {
                 // Existing scalar — wrap into [prev, new] array.
@@ -448,12 +456,13 @@ where
             active_property_definition.container().contains(ContainerKind::List) || active_property_definition.container().contains(ContainerKind::Set);
     }
 
-    if result.is_empty() || result.len() > 1 || !options.compact_arrays || active_property == Some("@graph") || active_property == Some("@set") || list_or_set {
+    if result.len() != 1 || !options.compact_arrays || active_property == Some("@graph") || active_property == Some("@set") || list_or_set {
         return Ok(jstrict::Value::Array(result.into_iter().collect()));
     }
 
-    // SAFETY: `result.len() == 1` after the early return above.
-    Ok(unsafe { result.into_iter().next().unwrap_unchecked() })
+    // `result.len() == 1` after the early return above, so the fallback
+    // is unreachable.
+    Ok(result.into_iter().next().unwrap_or(jstrict::Value::Null))
 }
 
 impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
