@@ -111,13 +111,19 @@ pub enum InvalidContextError {
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
-/// Cache key for [`Context::compact_iri_cache`]: `(var, vocab, reverse)`.
-pub type CompactIriKey<T, B> = (Term<T, B>, bool, bool);
+/// Cache key for [`Context::compact_iri_cache`]:
+/// `(var, vocab, reverse, mode)`.
+///
+/// The processing mode is part of the key because compact-IRI selection is
+/// mode-dependent (JSON-LD 1.1 considers `@index`/`@language` containers
+/// that 1.0 may not): one processed context compacted under both modes must
+/// not serve either mode the other's terms.
+pub type CompactIriKey<T, B> = (Term<T, B>, bool, bool, ProcessingMode);
 
 /// Borrowed view over a [`CompactIriKey`] for cache lookups that don't need
 /// to allocate a fresh `Term`. Hashes byte-for-byte identically to the
 /// owned tuple, so `HashMap::get` finds the same bucket.
-pub struct CompactIriKeyRef<'a, T, B>(pub &'a Term<T, B>, pub bool, pub bool);
+pub struct CompactIriKeyRef<'a, T, B>(pub &'a Term<T, B>, pub bool, pub bool, pub ProcessingMode);
 
 impl<'a, T: std::hash::Hash, B: std::hash::Hash> std::hash::Hash for CompactIriKeyRef<'a, T, B> {
     #[inline]
@@ -125,13 +131,14 @@ impl<'a, T: std::hash::Hash, B: std::hash::Hash> std::hash::Hash for CompactIriK
         self.0.hash(state);
         self.1.hash(state);
         self.2.hash(state);
+        self.3.hash(state);
     }
 }
 
 impl<'a, T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> for CompactIriKeyRef<'a, T, B> {
     #[inline]
     fn equivalent(&self, key: &CompactIriKey<T, B>) -> bool {
-        self.0 == &key.0 && self.1 == key.1 && self.2 == key.2
+        self.0 == &key.0 && self.1 == key.1 && self.2 == key.2 && self.3 == key.3
     }
 }
 
@@ -140,9 +147,9 @@ impl<'a, T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> 
 /// 13 keywords appear repeatedly during compaction (`@id`, `@type`, `@value`,
 /// `@list`, `@set`, `@graph`, `@index`, `@language`, `@direction`, `@reverse`,
 /// `@none`, `@included`, `@json`). Their compact-IRI form is a pure function
-/// of the active context, so the result is computed once and reused — saving
-/// per-element [`Mutex`] traffic + cache lookups + alias-selection work in
-/// `compact_iri_full`.
+/// of the active context and the processing mode, so the result is computed
+/// once per `(context, mode)` and reused — saving per-element [`Mutex`]
+/// traffic + cache lookups + alias-selection work in `compact_iri_full`.
 pub struct KeywordAliases {
     aliases: [Box<str>; 13],
 }
@@ -182,6 +189,14 @@ pub const CACHED_KEYWORDS: [Keyword; 13] = [
     Keyword::Included,
     Keyword::Json,
 ];
+
+#[inline]
+fn keyword_aliases_slot(mode: ProcessingMode) -> usize {
+    match mode {
+        ProcessingMode::JsonLd1_0 => 0,
+        ProcessingMode::JsonLd1_1 => 1,
+    }
+}
 
 #[inline]
 fn keyword_alias_index(k: Keyword) -> Option<usize> {
@@ -237,7 +252,8 @@ pub struct Context<T = IriBuf, B = BlankIdBuf> {
     prefix_terms: Arc<OnceCell<Vec<(Key, Arc<Term<T, B>>)>>>,
     compact_iri_cache: Arc<OnceCell<CompactIriCache<T, B>>>,
     term_resolution_cache: Arc<OnceCell<TermResolutionCache<T, B>>>,
-    keyword_aliases: Arc<OnceCell<KeywordAliases>>,
+    // One slot per processing mode: alias selection is mode-dependent.
+    keyword_aliases: Arc<[OnceCell<KeywordAliases>; 2]>,
 }
 
 impl<T, B> Default for Context<T, B> {
@@ -255,7 +271,7 @@ impl<T, B> Default for Context<T, B> {
             prefix_terms: Arc::new(OnceCell::new()),
             compact_iri_cache: Arc::new(OnceCell::new()),
             term_resolution_cache: Arc::new(OnceCell::new()),
-            keyword_aliases: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::new([OnceCell::new(), OnceCell::new()]),
         }
     }
 }
@@ -282,7 +298,7 @@ impl<T, B> Context<T, B> {
             prefix_terms: Arc::new(OnceCell::new()),
             compact_iri_cache: Arc::new(OnceCell::new()),
             term_resolution_cache: Arc::new(OnceCell::new()),
-            keyword_aliases: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::new([OnceCell::new(), OnceCell::new()]),
         }
     }
 
@@ -482,7 +498,7 @@ impl<T, B> Context<T, B> {
 
     /// Returns the per-context memoization map for the compact-IRI algorithm.
     ///
-    /// The cache stores results keyed on `(var, vocab, reverse)`. It is
+    /// The cache stores results keyed on `(var, vocab, reverse, mode)`. It is
     /// invalidated whenever the context's term definitions, base IRI,
     /// vocabulary, language, or direction change, since those affect
     /// compaction output.
@@ -501,11 +517,13 @@ impl<T, B> Context<T, B> {
         self.term_resolution_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
     }
 
-    /// Returns the cached keyword aliases for this context, computing them via
-    /// `init` on first access. The closure runs once per context lifetime;
-    /// subsequent calls return the cached value.
-    pub fn keyword_aliases_or_init<F: FnOnce() -> KeywordAliases>(&self, init: F) -> &KeywordAliases {
-        self.keyword_aliases.get_or_init(init)
+    /// Returns the cached keyword aliases of this context for the given
+    /// processing mode, computing them via `init` on first access. The
+    /// closure runs once per `(context, mode)`; subsequent calls return the
+    /// cached value. Aliases are cached per mode because compact-IRI
+    /// selection is mode-dependent.
+    pub fn keyword_aliases_or_init<F: FnOnce() -> KeywordAliases>(&self, mode: ProcessingMode, init: F) -> &KeywordAliases {
+        self.keyword_aliases[keyword_aliases_slot(mode)].get_or_init(init)
     }
 
     /// Drops the inverse-context and compact-IRI caches if they are populated.
@@ -528,8 +546,8 @@ impl<T, B> Context<T, B> {
         if self.term_resolution_cache.get().is_some() {
             self.term_resolution_cache = Arc::new(OnceCell::new());
         }
-        if self.keyword_aliases.get().is_some() {
-            self.keyword_aliases = Arc::new(OnceCell::new());
+        if self.keyword_aliases.iter().any(|slot| slot.get().is_some()) {
+            self.keyword_aliases = Arc::new([OnceCell::new(), OnceCell::new()]);
         }
     }
 
@@ -558,8 +576,8 @@ impl<T, B> Context<T, B> {
         if self.term_resolution_cache.get().is_some() {
             self.term_resolution_cache = Arc::new(OnceCell::new());
         }
-        if self.keyword_aliases.get().is_some() {
-            self.keyword_aliases = Arc::new(OnceCell::new());
+        if self.keyword_aliases.iter().any(|slot| slot.get().is_some()) {
+            self.keyword_aliases = Arc::new([OnceCell::new(), OnceCell::new()]);
         }
         Arc::make_mut(&mut self.definitions).set_type(type_)
     }
@@ -664,7 +682,7 @@ impl<T, B> Context<T, B> {
             prefix_terms: Arc::new(OnceCell::new()),
             compact_iri_cache: Arc::new(OnceCell::new()),
             term_resolution_cache: Arc::new(OnceCell::new()),
-            keyword_aliases: Arc::new(OnceCell::new()),
+            keyword_aliases: Arc::new([OnceCell::new(), OnceCell::new()]),
         }
     }
 }

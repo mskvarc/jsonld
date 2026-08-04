@@ -96,9 +96,13 @@ impl Process for syntax::context::Context {
     {
         let key = cache_key(active_context, self, base_url.as_ref(), options);
 
-        if let Some(cached) = cache.get(key) {
+        if let Some(cached) = cache.get(key, active_context, self, base_url.as_ref(), options) {
             return Ok(Processed::new(self, (*cached).clone()));
         }
+
+        // Retained for the cache entry: `base_url` is moved into processing.
+        let entry_active = active_context.clone();
+        let entry_base_url = base_url.clone();
 
         let processed = if !requires_loader(self) {
             process_context_sync(
@@ -130,7 +134,7 @@ impl Process for syntax::context::Context {
             .await?
         };
 
-        cache.insert(key, Arc::new(processed.processed.clone()));
+        cache.insert(key, entry_active, self.clone(), entry_base_url, options, Arc::new(processed.processed.clone()));
         Ok(processed)
     }
 }

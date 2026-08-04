@@ -90,8 +90,9 @@ impl<'a, T: PartialEq> CompactIriMemo<'a, T> {
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`. Memoized per active
-/// context: repeated `(var, vocab, reverse)` lookups return the cached result
-/// without rerunning the algorithm.
+/// context: repeated `(var, vocab, reverse, mode)` lookups return the cached
+/// result without rerunning the algorithm. The processing mode is part of
+/// the key because selection is mode-dependent.
 pub(crate) fn compact_iri<N>(
     vocabulary: &N,
     active_context: &Context<N::Iri, N::BlankId>,
@@ -108,29 +109,29 @@ where
     let cache = active_context.compact_iri_cache();
     {
         let guard = cache.lock();
-        if let Some(hit) = guard.get(&CompactIriKeyRef(var, vocab, reverse)) {
+        if let Some(hit) = guard.get(&CompactIriKeyRef(var, vocab, reverse, options.processing_mode)) {
             return Ok(hit.clone());
         }
     }
 
     let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options, None)?;
 
-    cache.lock().insert((var.clone(), vocab, reverse), result.clone());
+    cache.lock().insert((var.clone(), vocab, reverse, options.processing_mode), result.clone());
     Ok(result)
 }
 
 /// Returns the cached compact alias for one of the 13 fixed keywords used
 /// repeatedly during compaction (see [`CACHED_KEYWORDS`]). Computed once per
-/// active context via [`compact_iri`] and reused — saves Mutex traffic +
-/// HashMap lookups + the alias-selection walk in `compact_iri_full` for each
-/// of the ~25 hot keyword call-sites.
+/// `(active context, processing mode)` via [`compact_iri`] and reused —
+/// saves Mutex traffic + HashMap lookups + the alias-selection walk in
+/// `compact_iri_full` for each of the ~25 hot keyword call-sites.
 pub(crate) fn keyword_alias<'a, N>(vocabulary: &N, active_context: &'a Context<N::Iri, N::BlankId>, options: Options, k: Keyword) -> &'a str
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
 {
-    let aliases = active_context.keyword_aliases_or_init(|| {
+    let aliases = active_context.keyword_aliases_or_init(options.processing_mode, || {
         let arr: [Box<str>; 13] = std::array::from_fn(|i| {
             let kw = CACHED_KEYWORDS[i];
             match compact_iri(vocabulary, active_context, &Term::Keyword(kw), true, false, options).ok().flatten() {
@@ -608,4 +609,47 @@ where
 
 fn disambiguate_keyword(s: String) -> String {
     if is_keyword_like(&s) && !is_keyword(&s) { "./".to_string() + &s } else { s }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use jsonld_core::{Id, ValidId, context::NormalTermDefinition};
+    use rdfx::{BlankIdBuf, IriBuf, vocabulary::no_vocabulary};
+
+    /// One processed context compacted under 1.1 and then 1.0: the
+    /// per-context compact-IRI cache must not serve the 1.1 result to the
+    /// 1.0 run (selection is mode-dependent — an `@index` container term is
+    /// eligible for an index-less value in 1.1 only).
+    #[test]
+    fn compact_iri_cache_distinguishes_processing_modes() {
+        let iri = IriBuf::new("http://example.com/t".to_string()).unwrap();
+        let term = Term::<IriBuf, BlankIdBuf>::Id(Id::Valid(ValidId::Iri(iri)));
+
+        let mut context: Context<IriBuf, BlankIdBuf> = Context::new(None);
+        context.set_normal(
+            "t".into(),
+            Some(NormalTermDefinition {
+                value: Some(Arc::new(term.clone())),
+                container: Container::Index,
+                ..Default::default()
+            }),
+        );
+
+        let options_1_1 = Options {
+            processing_mode: ProcessingMode::JsonLd1_1,
+            ..Default::default()
+        };
+        let options_1_0 = Options {
+            processing_mode: ProcessingMode::JsonLd1_0,
+            ..Default::default()
+        };
+
+        let compacted_1_1 = compact_iri(no_vocabulary(), &context, &term, true, false, options_1_1).unwrap();
+        let compacted_1_0 = compact_iri(no_vocabulary(), &context, &term, true, false, options_1_0).unwrap();
+
+        assert_eq!(compacted_1_1.as_deref(), Some("t"));
+        assert_eq!(compacted_1_0.as_deref(), Some("http://example.com/t"));
+    }
 }
