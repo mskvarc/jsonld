@@ -2,9 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v0.22.0] - 2026-08-04
 
 ### ⚡ Performance
+- Index expanded documents by discriminant instead of full hash
+- Stop cloning every expanded key in node expansion
+- Stop allocating on the compact-IRI selection path
+- Memoize compact-IRI selection across a property's values
+- Replace `Mown<Context>` with a boxed `ContextRef`
+- Box cold awaits in expansion
 - Parallel expansion
 - Performance tweaks
 - More siphash cleanup and getting rid of clone in hot path
@@ -25,11 +31,21 @@ All notable changes to this project will be documented in this file.
 
 ### 🎨 Style
 - Reformat code
+- Reformat code
 
 ### 🏗️ Build
 - Set MSRV to 1.83.
 
 ### 🐛 Bug Fixes
+- Correct expanded output shape, language maps, package contents and doc links
+- Overhaul macro crates
+- Caching correctness
+- Output correctness
+- Bug fixes
+- Some publish mechanics fixes
+- Pass full w3c suite, including json-ld 1.0
+- Clippy warnings
+- Handle vocabulary correctly with parallel feature on
 - Rust warnings and clippy lints
 - Fix test failures caused by the large refactor
 - Missing dependecy for doctest
@@ -37,7 +53,19 @@ All notable changes to this project will be documented in this file.
 ### 👷 CI
 - Remove workflows
 
+### 📚 Documentation
+- Update rustdoc
+- Update readme
+- Update documentation
+
 ### 🔧 Refactor
+- Make derive macros work in a way where they figure out crate path automatically
+- Legacy cleanup
+- Improve public api quality
+- Drop locspan dependency
+- Drop unneeded deps
+- Replace async-std dependecy with tokio
+- Drop the faulty parallel feature
 - Use mediatype
 - Error handling
 - Polish
@@ -49,6 +77,7 @@ All notable changes to this project will be documented in this file.
 - Repository shape
 
 ### 🚀 Features
+- Expose sonic-rs interop
 - `expandable` — Implement flatten, add flatten_map and passthrough ⚠️ **BREAKING**
 - Add json-ld vocabulary
 - Add expandable trait
@@ -60,6 +89,18 @@ All notable changes to this project will be documented in this file.
 - Add compaction/expansion benchmarks
 
 ### 🧹 Chores
+- Update dependencies
+- More cleanup
+- More cleanup
+- Hardening
+- Implement functional gaps
+- Update json-ld test submodule to latest
+- Move to rdfx 0.24.0, jstrict 0.14.0, n-quads 0.21.0, msrv 1.96.0
+- Markdown licenses
+- Update and cleanup deps
+- Bump iri-rs
+- Update iri-rs pin
+- Polish
 - Structural tweaks
 - Update rustfmt configuration
 - Silence warning
