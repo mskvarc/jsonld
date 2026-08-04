@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - Set MSRV to 1.83.
 
 ### 🐛 Bug Fixes
+- Clippy warning cleanup
 - Correct expanded output shape, language maps, package contents and doc links
 - Overhaul macro crates
 - Caching correctness
@@ -54,11 +55,13 @@ All notable changes to this project will be documented in this file.
 - Remove workflows
 
 ### 📚 Documentation
+- Add readme files
 - Update rustdoc
 - Update readme
 - Update documentation
 
 ### 🔧 Refactor
+- Rename badly named feature
 - Make derive macros work in a way where they figure out crate path automatically
 - Legacy cleanup
 - Improve public api quality
@@ -89,6 +92,8 @@ All notable changes to this project will be documented in this file.
 - Add compaction/expansion benchmarks
 
 ### 🧹 Chores
+- Require iri-rs 3.4.1 and forward its renamed bytewise feature
+- Update changelog
 - Update dependencies
 - More cleanup
 - More cleanup
