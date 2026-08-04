@@ -26,7 +26,7 @@ gxhash = ["jsonld/gxhash"]
 [dependencies]
 clap = { version = "4.6.5", features = ["derive"] }
 contextual = "0.1.6"
-iri-rs = { version = "3.3.7", features = ["static"] }
+iri-rs = { version = "3.4.1", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
 jstrict = "0.14.0"
 log = "0.4.33"

@@ -17,10 +17,10 @@ all-features = true
 
 [features]
 default = ["bytewise-iri"]
-bytewise-iri = ["iri-rs/fast-hash", "jsonld-core/bytewise-iri"]
+bytewise-iri = ["iri-rs/bytewise", "jsonld-core/bytewise-iri"]
 
 [dependencies]
-iri-rs = "3.3.7"
+iri-rs = "3.4.1"
 jsonld-core.workspace = true
 jstrict = "0.14.0"
 ld-core = "0.4.0"

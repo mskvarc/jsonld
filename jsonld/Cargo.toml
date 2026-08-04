@@ -33,7 +33,7 @@ autobenches = false
 [features]
 default = ["bytewise-iri"]
 bytewise-iri = [
-    "iri-rs/fast-hash",
+    "iri-rs/bytewise",
     "jsonld-core/bytewise-iri",
     "jsonld-syntax/bytewise-iri",
     "jsonld-context-processing/bytewise-iri",
@@ -56,7 +56,7 @@ vocab = ["dep:jsonld-vocab", "iri-rs/static"]
 
 [dependencies]
 contextual = "0.1.6"
-iri-rs = "3.3.7"
+iri-rs = "3.4.1"
 jsonld-compaction.workspace = true
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
@@ -72,7 +72,7 @@ thiserror = "2.0.19"
 
 [dev-dependencies]
 criterion = "0.8.2"
-iri-rs = { version = "3.3.7", features = ["static"] }
+iri-rs = { version = "3.4.1", features = ["static"] }
 # Path-only (no version) so `cargo package` strips this dev-dep: jsonld-testing
 # is not published, and a versioned entry would make `cargo publish` demand it
 # on crates.io (circular with this crate).

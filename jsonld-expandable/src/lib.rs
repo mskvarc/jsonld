@@ -78,6 +78,12 @@ fn runtime_path(span: proc_macro2::Span) -> syn::Result<TokenStream2> {
 /// Exactly one of `type = "..."`, a `type_value` field, or `fragment` is
 /// required.
 ///
+/// Each struct carries its own prefix table, and the derive sees one struct at a
+/// time: a nested or fragment struct needs its own `prefix(...)` even when its
+/// parent declares the same names. A prefix that is not declared is not an
+/// error, because `ex:name` is also a syntactically valid IRI with scheme `ex`,
+/// so it is emitted as written.
+///
 /// The generated code reaches its runtime support through
 /// `jsonld-expandable-core` or through the umbrella `jsonld` crate's re-export
 /// of it, whichever the consuming crate depends on, following a renamed
@@ -93,7 +99,7 @@ fn runtime_path(span: proc_macro2::Span) -> syn::Result<TokenStream2> {
 /// | `skip` | Exclude the field from expansion. |
 /// | `coerce = "@id"` / `"@vocab"` | Value is an IRI reference: emits `[{"@id": v}]` (or `@vocab`). With `vec`, iterates the field. |
 /// | `coerce = "@json"` | JSON literal: emits `[{"@value": v, "@type": "@json"}]`. |
-/// | `coerce = "IRI-or-CURIE"` | Typed literal: emits `[{"@value": v, "@type": "<datatype>"}]`. CURIEs expand through the container's `prefix(...)` table. |
+/// | `coerce = "IRI-or-CURIE"` | Typed literal: emits `[{"@value": v, "@type": "<datatype>"}]`. CURIEs expand through this struct's own `prefix(...)` table. |
 /// | `container = "list"` | Wrap values as `[{"@list": [...]}]`. Composes with `coerce` and `nested` for per-item shapes. |
 /// | `container = "set"` | Emit the value's `ToJsonValue` form verbatim (JSON array). |
 /// | `container = "language"` | Language map: `HashMap`/`BTreeMap` of tag to text work as they are, other shapes implement `ExpandableLanguageMap`. |
