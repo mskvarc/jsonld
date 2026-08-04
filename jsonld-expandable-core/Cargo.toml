@@ -10,6 +10,7 @@ readme.workspace = true
 rust-version.workspace = true
 version.workspace = true
 description = "Runtime traits, attribute parser, and codegen for the JSON-LD `Expandable` derive"
+documentation = "https://docs.rs/jsonld-expandable-core"
 
 [package.metadata.docs.rs]
 all-features = true

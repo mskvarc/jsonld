@@ -207,10 +207,7 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
         return Err(syn::Error::new(span, "`flatten` and `flatten_map` are mutually exclusive"));
     }
     if (f.flatten || f.flatten_map) && f.property.is_some() {
-        return Err(syn::Error::new(
-            span,
-            "`flatten` / `flatten_map` cannot be combined with `property`",
-        ));
+        return Err(syn::Error::new(span, "`flatten` / `flatten_map` cannot be combined with `property`"));
     }
     if (f.flatten || f.flatten_map) && (f.coerce.is_some() || f.container.is_some() || f.nested) {
         return Err(syn::Error::new(
@@ -221,8 +218,8 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
     if f.passthrough && (f.coerce.is_some() || f.container.is_some() || f.nested || f.flatten || f.flatten_map || f.is_id) {
         return Err(syn::Error::new(
             span,
-            "`custom` / `passthrough` cannot be combined with coerce, container, \
-             nested, flatten, flatten_map, or id",
+            "`passthrough` cannot be combined with coerce, container, nested, \
+             flatten, flatten_map, or id",
         ));
     }
     if f.is_vec && !f.nested && !matches!(f.coerce, Some(Coerce::Id | Coerce::Vocab)) {

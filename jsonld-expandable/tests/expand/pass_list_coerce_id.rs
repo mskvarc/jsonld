@@ -20,7 +20,7 @@ fn main() {
     };
     let v: serde_json::Value = r.expand();
     let obj = v.as_object().unwrap();
-    // list + id_ref: [{"@list": [{"@id": ...}, ...]}]
+    // container = "list" + coerce = "@id": [{"@list": [{"@id": ...}, ...]}]
     assert_eq!(
         obj["https://example.com/objectList"],
         serde_json::json!([

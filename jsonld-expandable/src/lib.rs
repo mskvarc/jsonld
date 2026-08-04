@@ -10,7 +10,10 @@ use syn::{DeriveInput, parse_macro_input};
 /// JSON-LD for any `V: JsonValue` backend.
 ///
 /// ```ignore
+/// // The derive macro, plus the trait it implements — `expand()` is a trait
+/// // method, so both names must be in scope.
 /// use jsonld_expandable::Expandable;
+/// use jsonld_expandable_core::Expandable as _;
 ///
 /// #[derive(Expandable)]
 /// #[jsonld(type = "https://example.com/Parent")]

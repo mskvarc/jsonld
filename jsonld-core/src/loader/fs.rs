@@ -61,10 +61,14 @@ impl FsLoader {
     /// Returns the local file path associated to the given `url` if any.
     ///
     /// The URL must match a mount point at a path boundary (mounting
-    /// `http://example.com/a` does not capture `http://example.com/abc`),
-    /// and the resolved path can never escape the mounted directory:
-    /// URLs containing `.` or `..` segments (or segments the platform would
-    /// split further, like `\` on Windows) return `None`.
+    /// `http://example.com/a` does not capture `http://example.com/abc`), and
+    /// the path is built only from single normal components: URLs containing
+    /// `.` or `..` segments (or segments the platform would split further,
+    /// like `\` on Windows) return `None`.
+    ///
+    /// This bounds the *constructed* path to the mounted directory. It does
+    /// not follow the file system: a symbolic link inside the mount can still
+    /// point outside it, so mount only directories whose contents you trust.
     pub fn filepath(&self, url: Iri<&str>) -> Option<PathBuf> {
         for (path, target_url) in &self.mount_points {
             if let Some(suffix) = url.as_str().strip_prefix(target_url.as_str()) {

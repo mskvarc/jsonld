@@ -13,6 +13,31 @@
 //! to create a lightweight data serialization format that can organize data and
 //! help Web applications to inter-operate at a large scale.
 //!
+//! # Status
+//!
+//! **Experimental.** This crate is a fork of
+//! [`json-ld`](https://crates.io/crates/json-ld) by Timothée Haudebourg,
+//! retargeted onto a different dependency stack ([`rdfx`],
+//! [`jstrict`](https://docs.rs/jstrict), [`iri-rs`](https://docs.rs/iri-rs))
+//! and extended for the needs of an
+//! [NGSI-LD](https://www.etsi.org/committee/cim) context broker: deriving
+//! expanded JSON-LD straight from Rust types ([`Expandable`]), compile-time
+//! vocabularies ([`vocab!`]), context memoization, and explicit conversions to
+//! and from `serde_json` / `sonic-rs` at the HTTP boundary.
+//!
+//! The W3C JSON-LD API test suite covers the four algorithms implemented here
+//! — expansion, compaction, flattening and RDF serialization — and 1,152 of
+//! its 1,156 tests pass, the remaining four skipped against open upstream
+//! issues. `fromRdf`, HTML script extraction and HTTP content negotiation are
+//! *not* implemented. What is not settled is the API: names, error types and
+//! trait shapes are still moving, and no compatibility promise is made before
+//! 1.0. Pin an exact version.
+//!
+//! Two operational notes for untrusted input: the default hasher is fast but
+//! not hash-flooding resistant (see [Hashing](#hashing) for alternatives), and
+//! processed-context caches are unbounded, so a stream of distinct contexts
+//! grows memory without bound.
+//!
 //! # Usage
 //!
 //! The entry point for this library is the [`JsonLdProcessor`] trait
@@ -121,7 +146,7 @@
 //! use contextual::WithContext;
 //! # #[tokio::main]
 //! # async fn main() {
-//! // Creates the vocabulary that will map each `rdfx::vocabulary::Index`
+//! // Creates the vocabulary that will map each `rdfx::vocabulary::IriIndex`
 //! // to an actual `IriBuf`.
 //! let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 //!
@@ -390,14 +415,16 @@
 //!     }
 //! }
 //!
-//! // `NAME` is an `iri_rs::Iri<&'static str>` resolved at compile time.
-//! assert_eq!(vocab::NAME.as_str(), "https://schema.org/name");
+//! // An `iri_rs::Iri<&'static str>` resolved at compile time. Terms are split
+//! // into `classes` (TitleCase names) and `properties` (lowerCase names).
+//! assert_eq!(vocab::expanded::properties::NAME.as_str(), "https://schema.org/name");
 //! ```
 //!
 //! The macro also emits the compact-to-expanded term mapping, letting you go
-//! from a term to its IRI without a runtime context lookup. See [`vocab!`]
-//! for the full syntax, and note that it requires `iri-rs` with its `static`
-//! feature in the calling crate.
+//! from a term to its IRI without a runtime context lookup. See [`vocab!`] for
+//! the full syntax. The generated code needs `iri-rs` with its `static`
+//! feature; `iri_crate: "jsonld::iri_rs"` points it at this crate's
+//! re-export, so the calling crate needs no `iri-rs` dependency of its own.
 //!
 //! # Feature flags
 //!

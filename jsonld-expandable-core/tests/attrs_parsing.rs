@@ -113,8 +113,7 @@ fn passthrough_parses() {
 
 #[test]
 fn passthrough_with_coerce_errors() {
-    let item: syn::ItemStruct =
-        syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", passthrough, coerce = \"@id\")] pub x: String, }").unwrap();
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", passthrough, coerce = \"@id\")] pub x: String, }").unwrap();
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }

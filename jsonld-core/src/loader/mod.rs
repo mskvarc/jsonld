@@ -737,5 +737,4 @@ mod sonic_rs_tests {
         let round_tripped = jstrict::Value::from_sonic_rs(sonic_doc.document.clone());
         assert_eq!(round_tripped, original);
     }
-
 }

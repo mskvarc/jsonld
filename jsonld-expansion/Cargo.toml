@@ -40,7 +40,11 @@ thiserror = "2.0.19"
 
 [dev-dependencies]
 iri-rs = { version = "3.3.7", features = ["static"] }
-jsonld.workspace = true
+# Path-only (no version) so `cargo package` strips this dev-dep. `jsonld`
+# depends on this crate, so a versioned entry would make `cargo publish` demand
+# `jsonld` on crates.io before this crate can be published — a deadlock. Used
+# only by the crate-level doc example.
+jsonld = { path = "../jsonld" }
 tokio = { version = "1.53.1", features = ["macros", "rt"] }
 
 [lints]

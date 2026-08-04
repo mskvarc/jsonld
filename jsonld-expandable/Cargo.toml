@@ -10,6 +10,7 @@ readme.workspace = true
 rust-version.workspace = true
 version.workspace = true
 description = "Derive macro for JSON-LD `Expandable` types (see jsonld-expandable-core for runtime traits)"
+documentation = "https://docs.rs/jsonld-expandable"
 
 [package.metadata.docs.rs]
 all-features = true
