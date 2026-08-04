@@ -20,11 +20,11 @@ all-features = true
 ignored = ["iri-rs", "jsonld", "tokio"]
 
 [features]
-default = ["fast-hash"]
-fast-hash = [
-    "jsonld-core/fast-hash",
-    "jsonld-syntax/fast-hash",
-    "jsonld-context-processing/fast-hash",
+default = ["bytewise-iri"]
+bytewise-iri = [
+    "jsonld-core/bytewise-iri",
+    "jsonld-syntax/bytewise-iri",
+    "jsonld-context-processing/bytewise-iri",
 ]
 
 [dependencies]

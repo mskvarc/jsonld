@@ -16,8 +16,8 @@ readme.workspace = true
 all-features = true
 
 [features]
-default = ["fast-hash"]
-fast-hash = ["iri-rs/fast-hash", "jsonld-core/fast-hash"]
+default = ["bytewise-iri"]
+bytewise-iri = ["iri-rs/fast-hash", "jsonld-core/bytewise-iri"]
 
 [dependencies]
 iri-rs = "3.3.7"

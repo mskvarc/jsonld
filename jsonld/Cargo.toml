@@ -31,15 +31,15 @@ exclude = [
 autobenches = false
 
 [features]
-default = ["fast-hash"]
-fast-hash = [
+default = ["bytewise-iri"]
+bytewise-iri = [
     "iri-rs/fast-hash",
-    "jsonld-core/fast-hash",
-    "jsonld-syntax/fast-hash",
-    "jsonld-context-processing/fast-hash",
-    "jsonld-expansion/fast-hash",
-    "jsonld-compaction/fast-hash",
-    "jsonld-serialization/fast-hash",
+    "jsonld-core/bytewise-iri",
+    "jsonld-syntax/bytewise-iri",
+    "jsonld-context-processing/bytewise-iri",
+    "jsonld-expansion/bytewise-iri",
+    "jsonld-compaction/bytewise-iri",
+    "jsonld-serialization/bytewise-iri",
 ]
 reqwest = ["jsonld-core/reqwest"]
 serde = ["jsonld-syntax/serde", "jsonld-core/serde"]

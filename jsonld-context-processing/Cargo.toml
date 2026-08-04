@@ -16,11 +16,11 @@ readme.workspace = true
 all-features = true
 
 [features]
-default = ["fast-hash"]
-fast-hash = [
+default = ["bytewise-iri"]
+bytewise-iri = [
     "iri-rs/fast-hash",
-    "jsonld-core/fast-hash",
-    "jsonld-syntax/fast-hash",
+    "jsonld-core/bytewise-iri",
+    "jsonld-syntax/bytewise-iri",
 ]
 
 [dependencies]

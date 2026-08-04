@@ -447,13 +447,13 @@
 //!
 //! # Feature flags
 //!
-//! No feature other than `fast-hash` is enabled by default.
+//! No feature other than `bytewise-iri` is enabled by default.
 //!
 //! ## IRI comparison
 //!
 //! | Feature | Effect |
 //! |---|---|
-//! | `fast-hash` *(default)* | Forwarded to `iri-rs`, where it makes `Iri`/`IriRef` compare, hash and order **byte-wise** rather than by RFC 3987 normalization. |
+//! | `bytewise-iri` *(default)* | Forwarded to `iri-rs`, where it makes `Iri`/`IriRef` compare, hash and order **byte-wise** rather than by RFC 3987 normalization. |
 //!
 //! This matches how JSON-LD produces IRIs. The [IRI Expansion algorithm][1]
 //! resolves against the base IRI using only the basic algorithm of RFC 3986
@@ -464,8 +464,7 @@
 //!
 //! Turning the feature off buys normalization-aware equality, where two
 //! spellings of the same IRI compare equal, at the cost of normalizing on every
-//! comparison. The W3C test suites pass either way. Note that this feature does
-//! **not** select the hasher used by this crate's own maps and sets; see below.
+//! comparison. The W3C test suites pass either way.
 //!
 //! [1]: https://www.w3.org/TR/json-ld11-api/#iri-expansion
 //!

@@ -180,7 +180,7 @@ cargo add jsonld
 
 | Flag | Default | Enables |
 | --- | :---: | --- |
-| `fast-hash` | yes | byte-wise IRI comparison in `iri-rs` (it selects no hasher; see below) |
+| `bytewise-iri` | yes | byte-wise IRI comparison, hashing and ordering in `iri-rs` |
 | `ahash` | | `ahash` instead of the default hasher |
 | `gxhash` | | `gxhash` instead of the default hasher; needs AES intrinsics and fails to build without them |
 | `serde` | | `Serialize` / `Deserialize` for syntax and core types |
@@ -192,7 +192,7 @@ cargo add jsonld
 | `expandable-chrono` | | `chrono` temporal types in `Expandable` types |
 | `vocab` | | the `vocab!` macro |
 
-Despite the name, `fast-hash` selects no hasher. It forwards to `iri-rs`, where it makes IRIs compare, hash and order byte-wise rather than by RFC 3987 normalization. That matches what the spec produces, since [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, and it is considerably cheaper. Turning the feature off buys normalization-aware equality instead, where two spellings of the same IRI compare equal. The W3C suites pass either way. The hasher used by the crate's own maps and sets is hashbrown's default (foldhash), unless `ahash` or `gxhash` is enabled.
+`bytewise-iri` forwards to `iri-rs`, where it makes IRIs compare, hash and order byte-wise rather than by RFC 3987 normalization. That matches what the spec produces, since [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, and it is considerably cheaper. Turning it off buys normalization-aware equality instead, where two spellings of the same IRI compare equal. The W3C suites pass either way.
 
 ## Conformance
 

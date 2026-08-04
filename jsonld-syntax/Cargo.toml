@@ -22,8 +22,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 rustc-args = ["-C", "target-cpu=native"]
 
 [features]
-default = ["fast-hash"]
-fast-hash = ["iri-rs/fast-hash"]
+default = ["bytewise-iri"]
+bytewise-iri = ["iri-rs/fast-hash"]
 serde = [
     "dep:serde",
     "iri-rs/serde",

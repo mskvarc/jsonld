@@ -22,8 +22,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 rustc-args = ["-C", "target-cpu=native"]
 
 [features]
-default = ["fast-hash"]
-fast-hash = ["iri-rs/fast-hash", "jsonld-syntax/fast-hash"]
+default = ["bytewise-iri"]
+bytewise-iri = ["iri-rs/fast-hash", "jsonld-syntax/bytewise-iri"]
 reqwest = ["dep:reqwest", "utf8-decode", "reqwest-middleware"]
 serde = ["dep:serde", "jstrict/serde", "jsonld-syntax/serde"]
 serde-json = [
