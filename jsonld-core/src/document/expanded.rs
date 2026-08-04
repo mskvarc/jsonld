@@ -536,6 +536,28 @@ mod serde_json_tests {
     }
 }
 
+// Test code may panic on failure; that is the point of a test.
+#[cfg(all(test, feature = "sonic-rs"))]
+#[allow(clippy::expect_used)]
+mod sonic_rs_tests {
+    use super::*;
+    use crate::Id;
+    use iri_rs::iri;
+    use sonic_rs::JsonValueTrait;
+
+    #[test]
+    fn expanded_into_sonic_rs_with_default_vocab() {
+        let id = Id::iri(IriBuf::from(iri!("https://example.com/x")));
+        let node = Node::<IriBuf, BlankIdBuf>::with_id(id);
+        let doc: ExpandedDocument<IriBuf, BlankIdBuf> = Indexed::new(node, None).into();
+
+        let json = doc.into_sonic_rs();
+        let arr = json.into_array().expect("expanded document is an array");
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0].get("@id").as_str(), Some("https://example.com/x"));
+    }
+}
+
 #[cfg(feature = "serde-json")]
 impl<T, B> ExpandedDocument<T, B> {
     /// Converts the expanded document into a [`serde_json::Value`] using the
@@ -558,5 +580,30 @@ where
     /// default no-vocabulary.
     pub fn into_serde_json(self) -> serde_json::Value {
         self.into_serde_json_with(rdfx::vocabulary::no_vocabulary())
+    }
+}
+
+#[cfg(feature = "sonic-rs")]
+impl<T, B> ExpandedDocument<T, B> {
+    /// Converts the expanded document into a [`sonic_rs::Value`] using the
+    /// given `vocabulary`.
+    pub fn into_sonic_rs_with<N>(self, vocabulary: &N) -> sonic_rs::Value
+    where
+        N: Vocabulary<Iri = T, BlankId = B>,
+    {
+        use jsonld_syntax::IntoJsonWithContext;
+        self.objects.into_json_with(vocabulary).into_sonic_rs()
+    }
+}
+
+#[cfg(feature = "sonic-rs")]
+impl<T, B> ExpandedDocument<T, B>
+where
+    (): Vocabulary<Iri = T, BlankId = B>,
+{
+    /// Converts the expanded document into a [`sonic_rs::Value`] using the
+    /// default no-vocabulary.
+    pub fn into_sonic_rs(self) -> sonic_rs::Value {
+        self.into_sonic_rs_with(rdfx::vocabulary::no_vocabulary())
     }
 }

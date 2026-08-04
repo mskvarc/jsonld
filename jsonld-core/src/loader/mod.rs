@@ -322,6 +322,19 @@ impl<I> RemoteDocument<I, jstrict::Value> {
     }
 }
 
+#[cfg(feature = "sonic-rs")]
+impl<I> RemoteDocument<I, jstrict::Value> {
+    /// Creates a remote document from a [`sonic_rs::Value`].
+    pub fn from_sonic_rs(url: Option<I>, content_type: Option<MediaTypeBuf>, document: sonic_rs::Value) -> Self {
+        Self::new(url, content_type, jstrict::Value::from_sonic_rs(document))
+    }
+
+    /// Consumes the document, returning a `RemoteDocument<I, sonic_rs::Value>`.
+    pub fn into_sonic_rs(self) -> RemoteDocument<I, sonic_rs::Value> {
+        self.map(jstrict::Value::into_sonic_rs)
+    }
+}
+
 /// Standard `profile` parameter values defined for the `application/ld+json`.
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
@@ -664,4 +677,65 @@ mod serde_json_tests {
         let via_serde: RemoteDocument<IriBuf, _> = RemoteDocument::from_serde_json(None, None, v);
         assert!(jsonld_syntax::Compare::compare(via_value.document(), via_serde.document()));
     }
+}
+
+#[cfg(all(test, feature = "sonic-rs"))]
+mod sonic_rs_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+    use iri_rs::iri;
+
+    #[test]
+    fn from_sonic_rs_preserves_url_and_content_type() {
+        let url = IriBuf::from(iri!("https://example.com/sample.jsonld"));
+        let mime: MediaTypeBuf = LD_JSON_MEDIA_TYPE.into();
+        let value: sonic_rs::Value = sonic_rs::json!({"foo": "bar"});
+
+        let doc = RemoteDocument::from_sonic_rs(Some(url.clone()), Some(mime.clone()), value);
+
+        assert_eq!(doc.url(), Some(&url));
+        assert_eq!(doc.content_type(), Some(&mime));
+        match doc.document() {
+            jstrict::Value::Object(o) => {
+                assert_eq!(o.get("foo").next().unwrap().as_str(), Some("bar"));
+            }
+            other => panic!("expected object, got {:?}", other.kind()),
+        }
+    }
+
+    #[test]
+    fn from_sonic_rs_handles_all_value_kinds() {
+        let value: sonic_rs::Value = sonic_rs::json!({
+            "null": null,
+            "bool": true,
+            "num": 1.5,
+            "str": "x",
+            "arr": [1, 2],
+            "obj": {"k": "v"}
+        });
+        let doc = RemoteDocument::<IriBuf, _>::from_sonic_rs(None, None, value);
+        let obj = match doc.document() {
+            jstrict::Value::Object(o) => o,
+            _ => panic!("expected object"),
+        };
+        assert!(matches!(obj.get("null").next().unwrap(), jstrict::Value::Null));
+        assert!(matches!(obj.get("bool").next().unwrap(), jstrict::Value::Boolean(true)));
+        assert!(matches!(obj.get("num").next().unwrap(), jstrict::Value::Number(_)));
+        assert!(matches!(obj.get("str").next().unwrap(), jstrict::Value::String(_)));
+        assert!(matches!(obj.get("arr").next().unwrap(), jstrict::Value::Array(_)));
+        assert!(matches!(obj.get("obj").next().unwrap(), jstrict::Value::Object(_)));
+    }
+
+    #[test]
+    fn into_sonic_rs_round_trip() {
+        use jstrict::Parse;
+        // A single key: `sonic_rs::Object` does not preserve entry order, so a
+        // multi-key document would not compare equal after the round trip.
+        let original = jstrict::Value::parse_str(r#"{"a": [1, 2, 3]}"#).unwrap().0;
+        let doc: RemoteDocument<IriBuf, _> = RemoteDocument::new(None, None, original.clone());
+        let sonic_doc = doc.into_sonic_rs();
+        let round_tripped = jstrict::Value::from_sonic_rs(sonic_doc.document.clone());
+        assert_eq!(round_tripped, original);
+    }
+
 }

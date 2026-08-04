@@ -256,26 +256,37 @@
 //! # }
 //! ```
 //!
-//! ## Interop with `serde_json`
+//! ## Interop with other JSON crates
 //!
-//! By default, this crate represents JSON values using
-//! [`jstrict::Value`]. If you have a [`serde_json::Value`] (for example
-//! deserialized via [`serde`]), enable the `serde_json` feature flag to
-//! convert between the two without manual unpacking.
+//! This crate represents JSON values as [`jstrict::Value`], whose object type
+//! preserves entry order and tolerates duplicate keys — both of which the
+//! JSON-LD algorithms depend on. Two feature flags convert to and from the
+//! common alternatives without manual unpacking:
+//!
+//! | Feature | Type it bridges to |
+//! |---|---|
+//! | `serde-json` | [`serde_json::Value`] |
+//! | `sonic-rs` | [`sonic_rs::Value`] |
 //!
 //! ### Input
 //!
-//! `RemoteDocument::from_serde_json` consumes a [`serde_json::Value`]
-//! directly. [`RemoteDocument::from_value`] is more general and accepts
-//! anything that implements `Into<jstrict::Value>`, which includes both
-//! `jstrict::Value` and `serde_json::Value` (when the feature is on).
+//! `RemoteDocument::from_serde_json` and `RemoteDocument::from_sonic_rs`
+//! consume the respective value type directly.
+//! [`RemoteDocument::from_value`] is more general and accepts anything
+//! implementing `Into<jstrict::Value>`.
 //!
 //! ### Output
 //!
 //! - [`JsonLdProcessor::compact`] and [`JsonLdProcessor::flatten`] return a
-//!   [`jstrict::Value`] — call its inherent `into_serde_json` method.
-//! - [`ExpandedDocument`] gains `into_serde_json_with` (and `into_serde_json`
-//!   for the default no-vocabulary case).
+//!   [`jstrict::Value`] — call its inherent `into_serde_json` /
+//!   `into_sonic_rs` method.
+//! - [`ExpandedDocument`] gains `into_serde_json_with` / `into_sonic_rs_with`,
+//!   and `into_serde_json` / `into_sonic_rs` for the default no-vocabulary
+//!   case.
+//!
+//! Note that a round trip through either type is lossy in one respect: neither
+//! `serde_json::Map` nor `sonic_rs::Object` keeps duplicate keys, and
+//! `sonic_rs::Object` does not preserve entry order.
 //!
 //! ### Example
 //!
@@ -308,6 +319,7 @@
 //! ```
 //!
 //! [`serde_json::Value`]: https://docs.rs/serde_json/latest/serde_json/enum.Value.html
+//! [`sonic_rs::Value`]: https://docs.rs/sonic-rs/latest/sonic_rs/enum.Value.html
 //! [`serde`]: https://docs.rs/serde
 //!
 //! ## Expanding your own types with `#[derive(Expandable)]`
@@ -401,10 +413,13 @@
 //!
 //! ## JSON interop
 //!
+//! See [Interop with other JSON crates](#interop-with-other-json-crates).
+//!
 //! | Feature | Effect |
 //! |---|---|
 //! | `serde` | Implement [`serde::Serialize`] / `Deserialize` for the syntax and document types. |
-//! | `serde-json` | Convert between [`jstrict::Value`] and [`serde_json::Value`]; see [Interop with `serde_json`](#interop-with-serde_json). |
+//! | `serde-json` | Convert between [`jstrict::Value`] and [`serde_json::Value`]. |
+//! | `sonic-rs` | Convert between [`jstrict::Value`] and [`sonic_rs::Value`]. |
 //!
 //! ## Loading remote documents
 //!
@@ -419,7 +434,7 @@
 //! | `expandable` | Provide the [`Expandable`] derive macro and its [`JsonValue`] abstraction. Enables no JSON backend on its own. |
 //! | `expandable-serde-json` | `expandable` plus a [`JsonValue`] implementation for [`serde_json::Value`]. |
 //! | `expandable-jstrict` | `expandable` plus a [`JsonValue`] implementation for [`jstrict::Value`]. |
-//! | `expandable-sonic-rs` | `expandable` plus a [`JsonValue`] implementation for `sonic_rs::Value`. |
+//! | `expandable-sonic-rs` | `expandable` plus a [`JsonValue`] implementation for [`sonic_rs::Value`]. Implies `sonic-rs`. |
 //! | `expandable-chrono` | `expandable` plus rendering of [`chrono`](https://docs.rs/chrono) date and time types as their XSD lexical forms. |
 //!
 //! ## Vocabularies
