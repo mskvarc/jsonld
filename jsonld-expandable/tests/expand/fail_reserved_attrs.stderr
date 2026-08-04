@@ -1,0 +1,5 @@
+error: `nest` / `reverse` are reserved but not yet implemented
+ --> tests/expand/fail_reserved_attrs.rs:6:54
+  |
+6 |     #[jsonld(property = "https://example.com/inner", nest)]
+  |                                                      ^^^^

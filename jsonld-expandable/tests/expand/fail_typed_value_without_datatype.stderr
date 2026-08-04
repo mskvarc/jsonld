@@ -1,0 +1,5 @@
+error: `typed_value` requires a `datatype = "..."` companion attribute
+ --> tests/expand/fail_typed_value_without_datatype.rs:6:5
+  |
+6 |     #[jsonld(property = "https://example.com/when", typed_value)]
+  |     ^

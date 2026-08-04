@@ -1,0 +1,5 @@
+error: context $DIR/tests/fixtures/no_context.jsonld is missing a top-level @context object
+ --> tests/ui/fail/missing_context.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/no_context.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

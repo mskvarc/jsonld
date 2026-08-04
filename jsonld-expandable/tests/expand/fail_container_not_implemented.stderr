@@ -1,0 +1,5 @@
+error: container = "id" / "type" / "graph" not yet implemented
+ --> tests/expand/fail_container_not_implemented.rs:7:9
+  |
+7 |     pub by_id: Vec<String>,
+  |         ^^^^^

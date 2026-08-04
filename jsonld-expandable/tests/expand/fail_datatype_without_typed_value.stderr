@@ -1,0 +1,5 @@
+error: `datatype` is only valid alongside `typed_value`
+ --> tests/expand/fail_datatype_without_typed_value.rs:6:5
+  |
+6 |     #[jsonld(property = "https://example.com/when", datatype = "http://www.w3.org/2001/XMLSchema#dateTime")]
+  |     ^

@@ -1,9 +1,5 @@
 error: property term naming collision: fooBar and foo_bar both map to FOO_BAR
- --> tests/ui/fail/duplicate_within_partition.rs:1:1
+ --> tests/ui/fail/duplicate_within_partition.rs:2:16
   |
-1 | / jsonld_vocab::generate! {
-2 | |     contexts: ["tests/fixtures/duplicate_within_partition.jsonld"]
-3 | | }
-  | |_^
-  |
-  = note: this error originates in the macro `jsonld_vocab::generate` (in Nightly builds, run with -Z macro-backtrace for more info)
+2 |     contexts: ["tests/fixtures/duplicate_within_partition.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

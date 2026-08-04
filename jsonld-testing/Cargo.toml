@@ -30,4 +30,3 @@ quote = "1.0.47"
 rdfx = { version = "0.24.0", features = ["contextual"] }
 syn = { version = "3.0.3", features = ["full"] }
 tokio = { version = "1.53.1", features = ["rt"] }
-yansi = "1.0.1"

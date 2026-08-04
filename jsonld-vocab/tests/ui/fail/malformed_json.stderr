@@ -1,0 +1,5 @@
+error: invalid JSON in context file $DIR/tests/fixtures/malformed.jsonld: EOF while parsing a value at line 2 column 0
+ --> tests/ui/fail/malformed_json.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/malformed.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

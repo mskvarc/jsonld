@@ -508,12 +508,10 @@ async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader,
         {
             match spec.ignore.get(id) {
                 Some(link) => {
-                    println!(
-                        "    {} test `{}` (see {})",
-                        yansi::Paint::yellow("Ignoring").bold(),
-                        vocabulary.iri(id).unwrap(),
-                        link
-                    );
+                    // Plain text: this prints during macro expansion, where
+                    // stdout is routinely captured into non-tty build logs
+                    // that would render color codes as garbage.
+                    println!("    Ignoring test `{}` (see {})", vocabulary.iri(id).unwrap(), link);
                 }
                 None => {
                     tests.insert(*id, type_id);

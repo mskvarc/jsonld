@@ -8,10 +8,9 @@ use proc_macro2::TokenStream;
 #[derive(Debug, Default)]
 /// Container a field's values are laid out in.
 pub struct ContainerIr {
-    /// Static `@type` IRI. Mutually exclusive with `type_field` and `fragment`.
+    /// Static `@type` IRI. Mutually exclusive with a `type_value` field and
+    /// `fragment`.
     pub type_iri: Option<String>,
-    /// Field marked `#[jsonld(type_value)]` providing a dynamic `@type`.
-    pub type_field: Option<syn::Ident>,
     /// Emit object without `@type` (sub-fragment).
     pub fragment: bool,
     /// Override of the runtime crate path (default `::jsonld_expandable_core`).

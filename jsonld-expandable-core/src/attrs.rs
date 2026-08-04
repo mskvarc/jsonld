@@ -14,11 +14,13 @@ use syn::spanned::Spanned;
 /// Parses the `#[jsonld(...)]` attributes carried by a type.
 pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
     let mut out = ContainerIr::default();
+    let mut span: Option<Span> = None;
 
     for attr in attrs {
         if !attr.path().is_ident("jsonld") {
             continue;
         }
+        span = Some(attr.span());
 
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("type") {
@@ -36,10 +38,8 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
                 }
                 out.type_iri = Some(iri);
             } else if meta.path.is_ident("type_field") {
-                // Marker only; the actual ident comes from a field attr.
-                // Container holds it after field parsing.
-                out.fragment = false; // explicit reset for clarity
-            // Nothing more to do here; codegen will discover it.
+                // Marker only; the actual `@type` source is the field carrying
+                // `#[jsonld(type_value)]`, which codegen discovers itself.
             } else if meta.path.is_ident("fragment") {
                 out.fragment = true;
             } else if meta.path.is_ident("crate") {
@@ -49,12 +49,30 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
             } else if meta.path.is_ident("debug") {
                 out.debug = true;
             } else if meta.path.is_ident("prefix") {
-                meta.parse_nested_meta(|sub| {
-                    let name = sub.path.get_ident().ok_or_else(|| sub.error("expected `name = \"iri\"`"))?.to_string();
-                    let lit: syn::LitStr = sub.value()?.parse()?;
+                // Hand-rolled so prefix names may contain hyphens
+                // (`prefix(ngsi-ld = "...")`), which `Path`-based keys reject;
+                // string-literal keys are accepted too.
+                let content;
+                syn::parenthesized!(content in meta.input);
+                while !content.is_empty() {
+                    let name = if content.peek(syn::LitStr) {
+                        content.parse::<syn::LitStr>()?.value()
+                    } else {
+                        let mut name = content.parse::<syn::Ident>()?.to_string();
+                        while content.peek(syn::Token![-]) {
+                            content.parse::<syn::Token![-]>()?;
+                            name.push('-');
+                            name.push_str(&content.parse::<syn::Ident>()?.to_string());
+                        }
+                        name
+                    };
+                    content.parse::<syn::Token![=]>()?;
+                    let lit: syn::LitStr = content.parse()?;
                     out.prefixes.push((name, lit.value()));
-                    Ok(())
-                })?;
+                    if !content.is_empty() {
+                        content.parse::<syn::Token![,]>()?;
+                    }
+                }
             } else {
                 return Err(meta.error(format!(
                     "unknown jsonld container attribute `{}`; expected one of: \
@@ -64,6 +82,13 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
             }
             Ok(())
         })?;
+    }
+
+    if out.fragment && out.type_iri.is_some() {
+        return Err(syn::Error::new(
+            span.unwrap_or_else(Span::call_site),
+            "`fragment` and `type = \"...\"` are mutually exclusive",
+        ));
     }
 
     Ok(out)
@@ -110,7 +135,24 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
                     "@id" => Coerce::Id,
                     "@vocab" => Coerce::Vocab,
                     "@json" => Coerce::Json,
-                    other => Coerce::Datatype(other.to_owned()),
+                    other if other.starts_with('@') => {
+                        return Err(syn::Error::new(
+                            lit.span(),
+                            format!("unknown keyword coercion `{other}`; expected `@id`, `@vocab`, or `@json`"),
+                        ));
+                    }
+                    other => {
+                        if !looks_like_iri(other) && !is_curie(other) {
+                            return Err(syn::Error::new(
+                                lit.span(),
+                                format!(
+                                    "invalid datatype IRI \"{other}\": expected a full IRI \
+                                     with a scheme or a CURIE backed by `prefix(...)`"
+                                ),
+                            ));
+                        }
+                        Coerce::Datatype(other.to_owned())
+                    }
                 });
             } else if meta.path.is_ident("container") {
                 let lit: syn::LitStr = meta.value()?.parse()?;
@@ -179,6 +221,12 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
                 "`typed_value` requires a `datatype = \"...\"` companion attribute",
             )
         })?;
+        if !looks_like_iri(&dt) && !is_curie(&dt) {
+            return Err(syn::Error::new(
+                span.unwrap_or_else(Span::call_site),
+                format!("invalid datatype IRI \"{dt}\": expected a full IRI with a scheme or a CURIE backed by `prefix(...)`"),
+            ));
+        }
         out.coerce = Some(Coerce::Datatype(dt));
     } else if datatype.is_some() {
         return Err(syn::Error::new(
@@ -225,8 +273,8 @@ fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {
              nested, flatten, flatten_map, or id",
         ));
     }
-    if f.is_vec && !f.nested && !matches!(f.coerce, Some(Coerce::Id)) {
-        return Err(syn::Error::new(span, "`vec` requires `nested` (or a value coercion that iterates)"));
+    if f.is_vec && !f.nested && !matches!(f.coerce, Some(Coerce::Id | Coerce::Vocab)) {
+        return Err(syn::Error::new(span, "`vec` requires `nested` (or an `@id`/`@vocab` coercion that iterates)"));
     }
     if f.nested && f.coerce.is_some() {
         return Err(syn::Error::new(span, "`nested` and `coerce` are mutually exclusive"));

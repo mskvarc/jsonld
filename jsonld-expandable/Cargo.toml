@@ -18,8 +18,8 @@ all-features = true
 proc-macro = true
 
 [dependencies]
-jsonld-expandable-core.workspace = true
-syn ={ version = "3.0.3", features = ["full", "extra-traits"] }
+jsonld-expandable-core = { workspace = true, features = ["codegen"] }
+syn = { version = "3.0.3", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
 jsonld-expandable-core = { workspace = true, features = ["serde-json"] }

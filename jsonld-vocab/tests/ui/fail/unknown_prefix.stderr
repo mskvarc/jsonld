@@ -1,0 +1,5 @@
+error: unknown prefix myns while resolving term Thing from $DIR/tests/fixtures/unknown_prefix.jsonld
+ --> tests/ui/fail/unknown_prefix.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/unknown_prefix.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

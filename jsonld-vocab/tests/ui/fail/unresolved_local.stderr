@@ -1,0 +1,11 @@
+error: unable to resolve local term reference missingTerm while resolving alias from $DIR/tests/fixtures/unresolved_local.jsonld
+ --> tests/ui/fail/unresolved_local.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/unresolved_local.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unresolved local term reference: missingTerm
+ --> tests/ui/fail/unresolved_local.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/unresolved_local.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

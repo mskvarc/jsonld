@@ -1,0 +1,6 @@
+error: only one field may carry `type_value`
+ --> tests/expand/fail_duplicate_type_value.rs:8:5
+  |
+8 | /     #[jsonld(type_value)]
+9 | |     pub ty_b: Vec<String>,
+  | |_________________________^

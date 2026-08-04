@@ -4,9 +4,10 @@ use quote::quote;
 use syn::Ident;
 
 /// Generate the final Rust token stream for the resolved vocabulary model.
-pub fn generate_tokens(inputs: &crate::model::InputContexts, model: &ResolvedModel) -> syn::Result<TokenStream> {
-    let _ = inputs;
-
+///
+/// `iri_crate` is the path the generated code uses to reach the `iri_rs`
+/// crate (`::iri_rs` unless overridden by the macro's `iri_crate` field).
+pub fn generate_tokens(model: &ResolvedModel, iri_crate: &TokenStream) -> syn::Result<TokenStream> {
     let include_paths = model
         .include_paths
         .iter()
@@ -26,13 +27,13 @@ pub fn generate_tokens(inputs: &crate::model::InputContexts, model: &ResolvedMod
             let doc = format!("`{}` -> `{}`", prefix.compact, prefix.expanded);
             quote! {
                 #[doc = #doc]
-                pub const #ident: ::iri_rs::Iri<&'static str> = ::iri_rs::iri!(#expanded);
+                pub const #ident: #iri_crate::Iri<&'static str> = #iri_crate::iri!(#expanded);
             }
         })
         .collect::<Vec<_>>();
 
-    let expanded_class_consts = expanded_iri_consts(&model.class_terms);
-    let expanded_property_consts = expanded_iri_consts(&model.property_terms);
+    let expanded_class_consts = expanded_iri_consts(&model.class_terms, iri_crate);
+    let expanded_property_consts = expanded_iri_consts(&model.property_terms, iri_crate);
     let compact_class_consts = compact_str_consts(&model.class_terms);
     let compact_property_consts = compact_str_consts(&model.property_terms);
 
@@ -127,7 +128,7 @@ pub fn generate_tokens(inputs: &crate::model::InputContexts, model: &ResolvedMod
     })
 }
 
-fn expanded_iri_consts(terms: &[ResolvedTerm]) -> Vec<TokenStream> {
+fn expanded_iri_consts(terms: &[ResolvedTerm], iri_crate: &TokenStream) -> Vec<TokenStream> {
     terms
         .iter()
         .map(|term| {
@@ -136,7 +137,7 @@ fn expanded_iri_consts(terms: &[ResolvedTerm]) -> Vec<TokenStream> {
             let doc = format!("`{}` -> `{}`", term.compact, term.expanded);
             quote! {
                 #[doc = #doc]
-                pub const #ident: ::iri_rs::Iri<&'static str> = ::iri_rs::iri!(#expanded);
+                pub const #ident: #iri_crate::Iri<&'static str> = #iri_crate::iri!(#expanded);
             }
         })
         .collect()

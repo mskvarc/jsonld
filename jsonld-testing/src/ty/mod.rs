@@ -216,7 +216,13 @@ impl Struct {
                 } else if field.required {
                     match objects.next() {
                         Some(object) => field.ty.generate(vocabulary, spec, dataset, object)?,
-                        // None => return Err(Error::MissingRequiredValue(id, *field_iri))
+                        // "Required" only means the spec field is not
+                        // `Option`-typed. The W3C manifests routinely omit
+                        // such values (e.g. `test:option` on most tests), and
+                        // the spec types opt into that by deriving `Default`;
+                        // a missing value intentionally falls back to it. If
+                        // the type does not implement `Default`, this shows
+                        // up as a compile error in the generated suite.
                         None => {
                             quote! { ::core::default::Default::default() }
                         }

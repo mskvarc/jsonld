@@ -44,7 +44,7 @@ pub trait JsonValue: Sized {
 /// Generated code calls this for fields that should land in a `{"@value": ...}`
 /// object (i.e. anything not marked `nested` / `coerce` / `container`).
 pub trait ToJsonValue<V: JsonValue> {
-    /// Returns the to JSON value of this `ToJsonValue`.
+    /// Converts this value into the chosen JSON backend `V`.
     fn to_json_value(&self) -> V;
 }
 

@@ -159,3 +159,140 @@ fn vocab_polymorphic_errors() {
     let field = item.fields.iter().next().unwrap();
     assert!(parse_field(&field.attrs).is_err());
 }
+
+#[test]
+fn hyphenated_prefix_names_parse() {
+    let c = parse_container_attrs("#[jsonld(type = \"https://example.com/T\", prefix(ngsi-ld = \"https://uri.etsi.org/ngsi-ld/\"))]");
+    assert_eq!(c.prefixes, vec![("ngsi-ld".into(), "https://uri.etsi.org/ngsi-ld/".into())]);
+}
+
+#[test]
+fn string_literal_prefix_names_parse() {
+    let c = parse_container_attrs("#[jsonld(type = \"https://example.com/T\", prefix(\"ngsi-ld\" = \"https://uri.etsi.org/ngsi-ld/\"))]");
+    assert_eq!(c.prefixes, vec![("ngsi-ld".into(), "https://uri.etsi.org/ngsi-ld/".into())]);
+}
+
+#[test]
+fn keyword_coercion_typo_errors() {
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", coerce = \"@idd\")] pub x: String, }").unwrap();
+    let field = item.fields.iter().next().unwrap();
+    let error = parse_field(&field.attrs).unwrap_err();
+    assert!(error.to_string().contains("unknown keyword coercion"), "{error}");
+}
+
+#[test]
+fn non_iri_datatype_coercion_errors() {
+    let item: syn::ItemStruct = syn::parse_str("struct S { #[jsonld(property = \"https://e.com/p\", coerce = \"dateTime\")] pub x: String, }").unwrap();
+    let field = item.fields.iter().next().unwrap();
+    assert!(parse_field(&field.attrs).is_err());
+}
+
+#[test]
+fn curie_datatype_coercion_parses() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", coerce = \"xsd:dateTime\")]");
+    assert_eq!(f.coerce, Some(Coerce::Datatype("xsd:dateTime".into())));
+}
+
+#[test]
+fn vec_with_vocab_coercion_is_allowed() {
+    let f = parse_field_attrs("#[jsonld(property = \"https://e.com/p\", coerce = \"@vocab\", vec)]");
+    assert_eq!(f.coerce, Some(Coerce::Vocab));
+    assert!(f.is_vec);
+}
+
+#[test]
+fn fragment_with_container_type_errors() {
+    let item: syn::ItemStruct = syn::parse_str("#[jsonld(fragment, type = \"https://e.com/T\")] struct S { pub x: String, }").unwrap();
+    assert!(parse_container(&item.attrs).is_err());
+}
+
+#[test]
+fn type_field_marker_no_longer_clears_fragment() {
+    let c = parse_container_attrs("#[jsonld(fragment, type_field)]");
+    assert!(c.fragment);
+}
+
+fn generate(src: &str) -> syn::Result<String> {
+    let input: syn::DeriveInput = syn::parse_str(src).unwrap();
+    jsonld_expandable_core::codegen::generate(&input).map(|ts| ts.to_string())
+}
+
+#[test]
+fn coerce_datatype_curies_expand_through_prefix_table() {
+    let generated = generate(
+        r#"
+        #[jsonld(type = "https://e.com/T", prefix(xsd = "http://www.w3.org/2001/XMLSchema#"))]
+        struct S {
+            #[jsonld(property = "https://e.com/p", coerce = "xsd:dateTime")]
+            pub x: String,
+        }
+    "#,
+    )
+    .unwrap();
+    assert!(generated.contains("http://www.w3.org/2001/XMLSchema#dateTime"), "{generated}");
+    assert!(!generated.contains("xsd:dateTime"), "{generated}");
+}
+
+#[test]
+fn duplicate_property_iris_error() {
+    let error = generate(
+        r#"
+        #[jsonld(type = "https://e.com/T")]
+        struct S {
+            #[jsonld(property = "https://e.com/p")]
+            pub x: String,
+            #[jsonld(property = "https://e.com/p")]
+            pub y: String,
+        }
+    "#,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("duplicate property IRI"), "{error}");
+}
+
+#[test]
+fn duplicate_id_fields_error() {
+    let error = generate(
+        r#"
+        #[jsonld(type = "https://e.com/T")]
+        struct S {
+            #[jsonld(id)]
+            pub a: String,
+            #[jsonld(id)]
+            pub b: String,
+        }
+    "#,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("only one field may carry `id`"), "{error}");
+}
+
+#[test]
+fn optional_id_fields_are_supported() {
+    let generated = generate(
+        r#"
+        #[jsonld(type = "https://e.com/T")]
+        struct S {
+            #[jsonld(id)]
+            pub id: Option<String>,
+        }
+    "#,
+    )
+    .unwrap();
+    assert!(generated.contains("if let :: core :: option :: Option :: Some"), "{generated}");
+}
+
+#[test]
+fn type_value_field_with_container_type_errors() {
+    let error = generate(
+        r#"
+        #[jsonld(type = "https://e.com/T")]
+        struct S {
+            #[jsonld(type_value)]
+            pub ty: Vec<String>,
+        }
+    "#,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("conflicts with the container-level `type"), "{error}");
+}

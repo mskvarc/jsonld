@@ -16,12 +16,16 @@ pub struct MacroInput {
     pub contexts: Vec<LitStr>,
     /// Span pointing at the `contexts` field for diagnostics.
     pub contexts_span: Span,
+    /// Override of the path the generated code uses to reach `iri_rs`
+    /// (default `::iri_rs`).
+    pub iri_crate: Option<syn::Path>,
 }
 
 impl Parse for MacroInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let mut contexts: Option<Vec<LitStr>> = None;
         let mut contexts_span: Option<Span> = None;
+        let mut iri_crate: Option<syn::Path> = None;
 
         while !input.is_empty() {
             let key: syn::Ident = input.parse()?;
@@ -34,8 +38,15 @@ impl Parse for MacroInput {
                 let punct: Punctuated<LitStr, Token![,]> = Punctuated::parse_terminated(&bracketed_content)?;
                 contexts_span = Some(span);
                 contexts = Some(punct.into_iter().collect());
+            } else if key == "iri_crate" {
+                let lit: LitStr = input.parse()?;
+                let path = syn::parse_str::<syn::Path>(&lit.value()).map_err(|error| syn::Error::new(lit.span(), error.to_string()))?;
+                iri_crate = Some(path);
             } else {
-                return Err(syn::Error::new(key.span(), format!("unknown field `{key}`, expected `contexts`")));
+                return Err(syn::Error::new(
+                    key.span(),
+                    format!("unknown field `{key}`, expected `contexts` or `iri_crate`"),
+                ));
             }
 
             let _ = input.parse::<Option<Token![,]>>()?;
@@ -48,7 +59,11 @@ impl Parse for MacroInput {
             return Err(syn::Error::new(contexts_span, "`contexts` must contain at least one path"));
         }
 
-        Ok(Self { contexts, contexts_span })
+        Ok(Self {
+            contexts,
+            contexts_span,
+            iri_crate,
+        })
     }
 }
 
@@ -70,12 +85,15 @@ pub struct InputContexts {
 
 impl InputContexts {
     /// Resolve the macro input using paths relative to `CARGO_MANIFEST_DIR`.
+    /// Absolute paths (POSIX or Windows drive paths) are used as-is.
     ///
     /// The `JSONLD_VOCAB_BASE_DIR` environment variable, if set, overrides
-    /// the base directory. This exists as a test escape hatch so trybuild
-    /// drivers can resolve paths against the originating crate root rather
-    /// than the trybuild wip directory.
-    pub fn resolve(input: MacroInput) -> Result<InputContexts> {
+    /// the base directory for relative paths. This exists as a test escape
+    /// hatch so trybuild drivers can resolve paths against the originating
+    /// crate root rather than the trybuild wip directory. Note that proc
+    /// macros cannot register environment variables for rebuild tracking:
+    /// changing it does not by itself invalidate an existing build.
+    pub fn resolve(input: &MacroInput) -> Result<InputContexts> {
         let base_dir = std::env::var("JSONLD_VOCAB_BASE_DIR")
             .or_else(|_| std::env::var("CARGO_MANIFEST_DIR"))
             .map_err(|error| syn::Error::new(input.contexts_span, format!("CARGO_MANIFEST_DIR is not set: {error}")))?;
@@ -83,11 +101,10 @@ impl InputContexts {
 
         let files = input
             .contexts
-            .into_iter()
+            .iter()
             .map(|lit| {
-                let raw = lit.value();
-                let relative = raw.strip_prefix('/').unwrap_or(&raw);
-                let resolved_path = base.join(relative);
+                let raw = PathBuf::from(lit.value());
+                let resolved_path = if raw.is_absolute() { raw } else { base.join(raw) };
                 InputContextFile {
                     resolved_path,
                     span: lit.span(),
@@ -130,6 +147,8 @@ impl ParsedDocument {
 pub struct DefinitionSource {
     /// Source file path.
     pub path: PathBuf,
+    /// Span of the context-path literal the definition came from.
+    pub span: Span,
 }
 
 /// Prefix definition extracted from the JSON-LD contexts.

@@ -8,16 +8,39 @@
 //!   `jstrict::Value`, or a user-supplied type).
 //! - The [`ToJsonValue`] trait used by generated code to convert leaf field
 //!   values into a chosen [`JsonValue`] backend.
-//! - The attribute parser, intermediate representation, and codegen used by
-//!   the `jsonld-expandable` proc-macro crate (kept here so it can be
-//!   unit-tested without `trybuild`).
+//! - Behind the `codegen` feature: the attribute parser, intermediate
+//!   representation, and codegen used by the `jsonld-expandable` proc-macro
+//!   crate (kept here so they can be unit-tested without `trybuild`). Only
+//!   the derive crate enables the feature; runtime consumers never pull in
+//!   syn/quote/proc-macro2, and those modules are internal API for the
+//!   derive, not covered by semver.
 //!
-//! Application code rarely depends on this crate directly; instead enable a
-//! `expandable*` feature on the umbrella `jsonld` crate.
+//! Application code rarely depends on this crate directly; instead enable an
+//! `expandable*` feature on the umbrella `jsonld` crate. When deriving
+//! through the umbrella crate (which re-exports this crate as
+//! `jsonld::expandable_core`), point the generated code at that path with
+//! `#[jsonld(crate = "jsonld::expandable_core")]` — the default
+//! `::jsonld_expandable_core` only resolves for crates that depend on this
+//! crate directly.
+//!
+//! # Limitations
+//!
+//! The derive does not add trait bounds for generic parameters: a generic
+//! struct would need `T: ToJsonValue<V>`-style bounds on the generated
+//! `impl`, which the derive cannot express yet. Deriving on a generic struct
+//! fails with unresolved trait-bound errors; use concrete field types.
 
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
 pub mod attrs;
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
 pub mod codegen;
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
 pub mod ir;
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
 pub mod iri;
 
 mod value;
@@ -43,7 +66,8 @@ pub trait Expandable {
 /// Implement this for fields tagged with `#[jsonld(type_value)]` to provide a
 /// `@type` array whose contents are computed at runtime.
 pub trait ExpandableTypeValue {
-    /// Returns the to type array of this `ExpandableTypeValue`.
+    /// Renders the node's `@type` entry as a JSON array of type IRIs in the
+    /// chosen backend `V`.
     fn to_type_array<V: JsonValue>(&self) -> V;
 }
 
@@ -52,7 +76,8 @@ pub trait ExpandableTypeValue {
 /// `HashMap<String, T>` automatically routes through the built-in language-map
 /// codegen path; implement this when you need a custom type to participate.
 pub trait ExpandableLanguageMap {
-    /// Returns the to expanded language map of this `ExpandableLanguageMap`.
+    /// Renders the map in expanded language-map form: a JSON array of
+    /// `{"@value": ..., "@language": ...}` objects in the chosen backend `V`.
     fn to_expanded_language_map<V: JsonValue>(&self) -> V;
 }
 
@@ -60,6 +85,8 @@ pub trait ExpandableLanguageMap {
 ///
 /// Lives here so the parser, IR, and codegen can be exercised by ordinary
 /// `#[test]` functions; proc-macro crates cannot host normal tests.
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
 pub fn derive_expandable(input: syn::DeriveInput) -> proc_macro2::TokenStream {
     match codegen::generate(&input) {
         Ok(ts) => ts,

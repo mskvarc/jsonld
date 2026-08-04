@@ -79,3 +79,40 @@ impl<V: JsonValue> ToJsonValue<V> for Value {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use crate::JsonValue;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn duplicate_keys_collapse_last_wins() {
+        let v = Value::object([("a".to_string(), Value::integer(1)), ("a".to_string(), Value::integer(2))]);
+        assert_eq!(v, json!({"a": 2}));
+    }
+
+    #[test]
+    fn non_finite_floats_become_null() {
+        assert_eq!(Value::float(f64::NAN), Value::Null);
+        assert_eq!(Value::float(f64::INFINITY), Value::Null);
+        assert_eq!(Value::float(1.5), json!(1.5));
+    }
+
+    #[test]
+    fn into_object_entries_is_none_for_non_objects() {
+        assert!(Value::string("x").into_object_entries().is_none());
+        assert!(Value::array([Value::null()]).into_object_entries().is_none());
+    }
+
+    #[cfg(feature = "jstrict")]
+    #[test]
+    fn to_json_value_projects_into_another_backend() {
+        use crate::ToJsonValue;
+        let source = json!({"a": [1, "x", null], "b": true});
+        let projected: jstrict::Value = source.to_json_value();
+        let entries = projected.into_object_entries().expect("object");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0, "a");
+    }
+}

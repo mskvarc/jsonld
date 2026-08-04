@@ -1,0 +1,17 @@
+error: unable to resolve local term reference b while resolving a from $DIR/tests/fixtures/cycle.jsonld
+ --> tests/ui/fail/cycle.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/cycle.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unable to resolve local term reference a while resolving b from $DIR/tests/fixtures/cycle.jsonld
+ --> tests/ui/fail/cycle.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/cycle.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: cycle detected while resolving local term references: a -> b -> a
+ --> tests/ui/fail/cycle.rs:2:16
+  |
+2 |     contexts: ["tests/fixtures/cycle.jsonld"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

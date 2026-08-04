@@ -47,6 +47,18 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
             if dynamic_type_field.is_some() {
                 return Err(syn::Error::new_spanned(field, "only one field may carry `type_value`"));
             }
+            if container.fragment {
+                return Err(syn::Error::new_spanned(
+                    field,
+                    "a `type_value` field conflicts with the container-level `fragment` attribute",
+                ));
+            }
+            if container.type_iri.is_some() {
+                return Err(syn::Error::new_spanned(
+                    field,
+                    "a `type_value` field conflicts with the container-level `type = \"...\"` attribute",
+                ));
+            }
             dynamic_type_field = Some(ident);
         }
     }
@@ -56,7 +68,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
         if let Some(field_ident) = &dynamic_type_field {
             type_stmt = Some(quote! {
                 __entries.push((
-                    "@type".to_string(),
+                    ::std::string::ToString::to_string("@type"),
                     #crate_path::ExpandableTypeValue::to_type_array::<V>(&self.#field_ident),
                 ));
             });
@@ -64,7 +76,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
             let expanded = expand_curie(iri, &container.prefixes);
             type_stmt = Some(quote! {
                 __entries.push((
-                    "@type".to_string(),
+                    ::std::string::ToString::to_string("@type"),
                     <V as #crate_path::JsonValue>::array(::std::iter::once(
                         <V as #crate_path::JsonValue>::string(#expanded),
                     )),
@@ -80,6 +92,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
     }
 
     // Second pass: emit property statements.
+    let mut seen_property_iris: Vec<String> = Vec::new();
     for field in fields {
         let f = parse_field(&field.attrs)?;
         if f.skip || f.is_type_value {
@@ -90,17 +103,34 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
             .clone()
             .ok_or_else(|| syn::Error::new_spanned(field, "Expandable requires named fields"))?;
 
+        let is_option = is_option_type(&field.ty);
+
         if f.is_id {
-            id_stmt = Some(quote! {
+            if id_stmt.is_some() {
+                return Err(syn::Error::new_spanned(field, "only one field may carry `id`"));
+            }
+            let push = quote! {
                 __entries.push((
-                    "@id".to_string(),
-                    <V as #crate_path::JsonValue>::string(::core::convert::AsRef::<str>::as_ref(&self.#field_ident)),
+                    ::std::string::ToString::to_string("@id"),
+                    <V as #crate_path::JsonValue>::string(::core::convert::AsRef::<str>::as_ref(__val)),
                 ));
+            };
+            id_stmt = Some(if is_option {
+                quote! {
+                    if let ::core::option::Option::Some(__val) = &self.#field_ident {
+                        #push
+                    }
+                }
+            } else {
+                quote! {
+                    {
+                        let __val = &self.#field_ident;
+                        #push
+                    }
+                }
             });
             continue;
         }
-
-        let is_option = is_option_type(&field.ty);
 
         if f.flatten {
             let frag_stmt = quote! {
@@ -136,7 +166,7 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
             let map_stmt = quote! {
                 for (__k, __v) in __src.iter() {
                     __entries.push((
-                        ::core::convert::AsRef::<str>::as_ref(__k).to_string(),
+                        ::std::string::ToString::to_string(::core::convert::AsRef::<str>::as_ref(__k)),
                         #crate_path::Expandable::expand::<V>(__v),
                     ));
                 }
@@ -169,17 +199,25 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
         };
 
-        let value_expr = build_field_expr(&field_ident, &f, is_option, &crate_path)?;
+        if seen_property_iris.contains(&property_iri) {
+            return Err(syn::Error::new_spanned(
+                field,
+                format!("duplicate property IRI `{property_iri}`: another field already expands to it"),
+            ));
+        }
+        seen_property_iris.push(property_iri.clone());
+
+        let value_expr = build_field_expr(&field_ident, &f, is_option, &crate_path, &container.prefixes)?;
 
         prop_stmts.push(if is_option {
             quote! {
                 if let ::core::option::Option::Some(__val) = &self.#field_ident {
-                    __entries.push((#property_iri.to_string(), #value_expr));
+                    __entries.push((::std::string::ToString::to_string(#property_iri), #value_expr));
                 }
             }
         } else {
             quote! {
-                __entries.push((#property_iri.to_string(), #value_expr));
+                __entries.push((::std::string::ToString::to_string(#property_iri), #value_expr));
             }
         });
     }
@@ -206,7 +244,13 @@ pub fn generate(input: &DeriveInput) -> syn::Result<TokenStream> {
     Ok(body)
 }
 
-fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crate_path: &TokenStream) -> syn::Result<TokenStream> {
+fn build_field_expr(
+    field_ident: &syn::Ident,
+    f: &FieldIr,
+    is_option: bool,
+    crate_path: &TokenStream,
+    prefixes: &[(String, String)],
+) -> syn::Result<TokenStream> {
     // Source expression: `__val` when wrapped in Option, else `&self.field`.
     let src: TokenStream = if is_option {
         quote!(__val)
@@ -234,7 +278,7 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
             return Ok(quote! {
                 <V as #crate_path::JsonValue>::array(::std::iter::once(
                     <V as #crate_path::JsonValue>::object(::std::iter::once(
-                        ("@list".to_string(),
+                        (::std::string::ToString::to_string("@list"),
                          <V as #crate_path::JsonValue>::array(
                              (#src).iter().map(|__item|
                                  #crate_path::Expandable::expand::<V>(__item))
@@ -244,11 +288,11 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
             });
         }
         if let Some(coerce) = &f.coerce {
-            let item_shape = item_shape_for_coerce(coerce, crate_path);
+            let item_shape = item_shape_for_coerce(coerce, crate_path, prefixes);
             return Ok(quote! {
                 <V as #crate_path::JsonValue>::array(::std::iter::once(
                     <V as #crate_path::JsonValue>::object(::std::iter::once(
-                        ("@list".to_string(),
+                        (::std::string::ToString::to_string("@list"),
                          <V as #crate_path::JsonValue>::array(
                              (#src).iter().map(|__item| #item_shape)
                          ))
@@ -260,7 +304,7 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
         return Ok(quote! {
             <V as #crate_path::JsonValue>::array(::std::iter::once(
                 <V as #crate_path::JsonValue>::object(::std::iter::once(
-                    ("@list".to_string(),
+                    (::std::string::ToString::to_string("@list"),
                      <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src))
                 ))
             ))
@@ -291,7 +335,7 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
                         <V as #crate_path::JsonValue>::array(
                             (#src).iter().map(|__item| {
                                 <V as #crate_path::JsonValue>::object(::std::iter::once(
-                                    (#key.to_string(),
+                                    (::std::string::ToString::to_string(#key),
                                      <V as #crate_path::JsonValue>::string(
                                          ::core::convert::AsRef::<str>::as_ref(__item))),
                                 ))
@@ -302,7 +346,7 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
                     quote! {
                         <V as #crate_path::JsonValue>::array(::std::iter::once(
                             <V as #crate_path::JsonValue>::object(::std::iter::once(
-                                (#key.to_string(),
+                                (::std::string::ToString::to_string(#key),
                                  <V as #crate_path::JsonValue>::string(
                                      ::core::convert::AsRef::<str>::as_ref(#src)))
                             ))
@@ -314,22 +358,22 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
                 quote! {
                     <V as #crate_path::JsonValue>::array(::std::iter::once(
                         <V as #crate_path::JsonValue>::object([
-                            ("@value".to_string(),
+                            (::std::string::ToString::to_string("@value"),
                              <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src)),
-                            ("@type".to_string(),
+                            (::std::string::ToString::to_string("@type"),
                              <V as #crate_path::JsonValue>::string("@json")),
                         ])
                     ))
                 }
             }
             Coerce::Datatype(d) => {
-                let dlit = d.clone();
+                let dlit = expand_curie(d, prefixes);
                 quote! {
                     <V as #crate_path::JsonValue>::array(::std::iter::once(
                         <V as #crate_path::JsonValue>::object([
-                            ("@value".to_string(),
+                            (::std::string::ToString::to_string("@value"),
                              <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src)),
-                            ("@type".to_string(),
+                            (::std::string::ToString::to_string("@type"),
                              <V as #crate_path::JsonValue>::string(#dlit)),
                         ])
                     ))
@@ -346,7 +390,7 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
                 quote! {
                     <V as #crate_path::JsonValue>::array(::std::iter::once(
                         <V as #crate_path::JsonValue>::object(::std::iter::once(
-                            ("@list".to_string(),
+                            (::std::string::ToString::to_string("@list"),
                              <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src))
                         ))
                     ))
@@ -362,10 +406,10 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
                 <V as #crate_path::JsonValue>::array(
                     (#src).iter().map(|(__k, __v)| {
                         <V as #crate_path::JsonValue>::object([
-                            ("@index".to_string(),
+                            (::std::string::ToString::to_string("@index"),
                              <V as #crate_path::JsonValue>::string(
                                  ::core::convert::AsRef::<str>::as_ref(__k))),
-                            ("@value".to_string(),
+                            (::std::string::ToString::to_string("@value"),
                              <_ as #crate_path::ToJsonValue<V>>::to_json_value(__v)),
                         ])
                     })
@@ -384,7 +428,7 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
     Ok(quote! {
         <V as #crate_path::JsonValue>::array(::std::iter::once(
             <V as #crate_path::JsonValue>::object(::std::iter::once(
-                ("@value".to_string(),
+                (::std::string::ToString::to_string("@value"),
                  <_ as #crate_path::ToJsonValue<V>>::to_json_value(#src))
             ))
         ))
@@ -393,13 +437,13 @@ fn build_field_expr(field_ident: &syn::Ident, f: &FieldIr, is_option: bool, crat
 
 /// Produce the per-item token stream that wraps a single `__item`
 /// in the JSON-LD shape implied by the field's coercion.
-fn item_shape_for_coerce(coerce: &Coerce, crate_path: &TokenStream) -> TokenStream {
+fn item_shape_for_coerce(coerce: &Coerce, crate_path: &TokenStream, prefixes: &[(String, String)]) -> TokenStream {
     match coerce {
         Coerce::Id | Coerce::Vocab => {
             let key = if matches!(coerce, Coerce::Id) { "@id" } else { "@vocab" };
             quote! {
                 <V as #crate_path::JsonValue>::object(::std::iter::once(
-                    (#key.to_string(),
+                    (::std::string::ToString::to_string(#key),
                      <V as #crate_path::JsonValue>::string(
                          ::core::convert::AsRef::<str>::as_ref(__item))),
                 ))
@@ -407,19 +451,19 @@ fn item_shape_for_coerce(coerce: &Coerce, crate_path: &TokenStream) -> TokenStre
         }
         Coerce::Json => quote! {
             <V as #crate_path::JsonValue>::object([
-                ("@value".to_string(),
+                (::std::string::ToString::to_string("@value"),
                  <_ as #crate_path::ToJsonValue<V>>::to_json_value(__item)),
-                ("@type".to_string(),
+                (::std::string::ToString::to_string("@type"),
                  <V as #crate_path::JsonValue>::string("@json")),
             ])
         },
         Coerce::Datatype(d) => {
-            let dlit = d.clone();
+            let dlit = expand_curie(d, prefixes);
             quote! {
                 <V as #crate_path::JsonValue>::object([
-                    ("@value".to_string(),
+                    (::std::string::ToString::to_string("@value"),
                      <_ as #crate_path::ToJsonValue<V>>::to_json_value(__item)),
-                    ("@type".to_string(),
+                    (::std::string::ToString::to_string("@type"),
                      <V as #crate_path::JsonValue>::string(#dlit)),
                 ])
             }
