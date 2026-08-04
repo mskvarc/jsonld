@@ -128,7 +128,10 @@ mod tests {
 
     #[test]
     fn filepath_resolves_inside_mount() {
-        assert_eq!(loader().filepath(Iri::parse("http://example.com/mount/a/b.json").unwrap()), Some(PathBuf::from("/srv/data/a/b.json")));
+        assert_eq!(
+            loader().filepath(Iri::parse("http://example.com/mount/a/b.json").unwrap()),
+            Some(PathBuf::from("/srv/data/a/b.json"))
+        );
     }
 
     #[test]

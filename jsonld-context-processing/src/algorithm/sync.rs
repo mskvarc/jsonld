@@ -718,14 +718,21 @@ where
                             return Err(Error::InvalidTermDefinition);
                         }
 
-                        process_context_sync(env, active_context, context, remote_contexts.clone(), base_url.clone(), options.with_override(), depth + 1).map_err(
-                            |e| match e {
-                                // A resource-limit abort is not a context
-                                // error: let it surface instead of masking it.
-                                Error::ContextOverflow => Error::ContextOverflow,
-                                _ => Error::InvalidScopedContext,
-                            },
-                        )?;
+                        process_context_sync(
+                            env,
+                            active_context,
+                            context,
+                            remote_contexts.clone(),
+                            base_url.clone(),
+                            options.with_override(),
+                            depth + 1,
+                        )
+                        .map_err(|e| match e {
+                            // A resource-limit abort is not a context
+                            // error: let it surface instead of masking it.
+                            Error::ContextOverflow => Error::ContextOverflow,
+                            _ => Error::InvalidScopedContext,
+                        })?;
 
                         definition.context = Some(Box::new(context.clone()));
                         definition.base_url = base_url;

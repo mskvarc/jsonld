@@ -105,10 +105,7 @@ impl FromStr for IriOrPath {
         // drive path, not an IRI: route it to the file-system branch instead
         // of parsing it as an IRI with scheme `c`.
         let bytes = s.as_bytes();
-        let is_drive_path = bytes.len() >= 2
-            && bytes[0].is_ascii_alphabetic()
-            && bytes[1] == b':'
-            && matches!(bytes.get(2), None | Some(b'\\') | Some(b'/'));
+        let is_drive_path = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes.get(2), None | Some(b'\\') | Some(b'/'));
         if is_drive_path {
             return Ok(Self::Path(s.into()));
         }

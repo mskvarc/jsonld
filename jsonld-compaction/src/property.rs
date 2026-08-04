@@ -157,7 +157,12 @@ where
         // fall-through branch below (e.g. a named graph mixed with simple
         // graphs under the same property); the spec defines no output for
         // that state.
-        let Some(map_object) = nest_result.get_unique_mut(item_active_property).ok().flatten().and_then(jstrict::Value::as_object_mut) else {
+        let Some(map_object) = nest_result
+            .get_unique_mut(item_active_property)
+            .ok()
+            .flatten()
+            .and_then(jstrict::Value::as_object_mut)
+        else {
             return Err(Error::CollidingEntry);
         };
 
@@ -189,7 +194,12 @@ where
         // Same collision case as the `@graph`+`@id` branch above: an earlier
         // named graph routed through the fall-through branch may have stored
         // a non-map value under this key.
-        let Some(map_object) = nest_result.get_unique_mut(item_active_property).ok().flatten().and_then(jstrict::Value::as_object_mut) else {
+        let Some(map_object) = nest_result
+            .get_unique_mut(item_active_property)
+            .ok()
+            .flatten()
+            .and_then(jstrict::Value::as_object_mut)
+        else {
             return Err(Error::CollidingEntry);
         };
 
@@ -476,7 +486,12 @@ where
                         // hold a non-map value if another property already compacted
                         // to the same key with a different container shape; the spec
                         // defines no output for that state.
-                        let Some(map_object) = nest_result.get_unique_mut(&*item_active_property).ok().flatten().and_then(jstrict::Value::as_object_mut) else {
+                        let Some(map_object) = nest_result
+                            .get_unique_mut(&*item_active_property)
+                            .ok()
+                            .flatten()
+                            .and_then(jstrict::Value::as_object_mut)
+                        else {
                             return Err(Error::CollidingEntry);
                         };
 

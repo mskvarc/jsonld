@@ -1,4 +1,13 @@
-use ld_core::{BorrowedRdfTerm, CowRdfTerm, LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject, ResourceInterpretation};
+use ld_core::{
+    BorrowedRdfTerm,
+    CowRdfTerm,
+    LinkedData,
+    LinkedDataGraph,
+    LinkedDataPredicateObjects,
+    LinkedDataResource,
+    LinkedDataSubject,
+    ResourceInterpretation,
+};
 use rdfx::Interpretation;
 
 use crate::{

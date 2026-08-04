@@ -139,7 +139,14 @@ impl<T, B> ProcessingCache<T, B> {
 
     /// Looks the key up and verifies the hit against the actual inputs. A
     /// hash collision verifies false and reads as a miss.
-    pub(crate) fn get(&self, key: u64, active: &Context<T, B>, local: &jsonld_syntax::context::Context, base_url: Option<&T>, options: Options) -> Option<Arc<Context<T, B>>>
+    pub(crate) fn get(
+        &self,
+        key: u64,
+        active: &Context<T, B>,
+        local: &jsonld_syntax::context::Context,
+        base_url: Option<&T>,
+        options: Options,
+    ) -> Option<Arc<Context<T, B>>>
     where
         T: PartialEq,
         B: PartialEq,
@@ -152,7 +159,15 @@ impl<T, B> ProcessingCache<T, B> {
     /// Stores `result` under `key`, retaining clones of the inputs for hit
     /// verification. A colliding entry is overwritten — correctness never
     /// depends on which of the colliding tuples occupies the slot.
-    pub(crate) fn insert(&self, key: u64, active: Context<T, B>, local: jsonld_syntax::context::Context, base_url: Option<T>, options: Options, result: Arc<Context<T, B>>) {
+    pub(crate) fn insert(
+        &self,
+        key: u64,
+        active: Context<T, B>,
+        local: jsonld_syntax::context::Context,
+        base_url: Option<T>,
+        options: Options,
+        result: Arc<Context<T, B>>,
+    ) {
         self.entries.lock().insert(
             key,
             CacheEntry {

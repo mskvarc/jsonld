@@ -221,8 +221,10 @@ mod tests {
     #[test]
     fn parse_link_coalesced() {
         let links = Link::parse_header(
-            &HeaderValue::from_str("<http://www.example.org/a>; rel=\"alternate\", <http://www.example.org/context>; rel=\"http://www.w3.org/ns/json-ld#context\"")
-                .unwrap(),
+            &HeaderValue::from_str(
+                "<http://www.example.org/a>; rel=\"alternate\", <http://www.example.org/context>; rel=\"http://www.w3.org/ns/json-ld#context\"",
+            )
+            .unwrap(),
         );
         assert_eq!(links.len(), 2);
         assert_eq!(links[0].href(), "http://www.example.org/a");
