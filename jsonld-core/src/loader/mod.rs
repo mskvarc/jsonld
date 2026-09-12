@@ -347,7 +347,7 @@ impl<I> RemoteDocument<I, jstrict::Value> {
 #[cfg(feature = "sonic-rs")]
 impl<I> RemoteDocument<I, jstrict::Value> {
     /// Creates a remote document from a [`sonic_rs::Value`].
-    pub fn from_sonic_rs(url: Option<I>, content_type: Option<MediaTypeBuf>, document: sonic_rs::Value) -> Self {
+    pub fn from_sonic_rs(url: Option<I>, content_type: Option<MediaTypeBuf>, document: &sonic_rs::Value) -> Self {
         Self::new(url, content_type, jstrict::Value::from_sonic_rs(document))
     }
 
@@ -720,7 +720,7 @@ mod sonic_rs_tests {
         let mime: MediaTypeBuf = LD_JSON_MEDIA_TYPE.into();
         let value: sonic_rs::Value = sonic_rs::json!({"foo": "bar"});
 
-        let doc = RemoteDocument::from_sonic_rs(Some(url.clone()), Some(mime.clone()), value);
+        let doc = RemoteDocument::from_sonic_rs(Some(url.clone()), Some(mime.clone()), &value);
 
         assert_eq!(doc.url(), Some(&url));
         assert_eq!(doc.content_type(), Some(&mime));
@@ -742,7 +742,7 @@ mod sonic_rs_tests {
             "arr": [1, 2],
             "obj": {"k": "v"}
         });
-        let doc = RemoteDocument::<IriBuf, _>::from_sonic_rs(None, None, value);
+        let doc = RemoteDocument::<IriBuf, _>::from_sonic_rs(None, None, &value);
         let jstrict::Value::Object(obj) = doc.document() else {
             panic!("expected object")
         };
@@ -762,7 +762,7 @@ mod sonic_rs_tests {
         let original = jstrict::Value::parse_str(r#"{"a": [1, 2, 3]}"#).unwrap().0;
         let doc: RemoteDocument<IriBuf, _> = RemoteDocument::new(None, None, original.clone());
         let sonic_doc = doc.into_sonic_rs();
-        let round_tripped = jstrict::Value::from_sonic_rs(sonic_doc.document.clone());
+        let round_tripped = jstrict::Value::from_sonic_rs(&sonic_doc.document);
         assert_eq!(round_tripped, original);
     }
 }

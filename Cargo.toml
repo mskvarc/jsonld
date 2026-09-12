@@ -49,6 +49,9 @@ iter_without_into_iter = "allow"
 struct_excessive_bools = "allow"
 struct_field_names = "allow"
 format_push_string = "allow"
+# `Loader::load` is an async trait method; impls that resolve synchronously
+# (no mount point, in-memory map) have no `.await`, which is not a defect.
+unused_async_trait_impl = "allow"
 
 [workspace.dependencies]
 jsonld = { path = "jsonld", version = "0.22.0" }
