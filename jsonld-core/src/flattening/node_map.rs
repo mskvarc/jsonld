@@ -1,6 +1,6 @@
 use super::Environment;
 use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, hash::IndexMap, object};
-use educe::Educe;
+use derive_where::derive_where;
 use rdfx::{
     LocalGenerator,
     vocabulary::{BlankIdVocabulary, IriVocabulary, VocabularyMut},
@@ -46,8 +46,7 @@ pub type Parts<T, B> = (NodeMapGraph<T, B>, IndexMap<Id<T, B>, NodeMapGraph<T, B
 /// traversal order.
 ///
 /// [spec]: https://www.w3.org/TR/json-ld11-api/#node-map-generation
-#[derive(Educe)]
-#[educe(Default)]
+#[derive_where(Default)]
 pub struct NodeMap<T, B> {
     graphs: IndexMap<Id<T, B>, NodeMapGraph<T, B>>,
     default_graph: NodeMapGraph<T, B>,
@@ -190,8 +189,7 @@ impl<T, B> IntoIterator for NodeMap<T, B> {
     }
 }
 
-#[derive(Educe)]
-#[educe(Default)]
+#[derive_where(Default)]
 /// Nodes of a single graph within a node map.
 ///
 /// Nodes are stored in declaration order; see [`NodeMap`].

@@ -7,7 +7,7 @@ use crate::{
     object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
 };
 use contextual::WithContext;
-use educe::Educe;
+use derive_where::derive_where;
 use iri_rs::IriBuf;
 use jsonld_syntax::IntoJsonWithContext;
 use rdfx::{
@@ -20,8 +20,8 @@ use std::hash::{Hash, Hasher};
 pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf> = Multiset<IndexedNode<T, B>>;
 
 /// Reverse properties of a node object, and their associated nodes.
-#[derive(Educe, Debug, Clone)]
-#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
+#[derive(Debug, Clone)]
+#[derive_where(PartialEq; T: Eq + Hash, B: Eq + Hash)]
 pub struct ReverseProperties<T = IriBuf, B = BlankIdBuf>(IndexMap<Id<T, B>, ReversePropertyNodes<T, B>>);
 
 impl<T: Eq + Hash, B: Eq + Hash> Eq for ReverseProperties<T, B> {}
@@ -288,8 +288,7 @@ pub type IntoIter<T, B> = indexmap::map::IntoIter<Id<T, B>, ReversePropertyNodes
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::iter`] function.
-#[derive(Educe)]
-#[educe(Clone)]
+#[derive_where(Clone)]
 pub struct Iter<'a, T, B> {
     inner: indexmap::map::Iter<'a, Id<T, B>, ReversePropertyNodes<T, B>>,
 }

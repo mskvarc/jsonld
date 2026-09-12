@@ -1,5 +1,5 @@
 use crate::{Direction, LangString, LenientLangTag, object};
-use educe::Educe;
+use derive_where::derive_where;
 use iri_rs::{Iri, IriBuf};
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
 use jstrict::{Number, NumberBuf};
@@ -11,11 +11,10 @@ use super::InvalidExpandedJson;
 /// Value type reference.
 // `bound(false)`: every variant payload is a shared reference or a `Copy` value
 // type, so this borrow type is unconditionally `Clone + Copy` regardless of `T`.
-// Educe's automatic bounds would instead propagate a predicate per field type,
+// A plain `derive` would instead add a bound per field type,
 // which makes the impl conditional and breaks `&self` methods that consume
 // `self` by copy.
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 pub enum TypeRef<'a, T> {
     /// A JSON literal.
     Json,
@@ -359,8 +358,7 @@ impl<T, B> object::Any<T, B> for Value<T> {
     }
 }
 
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 /// Entry of a value object, key and value together.
 pub enum EntryRef<'a, T> {
     /// The `@value` entry, holding the literal value.
@@ -414,8 +412,7 @@ impl<'a, T> EntryRef<'a, T> {
     }
 }
 
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 /// Value of a value object entry.
 pub enum EntryValueRef<'a, T> {
     /// The `@value` entry, holding the literal value.
@@ -487,8 +484,7 @@ impl EntryKey {
     }
 }
 
-#[derive(Educe)]
-#[educe(Clone)]
+#[derive_where(Clone)]
 /// Iterator over the entries of a value object.
 pub struct Entries<'a, T> {
     value: Option<ValueEntryRef<'a>>,

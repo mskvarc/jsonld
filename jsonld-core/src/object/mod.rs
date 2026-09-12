@@ -1,7 +1,7 @@
 //! Nodes, lists and values.
 use crate::{HashMap, Id, IndexSet, Indexed, LenientLangTag, Relabel, ValidId};
 use contextual::{IntoRefWithContext, WithContext};
-use educe::Educe;
+use derive_where::derive_where;
 use iri_rs::IriBuf;
 use jsonld_syntax::{IntoJsonWithContext, Keyword};
 use jstrict::Number;
@@ -109,8 +109,8 @@ pub type IndexedObject<T, B = ()> = Indexed<Object<T, B>>;
 /// expansion algorithm or by converting an already expanded JSON document
 /// using [`TryFromJson`].
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Educe, Debug, Clone, Hash)]
-#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
+#[derive(Debug, Clone, Hash)]
+#[derive_where(PartialEq; T: Eq + Hash, B: Eq + Hash)]
 pub enum Object<T = IriBuf, B = BlankIdBuf> {
     /// Value object.
     Value(Value<T>),
@@ -524,8 +524,7 @@ impl<T, B> Indexed<Object<T, B>> {
     }
 }
 
-#[derive(Educe)]
-#[educe(Clone)]
+#[derive_where(Clone)]
 /// Iterator over the entries of an object.
 pub enum Entries<'a, T, B> {
     /// A value object.
@@ -560,8 +559,7 @@ impl<'a, T, B> Iterator for Entries<'a, T, B> {
 
 impl<T, B> ExactSizeIterator for Entries<'_, T, B> {}
 
-#[derive(Educe)]
-#[educe(Clone)]
+#[derive_where(Clone)]
 /// Iterator over the entries of an indexed object, `@index` included.
 pub struct IndexedEntries<'a, T, B> {
     index: Option<&'a str>,
@@ -588,11 +586,11 @@ impl<T, B> ExactSizeIterator for IndexedEntries<'_, T, B> {}
 
 // `bound(false)`: every variant payload is a shared reference, a `Copy` value
 // type, or another unconditionally-`Copy` borrow type, so the impls hold for any
-// `T`/`B`. Educe's automatic bounds would instead propagate a predicate per field
+// `T`/`B`. A plain `derive` would instead add a bound per field
 // type, making the impl conditional and breaking the `&self` methods that consume
 // `self` by copy.
-#[derive(Educe, PartialEq, Eq)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive(PartialEq, Eq)]
+#[derive_where(Clone, Copy)]
 /// Key of an object entry.
 pub enum EntryKeyRef<'a, T, B> {
     /// A value object.
@@ -655,8 +653,7 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
     }
 }
 
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 /// Value of an object entry.
 pub enum EntryValueRef<'a, T, B> {
     /// A value object.
@@ -667,8 +664,7 @@ pub enum EntryValueRef<'a, T, B> {
     Node(node::EntryValueRef<'a, T, B>),
 }
 
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 /// Entry of an object, key and value together.
 pub enum EntryRef<'a, T, B> {
     /// A value object.
@@ -732,8 +728,8 @@ impl<'a, T, B> EntryRef<'a, T, B> {
     }
 }
 
-#[derive(Educe, PartialEq, Eq)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive(PartialEq, Eq)]
+#[derive_where(Clone, Copy)]
 /// Key of an indexed object entry.
 pub enum IndexedEntryKeyRef<'a, T, B> {
     /// The `@index` entry.
@@ -791,8 +787,7 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, 
     }
 }
 
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 /// Value of an indexed object entry.
 pub enum IndexedEntryValueRef<'a, T, B> {
     /// The value of the `@index` entry.
@@ -801,8 +796,7 @@ pub enum IndexedEntryValueRef<'a, T, B> {
     Object(EntryValueRef<'a, T, B>),
 }
 
-#[derive(Educe)]
-#[educe(Clone(bound(false)), Copy(bound(false)))]
+#[derive_where(Clone, Copy)]
 /// Entry of an indexed object, key and value together.
 pub enum IndexedEntryRef<'a, T, B> {
     /// The `@index` entry and its value.

@@ -1,7 +1,7 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
 use crate::{HashMap, Id, IndexedObject, Relabel, TryFromJson, ValidId};
 use contextual::WithContext;
-use educe::Educe;
+use derive_where::derive_where;
 use jsonld_syntax::{IntoJson, IntoJsonWithContext};
 use rdfx::{
     LocalGenerator,
@@ -10,8 +10,8 @@ use rdfx::{
 use std::hash::Hash;
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Educe, Debug, Clone, Hash)]
-#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
+#[derive(Debug, Clone, Hash)]
+#[derive_where(PartialEq; T: Eq + Hash, B: Eq + Hash)]
 /// List object.
 pub struct List<T, B> {
     entry: Vec<IndexedObject<T, B>>,

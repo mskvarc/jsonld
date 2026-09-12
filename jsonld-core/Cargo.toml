@@ -41,7 +41,7 @@ gxhash = ["jsonld-syntax/gxhash"]
 
 [dependencies]
 contextual = "0.1.6"
-educe = "0.8.0"
+derive-where = "1.6.1"
 foldhash = "0.2.0"
 hashbrown = "0.17.1"
 indexmap = "2.14.2"

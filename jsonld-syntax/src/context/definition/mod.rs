@@ -1,6 +1,5 @@
 use super::{TermDefinition, term_definition};
 use crate::{Direction, Keyword, LenientLangTagBuf, Nullable, hash::IndexMap};
-use educe::Educe;
 use iri_rs::IriRefBuf;
 
 mod import;
@@ -21,9 +20,8 @@ pub use vocab::*;
 ///
 /// Holds the keyword entries a context may set (`@base`, `@vocab`, …) and the
 /// term definitions it binds.
-#[derive(PartialEq, Eq, Clone, Educe, Debug)]
+#[derive(PartialEq, Eq, Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[educe(Default)]
 pub struct Definition {
     #[cfg_attr(
         feature = "serde",
@@ -116,10 +114,9 @@ impl Definition {
 }
 
 /// Term definitions of a context, keyed by term and kept in insertion order.
-#[derive(PartialEq, Eq, Clone, Educe, Debug)]
+#[derive(PartialEq, Eq, Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-#[educe(Default)]
 pub struct Bindings(IndexMap<Key, Nullable<TermDefinition>>);
 
 /// Iterator over the term definitions of a context, in insertion order.

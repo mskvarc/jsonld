@@ -1,5 +1,4 @@
 use crate::{CompactIri, CompactIriBuf, Container, ContainerKind, Direction, Keyword, LenientLangTag, LenientLangTagBuf, Nullable, container, context};
-use educe::Educe;
 use iri_rs::{Iri, IriBuf};
 use rdfx::{BlankId, BlankIdBuf};
 
@@ -117,9 +116,8 @@ impl From<BlankIdBuf> for Simple {
 }
 
 /// Expanded term definition.
-#[derive(PartialEq, Eq, Clone, Educe, Debug)]
+#[derive(PartialEq, Eq, Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[educe(Default)]
 pub struct Expanded {
     #[cfg_attr(
         feature = "serde",
@@ -300,8 +298,7 @@ impl Expanded {
 ///
 /// Also used to present a simple definition, or `null`, in expanded form; see
 /// [`TermDefinition::as_expanded`].
-#[derive(Debug, Educe)]
-#[educe(Default)]
+#[derive(Debug, Default)]
 pub struct ExpandedRef<'a> {
     /// The `@id` entry, giving the IRI the term expands to.
     pub id: Option<Nullable<IdRef<'a>>>,

@@ -6,7 +6,7 @@ use crate::{
     IndexedObject,
     object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
 };
-use educe::Educe;
+use derive_where::derive_where;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::{Hash, Hasher};
 
@@ -14,8 +14,8 @@ use std::hash::{Hash, Hasher};
 pub type PropertyObjects<T, B> = Multiset<IndexedObject<T, B>>;
 
 /// Properties of a node object, and their associated objects.
-#[derive(Educe, Debug, Clone)]
-#[educe(PartialEq(bound(T: Eq + Hash, B: Eq + Hash)))]
+#[derive(Debug, Clone)]
+#[derive_where(PartialEq; T: Eq + Hash, B: Eq + Hash)]
 pub struct Properties<T, B>(IndexMap<Id<T, B>, PropertyObjects<T, B>>);
 
 impl<T: Eq + Hash, B: Eq + Hash> Eq for Properties<T, B> {}
@@ -294,8 +294,7 @@ pub type IntoIter<T, B> = indexmap::map::IntoIter<Id<T, B>, PropertyObjects<T, B
 /// Iterator over the properties of a node.
 ///
 /// It is created by the [`Properties::iter`] function.
-#[derive(Educe)]
-#[educe(Clone)]
+#[derive_where(Clone)]
 pub struct Iter<'a, T, B> {
     inner: indexmap::map::Iter<'a, Id<T, B>, PropertyObjects<T, B>>,
 }
