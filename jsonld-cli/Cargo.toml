@@ -24,16 +24,16 @@ ahash = ["jsonld/ahash"]
 gxhash = ["jsonld/gxhash"]
 
 [dependencies]
-clap = { version = "4.6.5", features = ["derive"] }
+clap = { version = "4.6.6", features = ["derive"] }
 contextual = "0.1.6"
 iri-rs = { version = "3.4.1", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
-jstrict = "0.14.0"
-log = "0.4.33"
+jstrict = "0.15.0"
+log = "0.4.34"
 mediatype = "0.23.0"
 rdfx = "0.24.0"
 stderrlog = "0.6.0"
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "macros"] }
 
 [lints]

@@ -66,9 +66,9 @@ jsonld-expansion.workspace = true
 jsonld-serialization.workspace = true
 jsonld-syntax.workspace = true
 jsonld-vocab = { workspace = true, optional = true }
-jstrict = "0.14.0"
+jstrict = "0.15.0"
 rdfx = "0.24.0"
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 
 [dev-dependencies]
 criterion = "0.8.2"
@@ -77,7 +77,7 @@ iri-rs = { version = "3.4.1", features = ["static"] }
 # is not published, and a versioned entry would make `cargo publish` demand it
 # on crates.io (circular with this crate).
 jsonld-testing = { path = "../jsonld-testing" }
-log = "0.4.33"
+log = "0.4.34"
 mimalloc = { version = "0.1.52", default-features = false }
 n-quads = "0.21.0"
 serde_json = "1.0.151"
