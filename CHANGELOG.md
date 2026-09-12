@@ -2,114 +2,127 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.22.1] - 2026-09-12
+
+### 🐛 Bug Fixes
+- make sonic-rs work again
+
+### 🔧 Refactor
+- switch to derive_where
+
+### 🧹 Chores
+- bump version
+- update dependencies
+
 ## [v0.22.0] - 2026-08-04
 
 ### ⚡ Performance
-- Index expanded documents by discriminant instead of full hash
-- Stop cloning every expanded key in node expansion
-- Stop allocating on the compact-IRI selection path
-- Memoize compact-IRI selection across a property's values
-- Replace `Mown<Context>` with a boxed `ContextRef`
-- Box cold awaits in expansion
-- Parallel expansion
-- Performance tweaks
-- More siphash cleanup and getting rid of clone in hot path
-- String interning optimization
-- Improve compaction and expansion performance (hashing tweaks)
-- Further performance optimization
-- Sync fast-path for context processing without remote loads
-- Intern term keys
-- Don't invalidate inverse on every set normal
-- Cheaper inverse context
-- Avoid with(vocabulary).as_str() inside sort comparators
-- Emoize compact iri results per compaction call
-- Avoid per-iter alloc + cache prefix list
-- Memoize processed contexts
-- Avoid cloning context
-- Faster hashmaps
-- Lto
+- index expanded documents by discriminant instead of full hash
+- stop cloning every expanded key in node expansion
+- stop allocating on the compact-IRI selection path
+- memoize compact-IRI selection across a property's values
+- replace `Mown<Context>` with a boxed `ContextRef`
+- box cold awaits in expansion
+- parallel expansion
+- performance tweaks
+- more siphash cleanup and getting rid of clone in hot path
+- string interning optimization
+- improve compaction and expansion performance (hashing tweaks)
+- further performance optimization
+- sync fast-path for context processing without remote loads
+- intern term keys
+- don't invalidate inverse on every set normal
+- cheaper inverse context
+- avoid with(vocabulary).as_str() inside sort comparators
+- emoize compact iri results per compaction call
+- avoid per-iter alloc + cache prefix list
+- memoize processed contexts
+- avoid cloning context
+- faster hashmaps
+- lto
 
 ### 🎨 Style
-- Reformat code
-- Reformat code
+- reformat code
+- reformat code
 
 ### 🏗️ Build
 - Set MSRV to 1.83.
 
 ### 🐛 Bug Fixes
-- Clippy warning cleanup
-- Correct expanded output shape, language maps, package contents and doc links
-- Overhaul macro crates
-- Caching correctness
-- Output correctness
-- Bug fixes
-- Some publish mechanics fixes
-- Pass full w3c suite, including json-ld 1.0
-- Clippy warnings
-- Handle vocabulary correctly with parallel feature on
-- Rust warnings and clippy lints
-- Fix test failures caused by the large refactor
-- Missing dependecy for doctest
+- clippy warning cleanup
+- correct expanded output shape, language maps, package contents and doc links
+- overhaul macro crates
+- caching correctness
+- output correctness
+- bug fixes
+- some publish mechanics fixes
+- pass full w3c suite, including json-ld 1.0
+- clippy warnings
+- handle vocabulary correctly with parallel feature on
+- rust warnings and clippy lints
+- fix test failures caused by the large refactor
+- missing dependecy for doctest
 
 ### 👷 CI
-- Remove workflows
+- remove workflows
 
 ### 📚 Documentation
-- Add readme files
-- Update rustdoc
-- Update readme
-- Update documentation
+- add readme files
+- update rustdoc
+- update readme
+- update documentation
 
 ### 🔧 Refactor
-- Rename badly named feature
-- Make derive macros work in a way where they figure out crate path automatically
-- Legacy cleanup
-- Improve public api quality
-- Drop locspan dependency
-- Drop unneeded deps
-- Replace async-std dependecy with tokio
-- Drop the faulty parallel feature
-- Use mediatype
-- Error handling
-- Polish
-- Switch to jstrict
-- Eliminating unnecessary allocations
-- Bring back tests
-- New clap version
-- A batch of dependency updates
-- Repository shape
+- rename badly named feature
+- make derive macros work in a way where they figure out crate path automatically
+- legacy cleanup
+- improve public api quality
+- drop locspan dependency
+- drop unneeded deps
+- replace async-std dependecy with tokio
+- drop the faulty parallel feature
+- use mediatype
+- error handling
+- polish
+- switch to jstrict
+- eliminating unnecessary allocations
+- bring back tests
+- new clap version
+- a batch of dependency updates
+- repository shape
 
 ### 🚀 Features
-- Expose sonic-rs interop
-- `expandable` — Implement flatten, add flatten_map and passthrough ⚠️ **BREAKING**
-- Add json-ld vocabulary
-- Add expandable trait
-- Better serde json integration
-- Switch to different library versions
-- Rust 2024 edition
+- expose sonic-rs interop
+- `expandable` — implement flatten, add flatten_map and passthrough ⚠️ **BREAKING**
+- add json-ld vocabulary
+- add expandable trait
+- better serde json integration
+- switch to different library versions
+- rust 2024 edition
 
 ### 🧪 Tests
-- Add compaction/expansion benchmarks
+- add compaction/expansion benchmarks
 
 ### 🧹 Chores
-- Require iri-rs 3.4.1 and forward its renamed bytewise feature
-- Update changelog
-- Update dependencies
-- More cleanup
-- More cleanup
-- Hardening
-- Implement functional gaps
-- Update json-ld test submodule to latest
-- Move to rdfx 0.24.0, jstrict 0.14.0, n-quads 0.21.0, msrv 1.96.0
-- Markdown licenses
-- Update and cleanup deps
-- Bump iri-rs
-- Update iri-rs pin
-- Polish
-- Structural tweaks
-- Update rustfmt configuration
-- Silence warning
-- Remove changelog
-- Fix clippy warnings.
+- update changelog
+- require iri-rs 3.4.1 and forward its renamed bytewise feature
+- update changelog
+- update dependencies
+- more cleanup
+- more cleanup
+- hardening
+- implement functional gaps
+- update json-ld test submodule to latest
+- move to rdfx 0.24.0, jstrict 0.14.0, n-quads 0.21.0, msrv 1.96.0
+- markdown licenses
+- update and cleanup deps
+- bump iri-rs
+- update iri-rs pin
+- polish
+- structural tweaks
+- update rustfmt configuration
+- silence warning
+- remove changelog
+- fix clippy warnings.
 
 <!-- generated by git-cliff -->
