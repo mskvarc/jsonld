@@ -16,14 +16,18 @@ readme.workspace = true
 # runners below generate their cases from that submodule's manifests through
 # `jsonld-testing`, which is unpublished and depended on by path, so in a
 # published crate they would fail to compile rather than run: neither their
-# fixtures nor their macro is there. The remaining test targets, the benchmarks
-# and the example are self-contained and do ship.
+# fixtures nor their macro is there. The `shared_context` benchmark stays out
+# too, with its fixture: that is the ETSI NGSI-LD core context, a third-party
+# document. The remaining test targets, the benchmarks and the example are
+# self-contained and do ship.
 exclude = [
     "tests/json-ld-api",
     "tests/compact.rs",
     "tests/expand.rs",
     "tests/flatten.rs",
     "tests/to_rdf.rs",
+    "benches/shared_context.rs",
+    "benches/ngsi-ld-core-context-v1.9.jsonld",
 ]
 # `benches/common.rs` is a shared fixture module, not a benchmark. Auto-
 # discovery would turn it into a libtest-harness bench target, which rejects
@@ -96,6 +100,10 @@ harness = false
 
 [[bench]]
 name = "compaction"
+harness = false
+
+[[bench]]
+name = "shared_context"
 harness = false
 
 [[example]]

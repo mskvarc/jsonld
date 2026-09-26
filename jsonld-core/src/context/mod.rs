@@ -2,13 +2,13 @@
 mod definition;
 /// Inverse context, used to pick terms during compaction.
 pub mod inverse;
+mod memo;
 
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, ProcessingMode, Term, ValidId as Id};
 use contextual::WithContext;
 use iri_rs::IriBuf;
 use jsonld_syntax::{Keyword, KeywordType, Nullable};
 use once_cell::sync::OnceCell;
-use parking_lot::Mutex;
 use rdfx::{BlankIdBuf, vocabulary::Vocabulary};
 use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
@@ -19,6 +19,7 @@ pub use jsonld_syntax::context::{
 
 pub use definition::*;
 pub use inverse::InverseContext;
+pub use memo::ShardedMemo;
 
 /// Either a borrowed context or an owned one held behind a box.
 ///
@@ -148,8 +149,8 @@ impl<T: PartialEq, B: PartialEq> hashbrown::Equivalent<CompactIriKey<T, B>> for 
 /// `@list`, `@set`, `@graph`, `@index`, `@language`, `@direction`, `@reverse`,
 /// `@none`, `@included`, `@json`). Their compact-IRI form is a pure function
 /// of the active context and the processing mode, so the result is computed
-/// once per `(context, mode)` and reused — saving per-element [`Mutex`]
-/// traffic + cache lookups + alias-selection work in `compact_iri_full`.
+/// once per `(context, mode)` and reused — saving per-element memo
+/// lookups + alias-selection work in `compact_iri_full`.
 pub struct KeywordAliases {
     aliases: [Box<str>; 13],
 }
@@ -220,8 +221,8 @@ fn keyword_alias_index(k: Keyword) -> Option<usize> {
     })
 }
 
-type CompactIriCache<T, B> = Mutex<crate::HashMap<CompactIriKey<T, B>, Option<Arc<str>>>>;
-type TermResolutionCache<T, B> = Mutex<crate::HashMap<Box<str>, Arc<Term<T, B>>>>;
+type CompactIriCache<T, B> = ShardedMemo<CompactIriKey<T, B>, Option<Arc<str>>>;
+type TermResolutionCache<T, B> = ShardedMemo<Box<str>, Arc<Term<T, B>>>;
 
 /// A prefix-eligible term paired with the term it maps to.
 pub type PrefixTerm<T, B> = (Key, Arc<Term<T, B>>);
@@ -509,7 +510,7 @@ impl<T, B> Context<T, B> {
     /// vocabulary, language, or direction change, since those affect
     /// compaction output.
     pub fn compact_iri_cache(&self) -> &CompactIriCache<T, B> {
-        self.compact_iri_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
+        self.compact_iri_cache.get_or_init(ShardedMemo::default)
     }
 
     /// Returns the per-context memoization map for IRI expansion of term keys.
@@ -520,7 +521,7 @@ impl<T, B> Context<T, B> {
     /// alongside the compact-IRI / inverse caches whenever the context's term
     /// definitions, base IRI, vocabulary, language, or direction change.
     pub fn term_resolution_cache(&self) -> &TermResolutionCache<T, B> {
-        self.term_resolution_cache.get_or_init(|| Mutex::new(crate::HashMap::default()))
+        self.term_resolution_cache.get_or_init(ShardedMemo::default)
     }
 
     /// Returns the cached keyword aliases of this context for the given

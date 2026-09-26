@@ -323,7 +323,7 @@ where
     };
 
     if let Some(s) = cache_value
-        && let Some(arc) = active_context.term_resolution_cache().lock().get(s).cloned()
+        && let Some(arc) = active_context.term_resolution_cache().get(s)
     {
         return Ok(Some(arc));
     }
@@ -331,7 +331,7 @@ where
     let result = expand_iri_simple_inner::<W, N, L, H>(env, active_context, value, document_relative, vocab)?;
 
     if let (Some(s), Some(arc)) = (cache_value, &result) {
-        active_context.term_resolution_cache().lock().insert(Box::from(s), Arc::clone(arc));
+        active_context.term_resolution_cache().insert(Box::from(s), Arc::clone(arc));
     }
 
     Ok(result)

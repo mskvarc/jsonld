@@ -658,3 +658,66 @@ fn nested_with_repeated_terms(depth: usize, props: usize) -> Scenario {
     doc.push('}');
     scenario("nested_with_repeated_terms_20x25", doc, ctx)
 }
+
+/// One NGSI-LD entity in the shape a broker serves: `Property` (plain,
+/// structured and with `unitCode`/`observedAt`), a multi-instance `Property`
+/// distinguished by `datasetId`, `Relationship`, `GeoProperty` with a `GeoJSON`
+/// `Point`, `LanguageProperty`, plus the `createdAt`/`modifiedAt` system
+/// attributes — eleven attributes in all. User attributes resolve through the
+/// core context's default `@vocab`.
+///
+/// The document carries no `@context`: it is meant to be expanded against a
+/// processed NGSI-LD core context.
+pub fn ngsi_ld_entity(i: usize) -> String {
+    format!(
+        r#"{{"id":"urn:ngsi-ld:Vehicle:V{i}","type":"Vehicle",
+"createdAt":"2026-09-01T10:00:00Z","modifiedAt":"2026-09-26T08:0{m}:00Z",
+"location":{{"type":"GeoProperty","value":{{"type":"Point","coordinates":[-3.70{m},40.41{m}]}},"observedAt":"2026-09-26T08:00:00Z"}},
+"speed":[{{"type":"Property","value":{s},"unitCode":"KMH","observedAt":"2026-09-26T08:00:00Z","datasetId":"urn:ngsi-ld:Dataset:gps"}},{{"type":"Property","value":{s}.5,"unitCode":"KMH","observedAt":"2026-09-26T08:00:01Z","datasetId":"urn:ngsi-ld:Dataset:obd"}}],
+"fuelLevel":{{"type":"Property","value":0.{m}5,"observedAt":"2026-09-26T08:00:00Z"}},
+"status":{{"type":"Property","value":"moving"}},
+"address":{{"type":"Property","value":{{"streetAddress":"Gran Via {i}","addressLocality":"Madrid","postalCode":"28013"}}}},
+"name":{{"type":"LanguageProperty","languageMap":{{"en":"Bus {i}","es":"Autobús {i}","sl":"Avtobus {i}"}}}},
+"owner":{{"type":"Relationship","object":"urn:ngsi-ld:Person:P{o}","datasetId":"urn:ngsi-ld:Dataset:registry"}},
+"isParked":{{"type":"Relationship","object":"urn:ngsi-ld:OffStreetParking:Downtown{p}","observedAt":"2026-09-26T07:55:00Z"}},
+"category":{{"type":"Property","value":["public","municipal"]}}}}"#,
+        m = i % 10,
+        s = 40 + i % 60,
+        o = i % 50,
+        p = i % 5,
+    )
+}
+
+/// A `@graph` of `n` NGSI-LD entities whose types carry type-scoped contexts,
+/// one of which also nests a property-scoped context.
+///
+/// Compaction processes a type-scoped context afresh for every node object
+/// whose `@type` defines one, so each entity here gets new active contexts,
+/// each with empty memos. This isolates the cost of creating and first-filling
+/// per-context memos, which the warm-memo scenarios never see.
+pub fn ngsi_ld_type_scoped_graph(n: usize) -> Scenario {
+    let context = r#"{"@vocab":"https://uri.etsi.org/ngsi-ld/default-context/","id":"@id","type":"@type","value":"https://uri.etsi.org/ngsi-ld/hasValue","object":{"@id":"https://uri.etsi.org/ngsi-ld/hasObject","@type":"@id"},"Property":"https://uri.etsi.org/ngsi-ld/Property","Relationship":"https://uri.etsi.org/ngsi-ld/Relationship",
+"Vehicle":{"@id":"https://example.org/Vehicle","@context":{"speed":"https://example.org/vehicle/speed","heading":"https://example.org/vehicle/heading","fuelLevel":"https://example.org/vehicle/fuelLevel","operator":"https://example.org/vehicle/operator"}},
+"Building":{"@id":"https://example.org/Building","@context":{"floors":"https://example.org/building/floors","occupancy":"https://example.org/building/occupancy","owner":"https://example.org/building/owner","address":{"@id":"https://example.org/building/address","@context":{"street":"https://schema.org/streetAddress","city":"https://schema.org/addressLocality"}}}},
+"Sensor":{"@id":"https://example.org/Sensor","@context":{"temperature":"https://example.org/sensor/temperature","humidity":"https://example.org/sensor/humidity","battery":"https://example.org/sensor/battery","installedIn":"https://example.org/sensor/installedIn"}}}"#;
+    let mut doc = format!(r#"{{"@context":{context},"@graph":["#);
+    for i in 0..n {
+        if i > 0 {
+            doc.push(',');
+        }
+        let entity = match i % 3 {
+            0 => format!(
+                r#"{{"id":"urn:ngsi-ld:Vehicle:V{i}","type":"Vehicle","speed":{{"type":"Property","value":{i}}},"heading":{{"type":"Property","value":90}},"fuelLevel":{{"type":"Property","value":0.5}},"operator":{{"type":"Relationship","object":"urn:ngsi-ld:Person:P{i}"}}}}"#
+            ),
+            1 => format!(
+                r#"{{"id":"urn:ngsi-ld:Building:B{i}","type":"Building","floors":{{"type":"Property","value":{i}}},"occupancy":{{"type":"Property","value":0.8}},"owner":{{"type":"Relationship","object":"urn:ngsi-ld:Person:P{i}"}},"address":{{"street":"Main {i}","city":"Ljubljana"}}}}"#
+            ),
+            _ => format!(
+                r#"{{"id":"urn:ngsi-ld:Sensor:S{i}","type":"Sensor","temperature":{{"type":"Property","value":21.5}},"humidity":{{"type":"Property","value":40}},"battery":{{"type":"Property","value":0.9}},"installedIn":{{"type":"Relationship","object":"urn:ngsi-ld:Building:B{i}"}}}}"#
+            ),
+        };
+        doc.push_str(&entity);
+    }
+    doc.push_str("]}");
+    scenario("ngsi_ld_type_scoped_graph_30", doc, context.to_string())
+}

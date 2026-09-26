@@ -139,16 +139,13 @@ where
     N::BlankId: Clone + Hash + Eq,
 {
     let cache = active_context.compact_iri_cache();
-    {
-        let guard = cache.lock();
-        if let Some(hit) = guard.get(&CompactIriKeyRef(var, vocab, reverse, options.processing_mode)) {
-            return Ok(hit.clone());
-        }
+    if let Some(hit) = cache.get(&CompactIriKeyRef(var, vocab, reverse, options.processing_mode)) {
+        return Ok(hit);
     }
 
     let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options, None)?;
 
-    cache.lock().insert((var.clone(), vocab, reverse, options.processing_mode), result.clone());
+    cache.insert((var.clone(), vocab, reverse, options.processing_mode), result.clone());
     Ok(result)
 }
 
