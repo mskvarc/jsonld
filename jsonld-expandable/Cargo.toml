@@ -25,7 +25,7 @@ proc-macro2 = "1.0.107"
 # code needs no `crate = "..."` configuration.
 proc-macro-crate = "3.5.0"
 quote = "1.0.47"
-syn = { version = "3.0.5", features = ["full", "extra-traits"] }
+syn = { version = "3.0.6", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
 jsonld-expandable-core = { workspace = true, features = ["serde-json"] }

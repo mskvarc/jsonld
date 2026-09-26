@@ -36,7 +36,7 @@ proc-macro2 = { version = "1.0.107", optional = true }
 quote = { version = "1.0.47", optional = true }
 serde_json = { version = "1.0.151", optional = true }
 sonic-rs = { version = "0.5.10", optional = true }
-syn = { version = "3.0.5", features = ["full", "extra-traits"], optional = true }
+syn = { version = "3.0.6", features = ["full", "extra-traits"], optional = true }
 
 [dev-dependencies]
 # Self-reference so `cargo test` exercises every feature-gated module (codegen

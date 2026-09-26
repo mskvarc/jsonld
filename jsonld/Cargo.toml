@@ -72,7 +72,7 @@ jsonld-syntax.workspace = true
 jsonld-vocab = { workspace = true, optional = true }
 jstrict = "0.15.0"
 rdfx = "0.24.0"
-thiserror = "2.0.20"
+thiserror = "2.0.21"
 
 [dev-dependencies]
 criterion = "0.8.2"

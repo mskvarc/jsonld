@@ -47,8 +47,8 @@ langtag = "1.1.0"
 lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more", "ahasher"] }
 rdfx = "0.24.0"
 serde = { version = "1.0.229", features = ["derive"], optional = true }
-smallvec = "1.16.1"
-thiserror = "2.0.20"
+smallvec = "1.16.2"
+thiserror = "2.0.21"
 
 [lints]
 workspace = true
