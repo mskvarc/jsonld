@@ -1,5 +1,6 @@
 use super::expand_element;
 use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
+use jsonld_context_processing::ProcessingCache;
 use jsonld_core::{Context, Environment, ExpandedDocument, IndexedObject, Object};
 use jstrict::Value;
 use rdfx::vocabulary::VocabularyMut;
@@ -43,7 +44,12 @@ where
         }
     }
 
-    let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, None).await?;
+    // One processing cache per document: a document whose nodes each carry the
+    // same `@context` (a batch of entities, say) processes it once instead of
+    // once per node. The cache verifies every hit against its inputs, and one
+    // document is expanded against one loader, which is the scope it requires.
+    let cache = ProcessingCache::new();
+    let expanded = expand_element(env, &active_context, ActiveProperty::None, document, base_url, options, false, Some(&cache)).await?;
     match expanded {
         Expanded::Null => Ok(ExpandedDocument::new()),
         Expanded::Object(obj) => Ok(single(obj)),
