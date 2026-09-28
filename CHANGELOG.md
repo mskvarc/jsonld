@@ -2,12 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.23.1] - 2026-09-28
+
+### ⚡ Performance
+- process each @context once per document during expansion
+
+### 🧹 Chores
+- bump version
+
 ## [v0.23.0] - 2026-09-26
 
 ### ⚡ Performance
 - shard context memos to scale under contention
 
 ### 🧹 Chores
+- update changelog
 - update dependencies
 - bump version
 
