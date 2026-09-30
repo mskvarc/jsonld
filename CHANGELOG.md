@@ -2,12 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.23.2] - 2026-09-30
+
+### 🐛 Bug Fixes
+- reprocess repeated top-level contexts
+
+### 🧹 Chores
+- bump version
+
 ## [v0.23.1] - 2026-09-28
 
 ### ⚡ Performance
 - process each @context once per document during expansion
 
 ### 🧹 Chores
+- update changelog
 - bump version
 
 ## [v0.23.0] - 2026-09-26
