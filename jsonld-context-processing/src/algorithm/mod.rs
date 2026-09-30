@@ -4,8 +4,8 @@
 //! implementation of the [context processing algorithm][1] — the one that can
 //! call the [`Loader`] to fetch remote contexts and `@import`ed documents.
 //! `sync.rs`, in this same directory, holds a second, hand-maintained
-//! implementation of the *same* algorithm with `async`, `.await` and `Box::pin`
-//! stripped out and recursion made direct. It is used as a fast path whenever
+//! implementation of the *same* algorithm with `async`, `.await` and the boxed
+//! [`Recursion`] stripped out and recursion made direct. It is used as a fast path whenever
 //! `requires_loader` proves the input contains no remote `@context` IRI and no
 //! `@import`, which is the common case in real payloads.
 //!
@@ -42,11 +42,13 @@ use rdfx::vocabulary::VocabularyMut;
 mod define;
 mod iri;
 mod merged;
+mod native_stack;
 mod sync;
 
 pub use define::*;
 pub use iri::*;
 pub use merged::*;
+use native_stack::Recursion;
 use sync::{process_context_sync, requires_loader};
 use syntax::context::definition::KeyOrKeywordRef;
 
@@ -78,7 +80,7 @@ impl Process for syntax::context::Context {
     {
         // Fast path: no remote `@context` IRIs and no `@import` anywhere in
         // the tree means the entire algorithm runs synchronously — no
-        // `Box::pin` per recursion, no future state machine.
+        // boxed `Recursion` per level, no future state machine.
         if !requires_loader(self) {
             return process_context_sync(
                 Environment {
@@ -355,7 +357,7 @@ where
                     vocab: options.vocab,
                 };
 
-                let r = Box::pin(process_context(
+                let r = Recursion::new(process_context(
                     Environment {
                         vocabulary: env.vocabulary,
                         loader: env.loader,

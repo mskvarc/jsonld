@@ -50,10 +50,29 @@ pub enum InvalidContext {
 /// Maximum nesting depth of scoped contexts (`@context` inside a term
 /// definition) accepted when converting JSON into a [`Context`].
 ///
-/// The conversion recurses on the native stack, so a crafted deeply-nested
-/// context could otherwise overflow it (an abort, not UB). Genuine contexts
+/// Deeper nesting is refused with [`InvalidContext::TooDeep`]. Genuine contexts
 /// nest a handful of levels at most.
 pub const MAX_CONTEXT_DEPTH: usize = 128;
+
+/// Stack left below which converting a nested scoped context moves to a fresh
+/// stack segment. It has to exceed what one nesting level uses, which is
+/// largest in unoptimized builds.
+const RED_ZONE: usize = 128 * 1024;
+
+/// Size of each fresh stack segment.
+const SEGMENT: usize = 2 * 1024 * 1024;
+
+/// Converts a scoped context nested in a term definition, on a fresh stack
+/// segment when the current one is nearly used.
+///
+/// The conversion recurses once per nesting level, and an embedder may call it
+/// on a thread whose stack it has already partly used, so without this a
+/// nesting well inside [`MAX_CONTEXT_DEPTH`] could abort the process on a stack
+/// overflow instead of converting or failing with
+/// [`InvalidContext::TooDeep`].
+fn nested_context_try_from_json(value: &jstrict::Value, depth: usize) -> Result<Context, InvalidContext> {
+    stacker::maybe_grow(RED_ZONE, SEGMENT, || context_try_from_json(value, depth))
+}
 
 impl InvalidContext {
     /// Returns the JSON-LD error code this error reports as.
@@ -106,7 +125,7 @@ fn term_definition_try_from_json(value: &jstrict::Value, depth: usize) -> Result
                 match Keyword::try_from(key.as_str()) {
                     Ok(Keyword::Id) => set_unique!(def.id, Nullable::try_from_json(value)?),
                     Ok(Keyword::Type) => set_unique!(def.type_, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Context) => set_unique!(def.context, Box::new(context_try_from_json(value, depth + 1)?)),
+                    Ok(Keyword::Context) => set_unique!(def.context, Box::new(nested_context_try_from_json(value, depth + 1)?)),
                     Ok(Keyword::Reverse) => set_unique!(def.reverse, definition::Key::try_from_json(value)?),
                     Ok(Keyword::Index) => set_unique!(def.index, term_definition::Index::try_from_json(value)?),
                     Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
@@ -377,6 +396,26 @@ mod tests {
     fn reasonable_nesting_converts() {
         let json = nested_json(MAX_CONTEXT_DEPTH - 1);
         assert!(Context::try_from_json(&json).is_ok());
+    }
+
+    /// The deepest accepted nesting converts, and one level more is refused,
+    /// on a thread whose stack is far smaller than the conversion of that
+    /// nesting needs, so an embedder that already used most of its stack gets
+    /// a result rather than an abort.
+    #[test]
+    fn nesting_up_to_the_bound_converts_on_a_small_stack() {
+        let deepest = nested_json(MAX_CONTEXT_DEPTH - 1);
+        let too_deep = nested_json(MAX_CONTEXT_DEPTH + 1);
+
+        let (converted, refused) = std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || (Context::try_from_json(&deepest).is_ok(), Context::try_from_json(&too_deep)))
+            .unwrap()
+            .join()
+            .unwrap();
+
+        assert!(converted);
+        assert!(matches!(refused, Err(InvalidContext::TooDeep)));
     }
 
     /// Duplicate keyword entries fail like duplicate term bindings do,

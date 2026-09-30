@@ -39,12 +39,14 @@
 //!
 //! # Recursion depth
 //!
-//! The `async` version heap-allocates each recursion level through `Box::pin`;
-//! this one recurses on the native stack, so it is bounded by
-//! [`MAX_SYNC_DEPTH`]. A crafted deeply nested `@context` fails with
-//! [`Error::ContextOverflow`] rather than overflowing the stack.
+//! This mirror recurses directly and is bounded by [`MAX_SYNC_DEPTH`]: a
+//! crafted deeply nested `@context` fails with [`Error::ContextOverflow`]. Every
+//! recursive call runs through
+//! [`on_sufficient_stack`](super::native_stack::on_sufficient_stack), so that
+//! bound is reached as an error whatever the embedder has already used of the
+//! thread's stack.
 
-use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_valid_vocab_json_ld_1_0, resolve_iri};
+use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_valid_vocab_json_ld_1_0, native_stack::on_sufficient_stack, resolve_iri};
 use crate::{
     Error,
     Options,
@@ -84,14 +86,12 @@ use std::{hash::Hash, sync::Arc};
 
 /// Maximum recursion depth of the synchronous context-processing fast path.
 ///
-/// The async algorithm heap-allocates every recursion level through
-/// `Box::pin`; the sync mirror recurses on the native stack, so a crafted
-/// deeply-nested inline `@context` could otherwise overflow it (an abort,
-/// not UB). Exceeding the limit reports [`Error::ContextOverflow`]. Genuine
+/// A crafted deeply nested inline `@context` would otherwise recurse without
+/// bound; exceeding the limit reports [`Error::ContextOverflow`]. Genuine
 /// contexts stay far below this bound: depth grows with the nesting of
 /// scoped contexts and chained term/prefix definitions, not with context
-/// size. The value is chosen so that even unoptimized builds (with their
-/// much larger stack frames) stay within a 2 MiB thread stack.
+/// size. The native stack each level uses is provided by
+/// [`on_sufficient_stack`], not by the caller's thread.
 const MAX_SYNC_DEPTH: usize = 128;
 
 type ExpandIriResult<N, L> =
@@ -214,22 +214,24 @@ where
                 return Ok(Some(Arc::new(Term::Null)));
             }
 
-            define_sync(
-                Environment {
-                    vocabulary: env.vocabulary,
-                    loader: env.loader,
-                    warnings: env.warnings,
-                },
-                active_context,
-                local_context,
-                value.into(),
-                defined,
-                remote_contexts.clone(),
-                None,
-                false,
-                options.with_no_override(),
-                depth + 1,
-            )?;
+            on_sufficient_stack(|| {
+                define_sync(
+                    Environment {
+                        vocabulary: env.vocabulary,
+                        loader: env.loader,
+                        warnings: env.warnings,
+                    },
+                    active_context,
+                    local_context,
+                    value.into(),
+                    defined,
+                    remote_contexts.clone(),
+                    None,
+                    false,
+                    options.with_no_override(),
+                    depth + 1,
+                )
+            })?;
 
             if let Some(term_definition) = active_context.get(value) {
                 if let Some(arc) = term_definition.value_arc()
@@ -256,22 +258,24 @@ where
                 }
 
                 if let Ok(compact_iri) = CompactIri::new(value) {
-                    define_sync(
-                        Environment {
-                            vocabulary: env.vocabulary,
-                            loader: env.loader,
-                            warnings: env.warnings,
-                        },
-                        active_context,
-                        local_context,
-                        KeyOrKeywordRef::Key(compact_iri.prefix().into()),
-                        defined,
-                        remote_contexts,
-                        None,
-                        false,
-                        options.with_no_override(),
-                        depth + 1,
-                    )?;
+                    on_sufficient_stack(|| {
+                        define_sync(
+                            Environment {
+                                vocabulary: env.vocabulary,
+                                loader: env.loader,
+                                warnings: env.warnings,
+                            },
+                            active_context,
+                            local_context,
+                            KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                            defined,
+                            remote_contexts,
+                            None,
+                            false,
+                            options.with_no_override(),
+                            depth + 1,
+                        )
+                    })?;
 
                     // The `prefix` flag is JSON-LD 1.1 only; see `iri.rs`.
                     let prefix_key = Key::from(compact_iri.prefix());
@@ -588,22 +592,24 @@ where
                             _ => {
                                 if let KeyOrKeyword::Key(term) = &term {
                                     if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
-                                        define_sync(
-                                            Environment {
-                                                vocabulary: env.vocabulary,
-                                                loader: env.loader,
-                                                warnings: env.warnings,
-                                            },
-                                            active_context,
-                                            local_context,
-                                            KeyOrKeywordRef::Key(compact_iri.prefix().into()),
-                                            defined,
-                                            remote_contexts.clone(),
-                                            None,
-                                            false,
-                                            options.with_no_override(),
-                                            depth + 1,
-                                        )?;
+                                        on_sufficient_stack(|| {
+                                            define_sync(
+                                                Environment {
+                                                    vocabulary: env.vocabulary,
+                                                    loader: env.loader,
+                                                    warnings: env.warnings,
+                                                },
+                                                active_context,
+                                                local_context,
+                                                KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                                                defined,
+                                                remote_contexts.clone(),
+                                                None,
+                                                false,
+                                                options.with_no_override(),
+                                                depth + 1,
+                                            )
+                                        })?;
 
                                         if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
                                             let mut result = String::new();
@@ -726,15 +732,17 @@ where
                             return Err(Error::InvalidTermDefinition);
                         }
 
-                        process_context_sync(
-                            env,
-                            active_context,
-                            context,
-                            remote_contexts.clone(),
-                            base_url.clone(),
-                            options.with_override(),
-                            depth + 1,
-                        )
+                        on_sufficient_stack(|| {
+                            process_context_sync(
+                                env,
+                                active_context,
+                                context,
+                                remote_contexts.clone(),
+                                base_url.clone(),
+                                options.with_override(),
+                                depth + 1,
+                            )
+                        })
                         .map_err(|e| match e {
                             // A resource-limit abort is not a context
                             // error: let it surface instead of masking it.
@@ -964,41 +972,45 @@ where
                 let protected = context.protected().unwrap_or(false);
 
                 if context.type_().is_some() {
-                    define_sync(
-                        Environment {
-                            vocabulary: env.vocabulary,
-                            loader: env.loader,
-                            warnings: env.warnings,
-                        },
-                        &mut result,
-                        &context,
-                        KeyOrKeywordRef::Keyword(syntax::Keyword::Type),
-                        &mut defined,
-                        remote_contexts.clone(),
-                        base_url.clone(),
-                        protected,
-                        options,
-                        depth + 1,
-                    )?;
+                    on_sufficient_stack(|| {
+                        define_sync(
+                            Environment {
+                                vocabulary: env.vocabulary,
+                                loader: env.loader,
+                                warnings: env.warnings,
+                            },
+                            &mut result,
+                            &context,
+                            KeyOrKeywordRef::Keyword(syntax::Keyword::Type),
+                            &mut defined,
+                            remote_contexts.clone(),
+                            base_url.clone(),
+                            protected,
+                            options,
+                            depth + 1,
+                        )
+                    })?;
                 }
 
                 for (key, _binding) in context.bindings() {
-                    define_sync(
-                        Environment {
-                            vocabulary: env.vocabulary,
-                            loader: env.loader,
-                            warnings: env.warnings,
-                        },
-                        &mut result,
-                        &context,
-                        key.into(),
-                        &mut defined,
-                        remote_contexts.clone(),
-                        base_url.clone(),
-                        protected,
-                        options,
-                        depth + 1,
-                    )?;
+                    on_sufficient_stack(|| {
+                        define_sync(
+                            Environment {
+                                vocabulary: env.vocabulary,
+                                loader: env.loader,
+                                warnings: env.warnings,
+                            },
+                            &mut result,
+                            &context,
+                            key.into(),
+                            &mut defined,
+                            remote_contexts.clone(),
+                            base_url.clone(),
+                            protected,
+                            options,
+                            depth + 1,
+                        )
+                    })?;
                 }
             }
         }

@@ -1,4 +1,4 @@
-use super::{Environment, Merged, expand_iri_simple, expand_iri_with};
+use super::{Environment, Merged, expand_iri_simple, expand_iri_with, native_stack::Recursion};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use iri_rs::{Iri, IriRef};
 use jsonld_core::{
@@ -483,7 +483,7 @@ where
                                         // context a dependency has been found.
                                         // Use this algorithm recursively passing `active_context`,
                                         // `local_context`, the prefix as term, and `defined`.
-                                        Box::pin(define(
+                                        Recursion::new(define(
                                             Environment {
                                                 vocabulary: env.vocabulary,
                                                 loader: env.loader,
@@ -681,7 +681,7 @@ where
                         // a copy of remote contexts, and `false` for validate scoped context.
                         // If any error is detected, an invalid scoped context error has been
                         // detected and processing is aborted.
-                        Box::pin(super::process_context(
+                        Recursion::new(super::process_context(
                             env,
                             active_context,
                             context,

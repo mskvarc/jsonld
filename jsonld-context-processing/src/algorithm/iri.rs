@@ -1,6 +1,6 @@
 use std::{hash::Hash, sync::Arc};
 
-use super::{DefinedTerms, Environment, Merged};
+use super::{DefinedTerms, Environment, Merged, native_stack::Recursion};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iri_rs::{Iri, IriRef};
@@ -84,7 +84,7 @@ where
             // algorithm, passing active context, local context, value as term, and defined. This will
             // ensure that a term definition is created for value in active context during Context
             // Processing.
-            Box::pin(super::define(
+            Recursion::new(super::define(
                 Environment {
                     vocabulary: env.vocabulary,
                     loader: env.loader,
@@ -135,7 +135,7 @@ where
                     // algorithm, passing active context, local context, prefix as term, and defined.
                     // This will ensure that a term definition is created for prefix in active context
                     // during Context Processing.
-                    Box::pin(super::define(
+                    Recursion::new(super::define(
                         Environment {
                             vocabulary: env.vocabulary,
                             loader: env.loader,
