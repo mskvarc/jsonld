@@ -2,12 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.23.3] - 2026-09-30
+
+### 🐛 Bug Fixes
+- keep context processing off the caller's stack
+
 ## [v0.23.2] - 2026-09-30
 
 ### 🐛 Bug Fixes
 - reprocess repeated top-level contexts
 
 ### 🧹 Chores
+- update changelog
 - bump version
 
 ## [v0.23.1] - 2026-09-28
