@@ -231,9 +231,9 @@ pub enum Error<E = std::convert::Infallible> {
     /// A remote context includes itself, directly or indirectly.
     ///
     /// JSON-LD 1.0 only. Under 1.1 a context already on the remote-context
-    /// stack is skipped instead of being reprocessed — scoped contexts rely on
-    /// being able to reference the same context more than once — so only the
-    /// [`Self::ContextOverflow`] limit constrains the chain.
+    /// stack is skipped while a scoped context is being validated and
+    /// processed again everywhere else (context processing step 5.2.2), so only
+    /// the [`Self::ContextOverflow`] limit constrains the chain.
     RecursiveContextInclusion,
 
     #[error("Context overflow")]

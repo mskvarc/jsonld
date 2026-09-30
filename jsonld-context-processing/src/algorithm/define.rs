@@ -677,8 +677,8 @@ where
                         // done.
 
                         // Invoke the Context Processing algorithm using the `active_context`,
-                        // `context` as local context, `base_url`, and `true` for override
-                        // protected.
+                        // `context` as local context, `base_url`, `true` for override protected,
+                        // a copy of remote contexts, and `false` for validate scoped context.
                         // If any error is detected, an invalid scoped context error has been
                         // detected and processing is aborted.
                         Box::pin(super::process_context(
@@ -688,6 +688,7 @@ where
                             remote_contexts.clone(),
                             base_url.clone(),
                             options.with_override(),
+                            false,
                         ))
                         .await
                         .map_err(|e| match e {

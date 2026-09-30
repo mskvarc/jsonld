@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use jsonld_core::HashMap;
+use parking_lot::Mutex;
+use std::{hash::Hash, sync::Arc};
 
 /// Maximum depth of the remote context chain.
 ///
@@ -52,16 +54,37 @@ impl<I> StackNode<I> {
 /// Implemented as an immutable singly-linked list behind [`Arc`]s, so the copy
 /// each recursive call receives is a pointer bump rather than a clone of the
 /// chain.
-#[derive(Clone)]
+///
+/// Every copy of a stack also shares one record of the contexts dereferenced
+/// since the stack was created, which is how one run of the algorithm honours
+/// step 5.2.4: "If context was previously dereferenced, then the processor MUST
+/// NOT do a further dereference". The chain is per branch of the recursion; the
+/// record is per run.
 pub struct ProcessingStack<I> {
     head: Option<Arc<StackNode<I>>>,
+    dereferenced: Arc<Mutex<HashMap<I, Arc<jsonld_syntax::context::Context>>>>,
+}
+
+impl<I> Clone for ProcessingStack<I> {
+    // Written by hand because a derive would demand `I: Clone`, while copying
+    // the stack only bumps the two `Arc`s it holds.
+    fn clone(&self) -> Self {
+        Self {
+            head: self.head.clone(),
+            dereferenced: Arc::clone(&self.dereferenced),
+        }
+    }
 }
 
 impl<I> ProcessingStack<I> {
-    /// Creates an empty stack, meaning no remote context is being processed.
+    /// Creates an empty stack, meaning no remote context is being processed,
+    /// with an empty record of dereferenced contexts.
     #[must_use]
     pub fn new() -> Self {
-        Self { head: None }
+        Self {
+            head: None,
+            dereferenced: Arc::new(Mutex::new(HashMap::default())),
+        }
     }
 
     /// Checks whether no remote context has been entered, i.e. the context being
@@ -102,7 +125,8 @@ impl<I> ProcessingStack<I> {
     /// Returns `true` when the URL was added, and `false` when it was already on
     /// the stack and nothing changed. What `false` means is version-dependent:
     /// JSON-LD 1.0 treats it as a recursive context inclusion error, while 1.1
-    /// simply skips reprocessing the context.
+    /// skips the context only while validating a scoped context (step 5.2.2)
+    /// and otherwise processes it again, which is [`Self::enter`].
     pub fn push(&mut self, url: I) -> bool
     where
         I: PartialEq,
@@ -110,11 +134,37 @@ impl<I> ProcessingStack<I> {
         if self.cycle(&url) {
             false
         } else {
-            let mut head = None;
-            std::mem::swap(&mut head, &mut self.head);
-            self.head = Some(Arc::new(StackNode::new(head, url)));
+            self.enter(url);
             true
         }
+    }
+
+    /// Pushes `url` onto the stack whether or not it is already there.
+    ///
+    /// This is step 5.2.3's "add context to remote contexts": under JSON-LD 1.1
+    /// a context named again outside scoped-context validation is processed
+    /// again, and each processing counts toward [`MAX_REMOTE_CONTEXTS`].
+    pub fn enter(&mut self, url: I) {
+        let previous = self.head.take();
+        self.head = Some(Arc::new(StackNode::new(previous, url)));
+    }
+
+    /// The `@context` of the document dereferenced for `url` earlier in this
+    /// run, if there was one (step 5.2.4).
+    pub fn dereferenced(&self, url: &I) -> Option<Arc<jsonld_syntax::context::Context>>
+    where
+        I: Eq + Hash,
+    {
+        self.dereferenced.lock().get(url).map(Arc::clone)
+    }
+
+    /// Records the `@context` dereferenced for `url`, so the rest of this run
+    /// reuses it instead of dereferencing `url` again (step 5.2.4).
+    pub fn remember_dereferenced(&self, url: I, context: Arc<jsonld_syntax::context::Context>)
+    where
+        I: Eq + Hash,
+    {
+        self.dereferenced.lock().insert(url, context);
     }
 }
 

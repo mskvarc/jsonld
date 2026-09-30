@@ -106,6 +106,7 @@ impl Process for syntax::context::Context {
             ProcessingStack::default(),
             base_url,
             options,
+            true,
         )
         .await
     }
@@ -149,6 +150,7 @@ impl Process for syntax::context::Context {
                 ProcessingStack::default(),
                 base_url,
                 options,
+                true,
             )
             .await?
         } else {
@@ -199,6 +201,13 @@ where
 /// carries the chain of remote context URLs entered so far, which bounds that
 /// recursion; a top-level call starts from an empty [`ProcessingStack`].
 ///
+/// `validate_scoped_context` is the algorithm's input of the same name: `true`
+/// for a document's own `@context` and for contexts applied while expanding,
+/// `false` only when Create Term Definition validates a scoped `@context`
+/// (step 21.3). Only then is a context already in `remote_contexts` skipped
+/// (step 5.2.2); anywhere else a repeat is processed again, because JSON-LD
+/// processes the entries of a `@context` array in order.
+///
 /// Every mutation is applied to a clone of `active_context`, so the caller's
 /// context is left untouched.
 ///
@@ -213,6 +222,7 @@ async fn process_context<'l: 'a, 'a, N, L, W>(
     mut remote_contexts: ProcessingStack<N::Iri>,
     base_url: Option<N::Iri>,
     mut options: Options,
+    validate_scoped_context: bool,
 ) -> ProcessingResult<'l, N::Iri, N::BlankId, L::Error>
 where
     N: VocabularyMut,
@@ -280,19 +290,38 @@ where
                 // a loading document failed error has been detected and processing is aborted.
                 let context_iri = resolve_iri(env.vocabulary, iri_ref.as_ref(), base_url.as_ref()).ok_or(Error::LoadingDocumentFailed)?;
 
-                // If the number of entries in the `remote_contexts` array exceeds a processor
-                // defined limit, a context overflow error has been detected and processing is
-                // aborted; otherwise, add context to remote contexts.
+                // 5.2.2) If validate scoped context is false, and remote contexts already
+                // includes context do not process context further and continue to any next
+                // context in local context.
                 //
-                // If context was previously dereferenced, then the processor MUST NOT do a further
-                // dereference, and context is set to the previously established internal
+                // JSON-LD 1.0 had no such allowance: a context already in remote contexts is a
+                // recursive context inclusion error, whatever the caller.
+                if remote_contexts.cycle(&context_iri) {
+                    if options.processing_mode == ProcessingMode::JsonLd1_0 {
+                        return Err(Error::RecursiveContextInclusion);
+                    }
+                    if !validate_scoped_context {
+                        continue;
+                    }
+                }
+
+                // 5.2.3) If the number of entries in the `remote_contexts` array exceeds a
+                // processor defined limit, a context overflow error has been detected and
+                // processing is aborted; otherwise, add context to remote contexts.
+                if remote_contexts.len() >= crate::MAX_REMOTE_CONTEXTS {
+                    return Err(Error::ContextOverflow);
+                }
+                remote_contexts.enter(context_iri.clone());
+
+                // 5.2.4) If context was previously dereferenced, then the processor MUST NOT do a
+                // further dereference, and context is set to the previously established internal
                 // representation: set `context_document` to the previously dereferenced document,
                 // and set loaded context to the value of the @context entry from the document in
                 // context document.
                 //
-                // Otherwise, set `context document` to the RemoteDocument obtained by dereferencing
-                // context using the LoadDocumentCallback, passing context for url, and
-                // http://www.w3.org/ns/json-ld#context for profile and for requestProfile.
+                // 5.2.5) Otherwise, set `context document` to the RemoteDocument obtained by
+                // dereferencing context using the LoadDocumentCallback, passing context for url,
+                // and http://www.w3.org/ns/json-ld#context for profile and for requestProfile.
                 //
                 // If context cannot be dereferenced, or the document from context document cannot
                 // be transformed into the internal representation , a loading remote context
@@ -300,55 +329,48 @@ where
                 // If the document has no top-level map with an @context entry, an invalid remote
                 // context has been detected and processing is aborted.
                 // Set loaded context to the value of that entry.
-                // In JSON-LD 1.1 a context already in `remote_contexts` is simply
-                // not processed again — scoped contexts legitimately reload
-                // contexts, and only the entry limit (context overflow) applies.
-                // JSON-LD 1.0 had no such allowance: a repeat is a recursive
-                // context inclusion error.
-                if remote_contexts.len() >= crate::MAX_REMOTE_CONTEXTS {
-                    return Err(Error::ContextOverflow);
-                }
+                let loaded_context = if let Some(previously) = remote_contexts.dereferenced(&context_iri) {
+                    previously
+                } else {
+                    let loaded = Arc::new(
+                        env.loader
+                            .load_with(env.vocabulary, context_iri.clone())
+                            .await?
+                            .into_document()
+                            .into_ld_context()
+                            .map_err(Error::ContextExtractionFailed)?,
+                    );
+                    remote_contexts.remember_dereferenced(context_iri.clone(), Arc::clone(&loaded));
+                    loaded
+                };
 
-                let fresh = remote_contexts.push(context_iri.clone());
-                if !fresh && options.processing_mode == ProcessingMode::JsonLd1_0 {
-                    return Err(Error::RecursiveContextInclusion);
-                }
+                // 5.2.6) Set result to the result of recursively calling this algorithm, passing
+                // result for active context, loaded context for local context, the documentUrl of
+                // context document for base URL, a copy of remote contexts, and validate scoped
+                // context.
+                let new_options = Options {
+                    processing_mode: options.processing_mode,
+                    override_protected: false,
+                    propagate: true,
+                    vocab: options.vocab,
+                };
 
-                if fresh {
-                    let loaded_context = env
-                        .loader
-                        .load_with(env.vocabulary, context_iri.clone())
-                        .await?
-                        .into_document()
-                        .into_ld_context()
-                        .map_err(Error::ContextExtractionFailed)?;
+                let r = Box::pin(process_context(
+                    Environment {
+                        vocabulary: env.vocabulary,
+                        loader: env.loader,
+                        warnings: env.warnings,
+                    },
+                    &result,
+                    &loaded_context,
+                    remote_contexts.clone(),
+                    Some(context_iri),
+                    new_options,
+                    validate_scoped_context,
+                ))
+                .await?;
 
-                    // Set result to the result of recursively calling this algorithm, passing result
-                    // for active context, loaded context for local context, the documentUrl of context
-                    // document for base URL, and a copy of remote contexts.
-                    let new_options = Options {
-                        processing_mode: options.processing_mode,
-                        override_protected: false,
-                        propagate: true,
-                        vocab: options.vocab,
-                    };
-
-                    let r = Box::pin(process_context(
-                        Environment {
-                            vocabulary: env.vocabulary,
-                            loader: env.loader,
-                            warnings: env.warnings,
-                        },
-                        &result,
-                        &loaded_context,
-                        remote_contexts.clone(),
-                        Some(context_iri),
-                        new_options,
-                    ))
-                    .await?;
-
-                    result = r.into_processed();
-                }
+                result = r.into_processed();
             }
 
             // 5.4) Context definition.

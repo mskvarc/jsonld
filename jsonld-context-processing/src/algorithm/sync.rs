@@ -867,7 +867,10 @@ where
             // `requires_loader` promised there would be no remote context
             // reference. Reaching one means the pre-scan and this function have
             // drifted apart: fail loudly instead of silently skipping the
-            // context and returning a wrong active context.
+            // context and returning a wrong active context. Step 5.2 as a whole,
+            // including the `validate scoped context` skip of step 5.2.2 and the
+            // dereference record of step 5.2.4, therefore exists only in the
+            // `async` `process_context`.
             syntax::ContextEntry::IriRef(_) => {
                 return Err(Error::LoadingDocumentFailed);
             }
