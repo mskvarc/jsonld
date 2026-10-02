@@ -2,10 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.23.4] - 2026-10-02
+
+### 🚀 Features
+- expose per-iri and per-value compaction
+
+### 🧹 Chores
+- bump version
+
 ## [v0.23.3] - 2026-09-30
 
 ### 🐛 Bug Fixes
 - keep context processing off the caller's stack
+
+### 🧹 Chores
+- update changelog
 
 ## [v0.23.2] - 2026-09-30
 
