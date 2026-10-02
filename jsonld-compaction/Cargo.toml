@@ -25,6 +25,7 @@ bytewise-iri = [
 
 [dependencies]
 contextual = "0.1.6"
+derive-where = "1.7.0"
 jsonld-context-processing.workspace = true
 jsonld-core.workspace = true
 jsonld-expansion.workspace = true
@@ -33,6 +34,9 @@ jstrict = "0.15.0"
 rdfx = "0.24.0"
 smallvec = "1.16.2"
 thiserror = "2.0.21"
+
+[dev-dependencies]
+tokio = { version = "1.53.1", features = ["macros", "rt"] }
 
 [lints]
 workspace = true

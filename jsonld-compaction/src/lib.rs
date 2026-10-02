@@ -39,13 +39,21 @@ mod iri;
 mod node;
 mod property;
 mod value;
+mod value_hint;
+
+#[cfg(test)]
+mod test_fixtures;
 
 pub use document::*;
-pub use iri::IriConfusedWithPrefix;
-pub(crate) use iri::{compact_iri, compact_iri_with, compact_iri_with_memo};
+pub(crate) use iri::compact_iri_with_memo;
+pub use iri::{IriConfusedWithPrefix, compact_iri, compact_iri_with, compact_iri_with_hint, keyword_alias};
 use node::compact_indexed_node_with;
+pub use node::{compact_node_reference, types_as_array};
 use property::compact_property;
+pub use property::values_as_array;
 use value::compact_indexed_value_with;
+pub use value::compact_value;
+pub use value_hint::{ValueHint, ValueKind};
 
 #[derive(Debug, thiserror::Error)]
 /// Error raised while compacting a document.

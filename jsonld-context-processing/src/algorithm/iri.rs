@@ -467,3 +467,97 @@ where
     env.warnings.handle(env.vocabulary, MalformedIri(value.clone()).into());
     Term::Id(Id::Invalid(value))
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use crate::{Options, algorithm::sync::process_context_sync};
+    use iri_rs::IriBuf;
+    use jsonld_core::NoLoader;
+    use jsonld_syntax::{Keyword, Parse, TryFromJson};
+    use rdfx::{BlankIdBuf, vocabulary::no_vocabulary_mut};
+
+    const CONTEXT: &str = r#"{
+        "@vocab": "https://vocab.example/",
+        "ex": "https://example.com/",
+        "name": "https://example.com/name",
+        "type": "@type"
+    }"#;
+
+    /// Processes [`CONTEXT`] as the `@context` of a document.
+    fn processed_context() -> Context<IriBuf, BlankIdBuf> {
+        let (json, _) = jsonld_syntax::Value::parse_str(CONTEXT).unwrap();
+        let local = syntax::context::Context::try_from_json(&json).unwrap();
+        let active = Context::new(None);
+        let mut warnings = ();
+
+        process_context_sync(
+            Environment {
+                vocabulary: no_vocabulary_mut(),
+                loader: &NoLoader,
+                warnings: &mut warnings,
+            },
+            &active,
+            &local,
+            ProcessingStack::default(),
+            None,
+            Options::default(),
+            0,
+        )
+        .unwrap()
+        .into_processed()
+    }
+
+    /// Expands `value` against `context` the way keys and `@type` values
+    /// (`vocab`) or `@id` values (not `vocab`) are expanded, without resolving
+    /// against a base IRI.
+    fn expand(context: &Context<IriBuf, BlankIdBuf>, value: &str, vocab: bool) -> Term<IriBuf, BlankIdBuf> {
+        let mut warnings = ();
+        let mut env = Environment {
+            vocabulary: no_vocabulary_mut(),
+            loader: &NoLoader,
+            warnings: &mut warnings,
+        };
+
+        let expanded = expand_iri_simple::<Warning, _, _, _>(
+            &mut env,
+            context,
+            Nullable::Some(ExpandableRef::String(value)),
+            false,
+            vocab.then_some(Action::Keep),
+        )
+        .unwrap()
+        .unwrap();
+        Arc::unwrap_or_clone(expanded)
+    }
+
+    fn iri(source: &str) -> Term<IriBuf, BlankIdBuf> {
+        Term::Id(Id::iri(IriBuf::new(source.to_owned()).unwrap()))
+    }
+
+    /// A processed context expands terms, compact IRIs, absolute IRIs and
+    /// `@vocab`-relative terms without a loader; term definitions and `@vocab`
+    /// only apply where `vocab` does.
+    #[test]
+    fn processed_context_expands_terms_compact_iris_and_vocab_relative_terms() {
+        let context = processed_context();
+
+        let cases = [
+            ("name", true, iri("https://example.com/name")),
+            ("name", false, Term::Id(Id::Invalid("name".to_owned()))),
+            ("ex:thing", true, iri("https://example.com/thing")),
+            ("ex:thing", false, iri("https://example.com/thing")),
+            ("http://other.example/x", true, iri("http://other.example/x")),
+            ("http://other.example/x", false, iri("http://other.example/x")),
+            ("temperature", true, iri("https://vocab.example/temperature")),
+            ("temperature", false, Term::Id(Id::Invalid("temperature".to_owned()))),
+            ("type", true, Term::Keyword(Keyword::Type)),
+            ("_:b0", false, Term::Id(Id::blank(BlankIdBuf::new("_:b0".to_owned()).unwrap()))),
+        ];
+
+        for (value, vocab, expected) in cases {
+            assert_eq!(expand(&context, value, vocab), expected, "{value} (vocab: {vocab})");
+        }
+    }
+}

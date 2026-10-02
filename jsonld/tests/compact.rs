@@ -150,8 +150,6 @@ impl compact::Test {
                     if let Ok(expanded) = result {
                         eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
                         panic!("expansion succeeded when it should have failed with `{expected_error_code}`")
-                    } else {
-                        // ...
                     }
                 } else {
                     // ...

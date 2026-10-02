@@ -5,7 +5,7 @@
 //! call the [`Loader`] to fetch remote contexts and `@import`ed documents.
 //! `sync.rs`, in this same directory, holds a second, hand-maintained
 //! implementation of the *same* algorithm with `async`, `.await` and the boxed
-//! [`Recursion`] stripped out and recursion made direct. It is used as a fast path whenever
+//! `Recursion` stripped out and recursion made direct. It is used as a fast path whenever
 //! `requires_loader` proves the input contains no remote `@context` IRI and no
 //! `@import`, which is the common case in real payloads.
 //!

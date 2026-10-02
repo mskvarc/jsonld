@@ -1,15 +1,17 @@
-use crate::{Options, TypeLangValue};
+use crate::{
+    Options,
+    TypeLangValue,
+    value_hint::{IntoValueFeatures, ValueFeatures, ValueHint, ValueShape},
+};
 use contextual::WithContext;
 use jsonld_core::{
     Container,
     Context,
     Indexed,
     Nullable,
-    Object,
     ProcessingMode,
     Term,
     Type,
-    Value,
     context::{
         CACHED_KEYWORDS,
         CompactIriKeyRef,
@@ -119,13 +121,31 @@ impl<'a, T: PartialEq> CompactIriMemo<'a, T> {
 /// Compacts `var` into a term, compact IRI or relative IRI reference, without
 /// considering any value.
 ///
-/// This is [`compact_iri_full`] with no `value`, which is how keys, `@type`
-/// values and `@id` values are compacted. Memoized per active context: a
-/// repeated `(var, vocab, reverse, processing mode)` lookup returns the cached
-/// result instead of rerunning the algorithm. The processing mode belongs in
-/// the key because term selection depends on it — an `@index` container term,
-/// for instance, is only eligible for an index-less value under JSON-LD 1.1.
-pub(crate) fn compact_iri<N>(
+/// Runs the [IRI compaction algorithm][1] with no value, which is how keys,
+/// `@type` values, `@id` values and the values of `@vocab`-typed terms are
+/// compacted. `vocab` is `true` where `@vocab` applies (keys, `@type` values,
+/// `@vocab`-typed values) and `false` for `@id` values, which may then become
+/// IRI references relative to the active context's base IRI. `reverse`
+/// restricts selection to terms declared with `@reverse`. Only
+/// `options.processing_mode` is read.
+///
+/// `active_context` is a processed context, typically the one
+/// [`Process`][jsonld_context_processing::Process] produced for the
+/// document's `@context`. Returns `None` when `var` is [`Term::Null`].
+///
+/// Memoized per active context: a repeated `(var, vocab, reverse, processing
+/// mode)` lookup returns the cached result instead of rerunning the algorithm.
+/// The processing mode belongs in the key because term selection depends on
+/// it — an `@index` container term, for instance, is only eligible for an
+/// index-less value under JSON-LD 1.1.
+///
+/// [1]: https://www.w3.org/TR/json-ld-api/#iri-compaction
+///
+/// # Errors
+///
+/// Returns [`IriConfusedWithPrefix`] when `var` can only be written out in
+/// full and would then be read back as a compact IRI.
+pub fn compact_iri<N>(
     vocabulary: &N,
     active_context: &Context<N::Iri, N::BlankId>,
     var: &Term<N::Iri, N::BlankId>,
@@ -143,7 +163,7 @@ where
         return Ok(hit);
     }
 
-    let result = compact_iri_full::<N, Object<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options, None)?;
+    let result = compact_iri_full::<N, ValueHint<N::Iri, N::BlankId>>(vocabulary, active_context, var, None, vocab, reverse, options, None)?;
 
     cache.insert((var.clone(), vocab, reverse, options.processing_mode), result.clone());
     Ok(result)
@@ -156,11 +176,16 @@ where
 /// of their aliases are resolved on first use through [`compact_iri`] and
 /// cached on the active context, once per processing mode, so that the many
 /// keyword call sites throughout compaction cost a slice index instead of a
-/// lock, a hash lookup and a walk through [`compact_iri_full`].
+/// lock, a hash lookup and a run of the IRI compaction algorithm.
 ///
 /// A keyword with no alias falls back to its own spelling rather than to
 /// `None`, so callers always get a usable key.
-pub(crate) fn keyword_alias<'a, N>(vocabulary: &N, active_context: &'a Context<N::Iri, N::BlankId>, options: Options, k: Keyword) -> &'a str
+///
+/// Compaction emits `@id`, `@type`, `@value`, `@language`, `@direction`,
+/// `@index`, `@list`, `@graph`, `@included`, `@reverse`, `@set`, `@json` and
+/// `@none`; any other keyword is returned as spelled, without consulting the
+/// active context.
+pub fn keyword_alias<'a, N>(vocabulary: &N, active_context: &'a Context<N::Iri, N::BlankId>, options: Options, k: Keyword) -> &'a str
 where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
@@ -181,9 +206,23 @@ where
 
 /// Compacts `var` into the term best suited to holding `value`.
 ///
-/// This is [`compact_iri_full`] with a value, so the inverse-context search may
-/// prefer a term whose container, type or language mapping matches `value`.
-pub(crate) fn compact_iri_with<N, O>(
+/// Runs the [IRI compaction algorithm][1] with a value, so that
+/// [term selection][2] may prefer a term whose container, type or language
+/// mapping matches `value`. This is how a property is compacted for each of
+/// its values; `vocab` is then `true`. Unlike [`compact_iri`], the result is
+/// not memoized.
+///
+/// [`compact_iri_with_hint`] selects the same term from a [`ValueHint`]
+/// describing the value instead of the value itself.
+///
+/// [1]: https://www.w3.org/TR/json-ld-api/#iri-compaction
+/// [2]: https://www.w3.org/TR/json-ld-api/#term-selection
+///
+/// # Errors
+///
+/// Returns [`IriConfusedWithPrefix`] when `var` can only be written out in
+/// full and would then be read back as a compact IRI.
+pub fn compact_iri_with<N, O>(
     vocabulary: &N,
     active_context: &Context<N::Iri, N::BlankId>,
     var: &Term<N::Iri, N::BlankId>,
@@ -199,6 +238,37 @@ where
     O: object::Any<N::Iri, N::BlankId>,
 {
     compact_iri_full(vocabulary, active_context, var, Some(value), vocab, reverse, options, None)
+}
+
+/// Compacts `var` into the term best suited to holding the value `hint`
+/// describes.
+///
+/// Selects exactly the term [`compact_iri_with`] selects for the expanded
+/// object `hint` describes, without that object having to exist: a caller
+/// rendering its own data model describes each value by its kind, `@id`,
+/// `@type`, `@language`, `@direction` and whether it has an `@index`. A
+/// property is compacted with `vocab` set to `true`; `reverse` restricts
+/// selection to terms declared with `@reverse`. Not memoized.
+///
+/// # Errors
+///
+/// Returns [`IriConfusedWithPrefix`] when `var` can only be written out in
+/// full and would then be read back as a compact IRI.
+pub fn compact_iri_with_hint<'a, N>(
+    vocabulary: &N,
+    active_context: &'a Context<N::Iri, N::BlankId>,
+    var: &Term<N::Iri, N::BlankId>,
+    hint: ValueHint<'a, N::Iri, N::BlankId>,
+    vocab: bool,
+    reverse: bool,
+    options: Options,
+) -> Result<Option<Arc<str>>, IriConfusedWithPrefix>
+where
+    N: Vocabulary,
+    N::Iri: Clone + Hash + Eq,
+    N::BlankId: Clone + Hash + Eq,
+{
+    compact_iri_full(vocabulary, active_context, var, Some(hint), vocab, reverse, options, None)
 }
 
 /// Compacts `var` into the term best suited to holding `value`, reusing `memo`
@@ -241,12 +311,15 @@ where
 /// the search for a run of values that all select the same term; see
 /// [`CompactIriMemo`].
 ///
+/// `value` is either an expanded object or a [`ValueHint`]; both are reduced
+/// to the same [`ValueFeatures`] before anything reads them.
+///
 /// [1]: https://www.w3.org/TR/json-ld-api/#iri-compaction
-pub(crate) fn compact_iri_full<'a, N, O>(
+pub(crate) fn compact_iri_full<'a, N, V>(
     vocabulary: &N,
     active_context: &'a Context<N::Iri, N::BlankId>,
     var: &Term<N::Iri, N::BlankId>,
-    value: Option<&'a Indexed<O>>,
+    value: Option<V>,
     vocab: bool,
     reverse: bool,
     options: Options,
@@ -256,21 +329,25 @@ where
     N: Vocabulary,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
-    O: object::Any<N::Iri, N::BlankId>,
+    V: IntoValueFeatures<'a, N::Iri, N::BlankId>,
 {
     if var.is_null() {
         return Ok(None);
     }
 
+    let has_value = value.is_some();
+
     if vocab && let Some(entry) = active_context.inverse().get(var) {
+        let value = value.map(|value| value.into_value_features(active_context));
+
         // Initialize containers to an empty array.
         // This array will be used to keep track of an ordered list of preferred container
         // mapping for a term, based on what is compatible with value.
         let mut containers: SmallVec<[Container; 8]> = SmallVec::new();
         let mut type_lang_value = None;
 
-        if let Some(value) = value
-            && value.index().is_some()
+        if let Some(value) = &value
+            && value.has_index
             && !value.is_graph()
         {
             containers.push(Container::Index);
@@ -279,66 +356,25 @@ where
 
         let mut has_index = false;
         let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
+        let value_id = value.as_ref().and_then(ValueFeatures::id);
+        let is_empty_list = value.as_ref().is_some_and(ValueFeatures::is_empty_list);
 
         if reverse {
             type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
             containers.push(Container::Set);
         } else {
-            let value_ref = value.map(|v| {
-                has_index = v.index().is_some();
-                v.inner().as_ref()
+            let shape = value.map(|v| {
+                has_index = v.has_index;
+                v.shape
             });
 
-            match value_ref {
-                Some(object::Ref::List(list)) => {
+            match shape {
+                Some(ValueShape::List {
+                    common_type, common_lang_dir, ..
+                }) => {
                     if !has_index {
                         containers.push(Container::List);
                     }
-
-                    let mut common_type = None;
-                    let mut common_lang_dir = None;
-
-                    if list.is_empty() {
-                        common_lang_dir = Some(Nullable::Some((active_context.default_language(), active_context.default_base_direction())));
-                    } else {
-                        for item in list {
-                            let mut item_type = None;
-                            let mut item_lang_dir = None;
-                            let mut is_value = false;
-
-                            match item.inner() {
-                                Object::Value(value) => {
-                                    is_value = true;
-                                    match value {
-                                        Value::LangString(lang_str) => item_lang_dir = Some(Nullable::Some((lang_str.language(), lang_str.direction()))),
-                                        Value::Literal(_, Some(ty)) => item_type = Some(Type::Iri(ty.clone())),
-                                        Value::Literal(_, None) => item_lang_dir = Some(Nullable::Null),
-                                        Value::Json(_) => item_type = Some(Type::Json),
-                                    }
-                                }
-                                _ => item_type = Some(Type::Id),
-                            }
-
-                            if common_lang_dir.is_none() {
-                                common_lang_dir = item_lang_dir;
-                            } else if is_value && common_lang_dir != item_lang_dir {
-                                common_lang_dir = Some(Nullable::Some((None, None)));
-                            }
-
-                            if common_type.is_none() {
-                                common_type = Some(item_type);
-                            } else if common_type.as_ref().is_some_and(|t| *t != item_type) {
-                                common_type = Some(None);
-                            }
-
-                            if common_lang_dir == Some(Nullable::Some((None, None))) && common_type == Some(None) {
-                                break;
-                            }
-                        }
-                    }
-
-                    let common_lang_dir = common_lang_dir.unwrap_or(Nullable::Some((None, None)));
-                    let common_type = common_type.unwrap_or(None);
 
                     if let Some(common_type) = common_type {
                         type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)));
@@ -346,7 +382,7 @@ where
                         type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)));
                     }
                 }
-                Some(object::Ref::Node(node)) if node.is_graph() => {
+                Some(ValueShape::Graph { id }) => {
                     // Otherwise, if value is a graph object, prefer a mapping most
                     // appropriate for the particular value.
                     if has_index {
@@ -356,7 +392,7 @@ where
                         containers.push(Container::GraphIndexSet);
                     }
 
-                    if node.id.is_some() {
+                    if id.is_some() {
                         // If value contains an @id entry, append the values @graph@id and
                         // @graph@id@set to containers.
                         containers.push(Container::GraphId);
@@ -375,7 +411,7 @@ where
                         containers.push(Container::GraphIndexSet);
                     }
 
-                    if node.id.is_none() {
+                    if id.is_none() {
                         // If the value does not contain an @id entry, append the values
                         // @graph@id and @graph@id@set to containers.
                         containers.push(Container::GraphId);
@@ -388,21 +424,21 @@ where
 
                     type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
                 }
-                Some(object::Ref::Value(v)) => {
+                Some(ValueShape::Value(v)) => {
                     // If value is a value object:
                     if (v.direction().is_some() || v.language().is_some()) && !has_index {
                         type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(Nullable::Some((v.language(), v.direction())))));
                         containers.push(Container::Language);
                         containers.push(Container::LanguageSet);
                     } else if let Some(ty) = v.typ() {
-                        type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.as_syntax_type().cloned())));
+                        type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.cloned())));
                     } else {
                         is_simple_value = v.direction().is_none() && v.language().is_none() && !has_index;
                     }
 
                     containers.push(Container::Set);
                 }
-                _ => {
+                Some(ValueShape::Node { .. }) | None => {
                     // Otherwise, set type/language to @type and set type/language value
                     // to @id, and append @id, @id@set, @type, and @set@type, to containers.
                     type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
@@ -428,14 +464,6 @@ where
             containers.push(Container::LanguageSet);
         }
 
-        let mut is_empty_list = false;
-        if let Some(value) = value
-            && let object::Ref::List(list) = value.inner().as_ref()
-            && list.is_empty()
-        {
-            is_empty_list = true;
-        }
-
         // If type/language value is @reverse, append @reverse to preferred values.
         let selection = if is_empty_list {
             Selection::Any
@@ -449,8 +477,7 @@ where
                     }
 
                     let mut has_id_type = false;
-                    if let Some(value) = value
-                        && let Some(id) = value.id()
+                    if let Some(id) = value_id
                         && (type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse)
                     {
                         has_id_type = true;
@@ -509,7 +536,7 @@ where
             Some(term) => Some(Arc::from(term.as_str())),
             // No term was selected. What follows does not read `value`
             // beyond whether it is present, which the memo holds fixed.
-            None => compact_iri_fallback(vocabulary, active_context, var, value.is_none(), vocab)?,
+            None => compact_iri_fallback(vocabulary, active_context, var, !has_value, vocab)?,
         };
 
         if let Some(memo) = memo {
@@ -519,7 +546,7 @@ where
         return Ok(result);
     }
 
-    compact_iri_fallback(vocabulary, active_context, var, value.is_none(), vocab)
+    compact_iri_fallback(vocabulary, active_context, var, !has_value, vocab)
 }
 
 /// Tail of [`compact_iri_full`], reached when no term could be selected from the
@@ -739,5 +766,29 @@ mod tests {
 
         let compacted = compact_iri(no_vocabulary(), &context, &term, false, false, Options::default()).unwrap();
         assert_eq!(compacted.as_deref(), Some("./"));
+    }
+
+    /// Keywords compact to the aliases the context defines for them, and to
+    /// their own spelling when it defines none.
+    #[tokio::test]
+    async fn keyword_alias_returns_the_alias_or_the_keyword() {
+        let context = crate::test_fixtures::processed_context(
+            r#"{ "id": "@id", "type": "@type", "value": "@value", "list": "@list", "lang": "@language", "json": "@json" }"#,
+        )
+        .await;
+
+        let cases = [
+            (Keyword::Id, "id"),
+            (Keyword::Type, "type"),
+            (Keyword::Value, "value"),
+            (Keyword::List, "list"),
+            (Keyword::Language, "lang"),
+            (Keyword::Json, "json"),
+            (Keyword::Direction, "@direction"),
+            (Keyword::Index, "@index"),
+        ];
+        for (keyword, alias) in cases {
+            assert_eq!(keyword_alias(no_vocabulary(), &context, Options::default(), keyword), alias, "{keyword:?}");
+        }
     }
 }

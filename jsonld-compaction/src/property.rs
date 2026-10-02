@@ -348,16 +348,37 @@ where
     // if there is no such container mapping.
     // DONE.
 
+    let as_array = values_as_array(container, item_active_property, compact_arrays);
+
+    Ok((nest_result, container, as_array))
+}
+
+/// Checks whether the values of a property are written as an array even when
+/// there is only one.
+///
+/// `item_active_property` is the term the property compacted to and
+/// `container` that term's container mapping in the active context, or
+/// [`Container::None`] when the term has no definition. Follows the
+/// *as array* rule the [compaction algorithm][1] applies to each value of a
+/// property: `true` when the container mapping
+/// includes `@set`, when the term is `@graph` or `@list`, or when
+/// `compact_arrays` is off.
+///
+/// A term whose container mapping includes `@list` writes a list object's
+/// items as an array regardless, and terms with an `@language`, `@index`,
+/// `@id` or `@type` container write a map whose entries this flag applies to.
+///
+/// [1]: https://www.w3.org/TR/json-ld-api/#compaction-algorithm
+#[must_use]
+pub fn values_as_array(container: Container, item_active_property: &str, compact_arrays: bool) -> bool {
     // Initialize `as_array` to true if `container` includes @set,
     // or if `item_active_property` is @graph or @list,
     // otherwise the negation of `options.compact_arrays`.
-    let as_array = if container.contains(ContainerKind::Set) || item_active_property == "@graph" || item_active_property == "@list" {
+    if container.contains(ContainerKind::Set) || item_active_property == "@graph" || item_active_property == "@list" {
         true
     } else {
         !compact_arrays
-    };
-
-    Ok((nest_result, container, as_array))
+    }
 }
 
 /// Compacts one expanded property and all of its values into `result`.
