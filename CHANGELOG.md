@@ -2,12 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.23.5] - 2026-10-03
+
+### 🐛 Bug Fixes
+- anchor attribute diagnostics on the jsonld path
+- keep expansion and compaction off the caller's stack
+
+### 🧹 Chores
+- bump version
+
 ## [v0.23.4] - 2026-10-02
 
 ### 🚀 Features
 - expose per-iri and per-value compaction
 
 ### 🧹 Chores
+- update changelog
 - bump version
 
 ## [v0.23.3] - 2026-09-30
