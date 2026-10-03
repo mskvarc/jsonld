@@ -20,7 +20,7 @@ pub fn parse_container(attrs: &[syn::Attribute]) -> syn::Result<ContainerIr> {
         if !attr.path().is_ident("jsonld") {
             continue;
         }
-        span = Some(attr.span());
+        span = Some(attribute_anchor(attr));
 
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("type") {
@@ -96,7 +96,7 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
         if !attr.path().is_ident("jsonld") {
             continue;
         }
-        span = Some(attr.span());
+        span = Some(attribute_anchor(attr));
 
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("id") {
@@ -185,6 +185,17 @@ pub fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldIr> {
 
     validate_field(&out, span)?;
     Ok(out)
+}
+
+/// The span a diagnostic about a whole `#[jsonld(...)]` attribute points at:
+/// the attribute's `jsonld` path.
+///
+/// [`Spanned::span`] of the attribute joins the spans from `#` to `]`, which
+/// only a nightly compiler can do; a stable one falls back to the `#` token, so
+/// the same diagnostic would render differently per toolchain. The path is a
+/// single token, so it renders the same everywhere.
+fn attribute_anchor(attr: &syn::Attribute) -> Span {
+    attr.path().span()
 }
 
 fn validate_field(f: &FieldIr, span_hint: Option<Span>) -> syn::Result<()> {

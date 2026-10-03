@@ -1,5 +1,5 @@
 error: `vec` requires `nested` (or an `@id`/`@vocab` coercion that iterates)
- --> tests/expand/fail_vec_without_nested.rs:9:5
+ --> tests/expand/fail_vec_without_nested.rs:9:7
   |
 9 |     #[jsonld(property = "https://example.com/items", vec)]
-  |     ^
+  |       ^^^^^^
