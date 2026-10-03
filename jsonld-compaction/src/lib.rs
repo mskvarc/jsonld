@@ -30,7 +30,7 @@ use jsonld_core::{
     context::inverse::{LangSelection, TypeSelection},
     object::Any,
 };
-use jsonld_syntax::{ContainerKind, ErrorCode, Keyword};
+use jsonld_syntax::{ContainerKind, ErrorCode, Keyword, native_stack::Recursion};
 use rdfx::vocabulary::{self, VocabularyMut};
 use std::hash::Hash;
 
@@ -517,7 +517,8 @@ where
     let mut result = Vec::new();
 
     for item in items {
-        let compacted_item = Box::pin(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
+        let compacted_item =
+            Recursion::new(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
 
         if !compacted_item.is_null() {
             result.push(compacted_item);

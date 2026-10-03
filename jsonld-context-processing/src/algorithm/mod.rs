@@ -36,19 +36,17 @@ use std::{hash::Hash, sync::Arc};
 use crate::{Error, Options, Process, Processed, ProcessingCache, ProcessingResult, ProcessingStack, WarningHandler, cache::cache_key};
 use iri_rs::{Iri, IriBuf};
 use jsonld_core::{Context, Environment, ExtractContext, Loader, ProcessingMode, Term};
-use jsonld_syntax::{self as syntax, Nullable};
+use jsonld_syntax::{self as syntax, Nullable, native_stack::Recursion};
 use rdfx::vocabulary::VocabularyMut;
 
 mod define;
 mod iri;
 mod merged;
-mod native_stack;
 mod sync;
 
 pub use define::*;
 pub use iri::*;
 pub use merged::*;
-use native_stack::Recursion;
 use sync::{process_context_sync, requires_loader};
 use syntax::context::definition::KeyOrKeywordRef;
 

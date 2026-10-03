@@ -15,7 +15,7 @@ use crate::{
 };
 use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingCache};
 use jsonld_core::{Context, ContextRef, Environment, Id, Indexed, Object, ProcessingMode, Term, ValidId, object};
-use jsonld_syntax::{Keyword, Nullable};
+use jsonld_syntax::{Keyword, Nullable, native_stack::Recursion};
 use jstrict::{Value, object::Entry};
 use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
@@ -405,7 +405,7 @@ where
                 let mut result = Vec::new();
                 let list_entry = Value::force_as_array(list_entry);
                 for item in list_entry {
-                    let e = Box::pin(expand_element(
+                    let e = Recursion::new(expand_element(
                         Environment {
                             vocabulary: env.vocabulary,
                             loader: env.loader,
@@ -446,7 +446,7 @@ where
                 // set expanded value to the result of using this algorithm recursively,
                 // passing active context, active property, value for element, base URL,
                 // and ordered flags.
-                Box::pin(expand_element(
+                Recursion::new(expand_element(
                     env,
                     active_context.as_ref(),
                     active_property,
@@ -476,7 +476,7 @@ where
                 }
             } else {
                 // Node objects.
-                let e = Box::pin(expand_node(
+                let e = Recursion::new(expand_node(
                     env,
                     active_context.as_ref(),
                     type_scoped_context,

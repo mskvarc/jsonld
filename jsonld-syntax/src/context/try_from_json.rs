@@ -6,7 +6,7 @@ use super::{
     definition,
     term_definition::{self, InvalidNest},
 };
-use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson};
+use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson, native_stack::on_sufficient_stack};
 use iri_rs::IriRefBuf;
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -54,14 +54,6 @@ pub enum InvalidContext {
 /// nest a handful of levels at most.
 pub const MAX_CONTEXT_DEPTH: usize = 128;
 
-/// Stack left below which converting a nested scoped context moves to a fresh
-/// stack segment. It has to exceed what one nesting level uses, which is
-/// largest in unoptimized builds.
-const RED_ZONE: usize = 128 * 1024;
-
-/// Size of each fresh stack segment.
-const SEGMENT: usize = 2 * 1024 * 1024;
-
 /// Converts a scoped context nested in a term definition, on a fresh stack
 /// segment when the current one is nearly used.
 ///
@@ -71,7 +63,7 @@ const SEGMENT: usize = 2 * 1024 * 1024;
 /// overflow instead of converting or failing with
 /// [`InvalidContext::TooDeep`].
 fn nested_context_try_from_json(value: &jstrict::Value, depth: usize) -> Result<Context, InvalidContext> {
-    stacker::maybe_grow(RED_ZONE, SEGMENT, || context_try_from_json(value, depth))
+    on_sufficient_stack(|| context_try_from_json(value, depth))
 }
 
 impl InvalidContext {

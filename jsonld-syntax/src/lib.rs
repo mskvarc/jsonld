@@ -29,6 +29,7 @@ pub mod intern;
 mod into_json;
 mod keyword;
 mod lang;
+pub mod native_stack;
 mod nullable;
 mod print_ld;
 mod try_from_json;

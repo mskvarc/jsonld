@@ -25,7 +25,7 @@ use jsonld_core::{
     context::Nest,
     object::{self, List},
 };
-use jsonld_syntax::Keyword;
+use jsonld_syntax::{Keyword, native_stack::Recursion};
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
 
@@ -55,7 +55,7 @@ where
     L: Loader,
 {
     // If expanded item is a list object:
-    let mut compacted_item = Box::pin(compact_collection_with(
+    let mut compacted_item = Recursion::new(compact_collection_with(
         vocabulary,
         list.iter(),
         active_context,
@@ -141,7 +141,7 @@ where
     // this never actually returns early.
     let Some(graph) = node.graph() else { return Ok(()) };
     let mut compacted_item =
-        Box::pin(graph.compact_fragment_full(vocabulary, active_context, active_context, Some(item_active_property), loader, options)).await?;
+        Recursion::new(graph.compact_fragment_full(vocabulary, active_context, active_context, Some(item_active_property), loader, options)).await?;
 
     // If `container` includes @graph and @id:
     if container.contains(ContainerKind::Graph) && container.contains(ContainerKind::Id) {
@@ -483,9 +483,15 @@ where
                     .await?;
                 }
                 _ => {
-                    let mut compacted_item =
-                        Box::pin(expanded_item.compact_fragment_full(vocabulary, active_context, active_context, Some(&item_active_property), loader, options))
-                            .await?;
+                    let mut compacted_item = Recursion::new(expanded_item.compact_fragment_full(
+                        vocabulary,
+                        active_context,
+                        active_context,
+                        Some(&item_active_property),
+                        loader,
+                        options,
+                    ))
+                    .await?;
 
                     // if container includes @language, @index, @id,
                     // or @type and container does not include @graph:
@@ -668,7 +674,7 @@ where
                                 && let Some(id) = expanded_item.id()
                             {
                                 let obj = Object::node(Node::with_id(id.clone()));
-                                compacted_item = Box::pin(obj.compact_indexed_fragment(
+                                compacted_item = Recursion::new(obj.compact_indexed_fragment(
                                     vocabulary,
                                     None,
                                     active_context,

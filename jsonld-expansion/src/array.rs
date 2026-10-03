@@ -1,7 +1,7 @@
 use crate::{ActiveProperty, Error, Expanded, Loader, Options, WarningHandler, expand_element};
 use jsonld_context_processing::ProcessingCache;
 use jsonld_core::{Context, Environment, Object, ProcessingMode, context::TermDefinitionRef, object};
-use jsonld_syntax::ContainerKind;
+use jsonld_syntax::{ContainerKind, native_stack::Recursion};
 use jstrict::Array;
 use rdfx::vocabulary::VocabularyMut;
 use std::hash::Hash;
@@ -43,7 +43,7 @@ where
         // Initialize `expanded_item` to the result of using this algorithm
         // recursively, passing `active_context`, `active_property`, `item` as element,
         // `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
-        let e = Box::pin(expand_element(
+        let e = Recursion::new(expand_element(
             Environment {
                 vocabulary: env.vocabulary,
                 loader: env.loader,

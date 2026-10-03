@@ -42,11 +42,11 @@
 //! This mirror recurses directly and is bounded by [`MAX_SYNC_DEPTH`]: a
 //! crafted deeply nested `@context` fails with [`Error::ContextOverflow`]. Every
 //! recursive call runs through
-//! [`on_sufficient_stack`](super::native_stack::on_sufficient_stack), so that
+//! [`on_sufficient_stack`], so that
 //! bound is reached as an error whatever the embedder has already used of the
 //! thread's stack.
 
-use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_valid_vocab_json_ld_1_0, native_stack::on_sufficient_stack, resolve_iri};
+use super::{DefinedTerms, Environment, Merged, expand_iri_simple, is_valid_vocab_json_ld_1_0, resolve_iri};
 use crate::{
     Error,
     Options,
@@ -80,6 +80,7 @@ use jsonld_syntax::{
         definition::{EntryValueRef, Key, KeyOrKeyword, KeyOrKeywordRef},
         term_definition::{self, IdRef},
     },
+    native_stack::on_sufficient_stack,
 };
 use rdfx::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};

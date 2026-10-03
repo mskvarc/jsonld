@@ -34,7 +34,7 @@ use jsonld_core::{
     object,
     object::value::Literal,
 };
-use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
+use jsonld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable, native_stack::Recursion};
 use jstrict::object::Entry;
 use rdfx::vocabulary::VocabularyMut;
 use smallvec::SmallVec;
@@ -80,7 +80,7 @@ where
     // The specification initializes two empty maps here, `result` and `nests`.
     // No `nests` map is needed: the `@nest` entries are expanded into `result`
     // as they are met, in the `Keyword::Nest` arm of `expand_node_entries`.
-    let (result, has_value_object_entries) = Box::pin(expand_node_entries(
+    let (result, has_value_object_entries) = Recursion::new(expand_node_entries(
         env,
         Indexed::new(Node::new(), None),
         false,
@@ -255,7 +255,7 @@ where
                         // property, `value` for element, `base_url`, and the
                         // `frame_expansion` and `ordered` flags, ensuring that
                         // `expanded_value` is an array of one or more maps.
-                        let expanded_value = Box::pin(expand_element(
+                        let expanded_value = Recursion::new(expand_element(
                             Environment {
                                 vocabulary: env.vocabulary,
                                 loader: env.loader,
@@ -285,7 +285,7 @@ where
                         // recursively passing `active_context`, `active_property`,
                         // `value` for element, `base_url`, and the `frame_expansion`
                         // and `ordered` flags, ensuring that the result is an array.
-                        let expanded_value = Box::pin(expand_element(
+                        let expanded_value = Recursion::new(expand_element(
                             Environment {
                                 vocabulary: env.vocabulary,
                                 loader: env.loader,
@@ -373,7 +373,7 @@ where
                                             }
                                         }
 
-                                        let reverse_expanded_value = Box::pin(expand_element(
+                                        let reverse_expanded_value = Recursion::new(expand_element(
                                             Environment {
                                                 vocabulary: env.vocabulary,
                                                 loader: env.loader,
@@ -512,7 +512,7 @@ where
                                     })
                                     .collect::<Result<_, _>>()?;
 
-                                let (new_result, new_has_value_object_entries) = Box::pin(expand_node_entries(
+                                let (new_result, new_has_value_object_entries) = Recursion::new(expand_node_entries(
                                     Environment {
                                         vocabulary: env.vocabulary,
                                         loader: env.loader,
@@ -802,7 +802,7 @@ where
                                 // index value as element, base URL, and the
                                 // frameExpansion and ordered flags.
                                 // And `true` for `from_map`.
-                                let expanded_index_value = Box::pin(expand_element(
+                                let expanded_index_value = Recursion::new(expand_element(
                                     Environment {
                                         vocabulary: env.vocabulary,
                                         loader: env.loader,
@@ -931,7 +931,7 @@ where
                             // Otherwise, initialize expanded value to the result of using this
                             // algorithm recursively, passing active context, key for active property,
                             // value for element, base URL, and the frameExpansion and ordered flags.
-                            Box::pin(expand_element(
+                            Recursion::new(expand_element(
                                 Environment {
                                     vocabulary: env.vocabulary,
                                     loader: env.loader,

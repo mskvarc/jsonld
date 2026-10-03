@@ -1,11 +1,11 @@
 use std::{hash::Hash, sync::Arc};
 
-use super::{DefinedTerms, Environment, Merged, native_stack::Recursion};
+use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iri_rs::{Iri, IriRef};
 use jsonld_core::{Context, Id, Loader, ProcessingMode, Term, warning};
-use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key};
+use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key, native_stack::Recursion};
 use rdfx::{
     BlankId,
     vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut},

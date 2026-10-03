@@ -1,4 +1,4 @@
-use super::{Environment, Merged, expand_iri_simple, expand_iri_with, native_stack::Recursion};
+use super::{Environment, Merged, expand_iri_simple, expand_iri_with};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use iri_rs::{Iri, IriRef};
 use jsonld_core::{
@@ -24,6 +24,7 @@ use jsonld_syntax::{
         definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
         term_definition::{self, IdRef},
     },
+    native_stack::Recursion,
 };
 use rdfx::{BlankId, vocabulary::VocabularyMut};
 use std::{hash::Hash, sync::Arc};
