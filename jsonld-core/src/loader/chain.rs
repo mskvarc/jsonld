@@ -28,6 +28,10 @@ where
 {
     type Error = ChainError<L1::Error, L2::Error>;
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
+    )]
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         match self.0.load(url).await {
             Ok(doc) => Ok(doc),

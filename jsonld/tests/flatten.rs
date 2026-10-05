@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use contextual::WithContext;
 use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use jsonld::{Dereference, JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference};
 use rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use tokio::runtime::Builder as RuntimeBuilder;
 
@@ -115,7 +115,7 @@ impl flatten::Test {
 
         match self.desc {
             flatten::Description::Positive { expect } => {
-                let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+                let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
 
                 let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
                 let flattened = json_ld
@@ -125,7 +125,7 @@ impl flatten::Test {
                 let flattened = RemoteDocument::new(Some(input), None, flattened);
 
                 let expect = vocabulary.insert(expect);
-                let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
+                let mut expect = loader.dereference(&mut vocabulary, expect).await.unwrap();
                 expect.set_url(Some(input));
 
                 let expand_options: jsonld::Options<IriIndex> = jsonld::Options::default();
@@ -140,7 +140,7 @@ impl flatten::Test {
                 }
             }
             flatten::Description::Negative { expected_error_code } => {
-                if let Ok(json_ld) = loader.load_with(&mut vocabulary, input).await {
+                if let Ok(json_ld) = loader.dereference(&mut vocabulary, input).await {
                     let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
                     let result = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &loader, options, ()).await;
 

@@ -472,11 +472,11 @@ impl DisplayWithContext<IndexVocabulary> for Error {
 }
 
 async fn generate_test_suite(vocabulary: &mut IndexVocabulary, loader: FsLoader, spec: TestSpec) -> Result<TokenStream, Box<Error>> {
-    use jsonld::{Loader, RdfQuads};
+    use jsonld::{Dereference, RdfQuads};
 
     let well_known = WellKnown::new(vocabulary);
 
-    let json_ld = loader.load_with(vocabulary, spec.suite).await.map_err(Error::Load)?;
+    let json_ld = loader.dereference(vocabulary, spec.suite).await.map_err(Error::Load)?;
 
     let mut expanded_json_ld: jsonld::ExpandedDocument<IriIndex, BlankIdIndex> = json_ld.expand_with(vocabulary, &loader).await.map_err(Error::Expand)?;
 

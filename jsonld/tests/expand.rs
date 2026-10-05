@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use contextual::WithContext;
 use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
+use jsonld::{Dereference, JsonLdProcessor, Print, RemoteDocumentReference, TryFromJson};
 use rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use tokio::runtime::Builder as RuntimeBuilder;
 
@@ -102,11 +102,11 @@ impl expand::Test {
 
         match self.desc {
             expand::Description::Positive { expect } => {
-                let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+                let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
                 let expanded = json_ld.expand_full(&mut vocabulary, &loader, options, ()).await.unwrap();
 
                 let expect_iri = vocabulary.insert(expect);
-                let expected = loader.load_with(&mut vocabulary, expect_iri).await.unwrap().into_document();
+                let expected = loader.dereference(&mut vocabulary, expect_iri).await.unwrap().into_document();
                 let expected = jsonld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
 
                 let success = expanded == expected;
@@ -120,7 +120,7 @@ impl expand::Test {
                 assert!(success);
             }
             expand::Description::Negative { expected_error_code } => {
-                let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+                let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
                 let result: Result<_, _> = json_ld.expand_full(&mut vocabulary, &loader, options, ()).await;
 
                 match result {

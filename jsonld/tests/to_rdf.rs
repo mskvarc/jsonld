@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use contextual::{DisplayWithContext, WithContext};
 use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
+use jsonld::{Dereference, JsonLdProcessor, Print, RemoteDocumentReference};
 use rdfx::{
     GeneralizedQuad,
     LocalTerm,
@@ -187,7 +187,7 @@ impl to_rdf::Test {
 
         match self.desc {
             to_rdf::Description::Positive { expect } => {
-                let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+                let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
 
                 let mut generator = rdfx::generator::Blank::new_with_prefix("b".to_string()).unwrap();
                 let mut to_rdf = json_ld.to_rdf_full(&mut vocabulary, &mut generator, &loader, options, ()).await.unwrap();
@@ -255,7 +255,7 @@ impl to_rdf::Test {
                 assert!(success);
             }
             to_rdf::Description::Negative { expected_error_code } => {
-                let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+                let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
                 let result: Result<_, _> = json_ld.expand_full(&mut vocabulary, &loader, options, ()).await;
 
                 match result {

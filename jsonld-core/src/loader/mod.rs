@@ -16,6 +16,8 @@ use std::{borrow::Cow, hash::Hash};
 
 /// Loader combining two loaders, trying each in turn.
 pub mod chain;
+/// Invoking a loader from inside an algorithm, on sufficient native stack.
+pub mod dereference;
 /// Loader reading documents from the file system.
 pub mod fs;
 /// Loader serving documents from an in-memory map.
@@ -24,6 +26,7 @@ pub mod map;
 pub mod none;
 
 pub use chain::ChainLoader;
+pub use dereference::Dereference;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
@@ -77,7 +80,7 @@ impl<I> RemoteDocumentReference<I> {
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(loader.load_with(vocabulary, r).await?.map(Into::into)),
+            Self::Iri(r) => Ok(loader.dereference(vocabulary, r).await?.map(Into::into)),
             Self::Loaded(doc) => Ok(doc),
         }
     }
@@ -99,7 +102,7 @@ impl<I> RemoteDocumentReference<I> {
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(Cow::Owned(loader.load_with(vocabulary, r.clone()).await?.map(Into::into))),
+            Self::Iri(r) => Ok(Cow::Owned(loader.dereference(vocabulary, r.clone()).await?.map(Into::into))),
             Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
         }
     }
@@ -132,7 +135,7 @@ impl<I> RemoteContextReference<I> {
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(loader.load_with(vocabulary, r).await?.try_map(ExtractContext::into_ld_context)?),
+            Self::Iri(r) => Ok(loader.dereference(vocabulary, r).await?.try_map(ExtractContext::into_ld_context)?),
             Self::Loaded(doc) => Ok(doc),
         }
     }
@@ -154,7 +157,7 @@ impl<I> RemoteContextReference<I> {
     {
         match self {
             Self::Iri(r) => Ok(Cow::Owned(
-                loader.load_with(vocabulary, r.clone()).await?.try_map(ExtractContext::into_ld_context)?,
+                loader.dereference(vocabulary, r.clone()).await?.try_map(ExtractContext::into_ld_context)?,
             )),
             Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
         }
@@ -539,6 +542,10 @@ pub trait Loader {
     {
         #[allow(clippy::expect_used)]
         let lexical_url = vocabulary.iri(&url).expect("`url` does not resolve in the given vocabulary");
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "the provided `load_with` delegates to the loader's own `load` inside its caller's guarded poll"
+        )]
         let document = self.load(lexical_url).await?;
         Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
     }
@@ -550,6 +557,10 @@ pub trait Loader {
 impl<L: Loader> Loader for &L {
     type Error = L::Error;
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
+    )]
     async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
@@ -558,6 +569,10 @@ impl<L: Loader> Loader for &L {
         L::load_with(self, vocabulary, url).await
     }
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
+    )]
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         L::load(self, url).await
     }
@@ -566,6 +581,10 @@ impl<L: Loader> Loader for &L {
 impl<L: Loader> Loader for &mut L {
     type Error = L::Error;
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
+    )]
     async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
     where
         V: IriVocabularyMut,
@@ -574,6 +593,10 @@ impl<L: Loader> Loader for &mut L {
         L::load_with(self, vocabulary, url).await
     }
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
+    )]
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         L::load(self, url).await
     }

@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 use contextual::WithContext;
 use iri_rs::iri;
-use jsonld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use jsonld::{Dereference, JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference};
 use rdfx::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use tokio::runtime::Builder as RuntimeBuilder;
 
@@ -124,12 +124,12 @@ impl compact::Test {
 
         match self.desc {
             compact::Description::Positive { expect } => {
-                let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
+                let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
                 let compacted = json_ld.compact_full(&mut vocabulary, context, &loader, options, ()).await.unwrap();
                 let compacted = RemoteDocument::new(Some(input), None, compacted);
 
                 let expect = vocabulary.insert(expect);
-                let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
+                let mut expect = loader.dereference(&mut vocabulary, expect).await.unwrap();
                 expect.set_url(Some(input));
 
                 let expand_options: jsonld::Options<IriIndex> = jsonld::Options::default();
@@ -144,7 +144,7 @@ impl compact::Test {
                 assert!(success);
             }
             compact::Description::Negative { expected_error_code } => {
-                if let Ok(json_ld) = loader.load_with(&mut vocabulary, input).await {
+                if let Ok(json_ld) = loader.dereference(&mut vocabulary, input).await {
                     let result: Result<_, _> = json_ld.compact_full(&mut vocabulary, context, &loader, options, ()).await;
 
                     if let Ok(expanded) = result {

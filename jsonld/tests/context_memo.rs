@@ -41,6 +41,10 @@ impl Loader for CountingLoader {
 
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
         self.loads.fetch_add(1, Ordering::Relaxed);
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
+        )]
         self.documents.load(url).await
     }
 }

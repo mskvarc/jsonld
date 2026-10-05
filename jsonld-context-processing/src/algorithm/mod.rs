@@ -35,7 +35,7 @@ use std::{hash::Hash, sync::Arc};
 
 use crate::{Error, Options, Process, Processed, ProcessingCache, ProcessingResult, ProcessingStack, WarningHandler, cache::cache_key};
 use iri_rs::{Iri, IriBuf};
-use jsonld_core::{Context, Environment, ExtractContext, Loader, ProcessingMode, Term};
+use jsonld_core::{Context, Dereference, Environment, ExtractContext, Loader, ProcessingMode, Term};
 use jsonld_syntax::{self as syntax, Nullable, native_stack::Recursion};
 use rdfx::vocabulary::VocabularyMut;
 
@@ -334,7 +334,7 @@ where
                 } else {
                     let loaded = Arc::new(
                         env.loader
-                            .load_with(env.vocabulary, context_iri.clone())
+                            .dereference(env.vocabulary, context_iri.clone())
                             .await?
                             .into_document()
                             .into_ld_context()
@@ -400,7 +400,7 @@ where
                         // 5.6.4) Dereference import.
                         let import_context = env
                             .loader
-                            .load_with(env.vocabulary, import.clone())
+                            .dereference(env.vocabulary, import.clone())
                             .await?
                             .into_document()
                             .into_ld_context()
