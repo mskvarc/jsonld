@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.23.6] - 2026-10-05
+
+### 🐛 Bug Fixes
+- dereference every document on sufficient native stack
+
+### 🧹 Chores
+- bump version
+
 ## [v0.23.5] - 2026-10-03
 
 ### 🐛 Bug Fixes
@@ -9,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - keep expansion and compaction off the caller's stack
 
 ### 🧹 Chores
+- update changelog
 - bump version
 
 ## [v0.23.4] - 2026-10-02
