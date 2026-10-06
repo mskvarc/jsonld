@@ -11,6 +11,7 @@ use crate::{
     object::{FragmentRef, InvalidExpandedJson, Traverse},
 };
 use iri_rs::IriBuf;
+use jsonld_syntax::IntoJsonWithContext;
 use rdfx::{
     BlankIdBuf,
     LocalGenerator,
@@ -478,6 +479,43 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ExpandedDocument<T, B> {
     }
 }
 
+/// Error reading an expanded document from its JSON text.
+#[derive(Debug, thiserror::Error)]
+pub enum ExpandedJsonTextError {
+    /// The bytes are not one well-formed JSON text (RFC 8259).
+    #[error("invalid JSON: {0}")]
+    Syntax(#[from] jstrict::parse::Error),
+    /// The JSON text is not expanded JSON-LD.
+    #[error(transparent)]
+    Invalid(#[from] InvalidExpandedJson),
+}
+
+impl<T: Eq + Hash, B: Eq + Hash> ExpandedDocument<T, B> {
+    /// Reads a document already in expanded form from its JSON text, without
+    /// running the Expansion algorithm: the bytes are parsed with `jstrict`'s
+    /// non-recursive parser and read with [`TryFromJson`]. The parsed tree is
+    /// consumed by the reading, so no JSON tree outlives the call.
+    ///
+    /// # Errors
+    ///
+    /// [`ExpandedJsonTextError::Syntax`] when `bytes` is not JSON, and
+    /// [`ExpandedJsonTextError::Invalid`] for a JSON text that is not expanded
+    /// JSON-LD.
+    pub fn try_from_json_slice_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, bytes: &[u8]) -> Result<Self, ExpandedJsonTextError> {
+        let value = jstrict::parse::parse_slice_value(bytes)?;
+        Ok(Self::try_from_json_in(vocabulary, value)?)
+    }
+}
+
+impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for ExpandedDocument<T, B> {
+    /// Writes the document as expanded JSON-LD: an array of the document's
+    /// objects, in insertion order. Recurses once per nesting level on
+    /// sufficient native stack.
+    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+        self.objects.into_json_with(vocabulary)
+    }
+}
+
 impl<T: Eq + Hash, B: Eq + Hash> PartialEq for ExpandedDocument<T, B> {
     /// Comparison between two expanded documents.
     ///
@@ -600,8 +638,7 @@ impl<T, B> ExpandedDocument<T, B> {
     where
         N: Vocabulary<Iri = T, BlankId = B>,
     {
-        use jsonld_syntax::IntoJsonWithContext;
-        self.objects.into_json_with(vocabulary).into_serde_json()
+        self.into_json_with(vocabulary).into_serde_json()
     }
 }
 
@@ -626,8 +663,7 @@ impl<T, B> ExpandedDocument<T, B> {
     where
         N: Vocabulary<Iri = T, BlankId = B>,
     {
-        use jsonld_syntax::IntoJsonWithContext;
-        self.objects.into_json_with(vocabulary).into_sonic_rs()
+        self.into_json_with(vocabulary).into_sonic_rs()
     }
 }
 

@@ -42,13 +42,12 @@ gxhash = { version = "3.5.0", optional = true }
 hashbrown = "0.17.1"
 indexmap = "2.14.2"
 iri-rs = "3.4.1"
-jstrict = "0.15.0"
+jstrict = "0.16.0"
 langtag = "1.1.0"
 lasso = { version = "0.7.3", features = ["multi-threaded", "inline-more", "ahasher"] }
 rdfx = "0.24.0"
 serde = { version = "1.0.229", features = ["derive"], optional = true }
 smallvec = "1.16.2"
-stacker = "0.1.25"
 thiserror = "2.0.21"
 
 [lints]

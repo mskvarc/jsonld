@@ -8,7 +8,7 @@ pub mod expanded;
 /// Flattened documents.
 pub mod flattened;
 
-pub use expanded::ExpandedDocument;
+pub use expanded::{ExpandedDocument, ExpandedJsonTextError};
 pub use flattened::FlattenedDocument;
 
 use crate::RemoteDocument;

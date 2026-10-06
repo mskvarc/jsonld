@@ -14,6 +14,7 @@ use smallvec::SmallVec;
 use std::hash::Hash;
 
 /// List objects.
+mod dismantle;
 pub mod list;
 mod mapped_eq;
 /// Node objects.
@@ -24,7 +25,7 @@ pub mod value;
 
 pub use list::List;
 pub use mapped_eq::MappedEq;
-pub use node::{Graph, IndexedNode, Node, Nodes};
+pub use node::{Graph, IndexedNode, Node, NodeParts, Nodes};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, Value};
 
@@ -859,6 +860,10 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
 /// without going through the expansion algorithm.
 ///
 /// The input JSON value must be in expanded JSON-LD form.
+///
+/// Reading recurses once per nesting level of the expanded document; each
+/// level runs on sufficient native stack, so a document of any depth is read
+/// on any thread.
 pub trait TryFromJson<T, B>: Sized {
     /// Builds this fragment from a JSON value, interning terms in the given
     /// vocabulary.

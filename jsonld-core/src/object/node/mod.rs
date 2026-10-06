@@ -83,6 +83,44 @@ pub struct Node<T = IriBuf, B = BlankIdBuf> {
     pub reverse_properties: Option<ReverseProperties<T, B>>,
 }
 
+/// Every member of a node, owned.
+///
+/// What [`Node::into_parts`] returns: the same members as the node's public
+/// fields. Dropping it drops each child through the child's own iterative
+/// `Drop`, so it adds one level of drop recursion at most.
+pub struct NodeParts<T = IriBuf, B = BlankIdBuf> {
+    /// Identifier (`@id`).
+    pub id: Option<Id<T, B>>,
+    /// Types (`@type`).
+    pub types: Option<Vec<Id<T, B>>>,
+    /// Associated graph (`@graph`).
+    pub graph: Option<Graph<T, B>>,
+    /// Included nodes (`@included`).
+    pub included: Option<Included<T, B>>,
+    /// Properties.
+    pub properties: Properties<T, B>,
+    /// Reverse properties (`@reverse`).
+    pub reverse_properties: Option<ReverseProperties<T, B>>,
+}
+
+impl<T, B> Node<T, B> {
+    /// Takes the node apart into its members.
+    ///
+    /// `Node` drops its descendants iteratively, so its fields cannot be moved
+    /// out of it; this is the by-value path to them.
+    #[must_use]
+    pub fn into_parts(mut self) -> NodeParts<T, B> {
+        NodeParts {
+            id: self.id.take(),
+            types: self.types.take(),
+            graph: self.graph.take(),
+            included: self.included.take(),
+            properties: std::mem::take(&mut self.properties),
+            reverse_properties: self.reverse_properties.take(),
+        }
+    }
+}
+
 impl<T, B> Default for Node<T, B> {
     #[inline(always)]
     fn default() -> Self {
@@ -464,8 +502,8 @@ impl<T, B> Node<T, B> {
     #[inline(always)]
     pub fn into_unnamed_graph(self: Box<Self>) -> Result<Graph<T, B>, Box<Self>> {
         if self.is_unnamed_graph() {
-            // SAFETY: `is_unnamed_graph()` implies `self.graph` is `Some`.
-            Ok(unsafe { self.graph.unwrap_unchecked() })
+            // `is_unnamed_graph()` implies `self.graph` is `Some`.
+            Ok((*self).into_parts().graph.unwrap_or_default())
         } else {
             Err(self)
         }
@@ -511,17 +549,20 @@ impl<T, B> Node<T, B> {
         U: Eq + Hash,
         C: Eq + Hash,
     {
+        let NodeParts {
+            id,
+            types,
+            graph,
+            included,
+            properties,
+            reverse_properties,
+        } = self.into_parts();
         Node {
-            id: self.id.map(&mut *map_id),
-            types: self.types.map(|t| t.into_iter().map(&mut *map_id).collect()),
-            graph: self
-                .graph
-                .map(|g| g.into_iter().map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id))).collect()),
-            included: self
-                .included
-                .map(|i| i.into_iter().map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id))).collect()),
-            properties: self
-                .properties
+            id: id.map(&mut *map_id),
+            types: types.map(|t| t.into_iter().map(&mut *map_id).collect()),
+            graph: graph.map(|g| g.into_iter().map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id))).collect()),
+            included: included.map(|i| i.into_iter().map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id))).collect()),
+            properties: properties
                 .into_iter()
                 .map(|(id, values)| {
                     (
@@ -530,7 +571,7 @@ impl<T, B> Node<T, B> {
                     )
                 })
                 .collect(),
-            reverse_properties: self.reverse_properties.map(|r| {
+            reverse_properties: reverse_properties.map(|r| {
                 r.into_iter()
                     .map(|(id, values)| {
                         (
@@ -1378,13 +1419,21 @@ impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<T, B> {
     fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+        let NodeParts {
+            id,
+            types,
+            graph,
+            included,
+            properties,
+            reverse_properties,
+        } = self.into_parts();
         let mut obj = jstrict::Object::new();
 
-        if let Some(id) = self.id {
+        if let Some(id) = id {
             obj.insert("@id".into(), id.into_with(vocabulary).into_json());
         }
 
-        if let Some(types) = self.types
+        if let Some(types) = types
             && !types.is_empty()
         {
             let value = types.into_with(vocabulary).into_json();
@@ -1392,19 +1441,19 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<
             obj.insert("@type".into(), value);
         }
 
-        if let Some(graph) = self.graph {
+        if let Some(graph) = graph {
             obj.insert("@graph".into(), graph.into_with(vocabulary).into_json());
         }
 
-        if let Some(included) = self.included {
+        if let Some(included) = included {
             obj.insert("@included".into(), included.into_with(vocabulary).into_json());
         }
 
-        if let Some(reverse_properties) = self.reverse_properties {
+        if let Some(reverse_properties) = reverse_properties {
             obj.insert("@reverse".into(), reverse_properties.into_with(vocabulary).into_json());
         }
 
-        for (prop, objects) in self.properties {
+        for (prop, objects) in properties {
             obj.insert(prop.with(vocabulary).to_string().into(), objects.into_json_with(vocabulary));
         }
 

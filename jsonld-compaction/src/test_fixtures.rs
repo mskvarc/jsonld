@@ -99,7 +99,7 @@ pub(crate) async fn compact_one_value_document(context: &TestContext, property: 
 pub(crate) fn as_written_under(context: &TestContext, key: &str, compacted: jstrict::Value) -> jstrict::Value {
     let container = context.get(key).map_or(Container::None, |definition| definition.container());
     if values_as_array(container, key, Options::default().compact_arrays) {
-        jstrict::Value::Array(vec![compacted])
+        jstrict::Value::Array(vec![compacted].into())
     } else {
         compacted
     }

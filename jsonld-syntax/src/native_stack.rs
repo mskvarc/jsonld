@@ -25,16 +25,18 @@ use std::{
 
 /// Stack left below which a recursion level moves to a fresh segment.
 ///
-/// It has to exceed the native stack one level uses between two recursion
-/// points, which is largest in unoptimized builds.
-pub const RED_ZONE: usize = 128 * 1024;
+/// The value `jstrict` uses, so one red zone governs every recursion over a
+/// document, from parsing and printing its JSON to the JSON-LD algorithms.
+pub const RED_ZONE: usize = jstrict::native_stack::RED_ZONE;
 
 /// Size of each fresh stack segment.
-pub const SEGMENT: usize = 2 * 1024 * 1024;
+pub const SEGMENT: usize = jstrict::native_stack::SEGMENT;
 
 /// Runs `callee`, on a fresh stack segment when the current one is nearly used.
+///
+/// Delegates to [`jstrict::native_stack::on_sufficient_stack`].
 pub fn on_sufficient_stack<R>(callee: impl FnOnce() -> R) -> R {
-    stacker::maybe_grow(RED_ZONE, SEGMENT, callee)
+    jstrict::native_stack::on_sufficient_stack(callee)
 }
 
 /// A recursive call of an `async` algorithm.

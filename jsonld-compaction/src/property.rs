@@ -70,7 +70,7 @@ where
     // then set `compacted_item` to an array containing only `compacted_item`.
     if !compacted_item.is_array() {
         let array = vec![compacted_item];
-        compacted_item = jstrict::Value::Array(array);
+        compacted_item = jstrict::Value::Array(array.into());
     }
 
     // If container does not include @list:

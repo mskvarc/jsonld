@@ -4,7 +4,7 @@ use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iri_rs::{Iri, IriRef};
-use jsonld_core::{Context, Id, Loader, ProcessingMode, Term, warning};
+use jsonld_core::{Context, Id, Loader, NoLoader, ProcessingMode, Term, warning};
 use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key, native_stack::Recursion};
 use rdfx::{
     BlankId,
@@ -468,6 +468,76 @@ where
     Term::Id(Id::Invalid(value))
 }
 
+/// Expands `term` as the Expansion algorithm expands a member key of a
+/// node object under `active_context`: `vocab` on, not document-relative
+/// (JSON-LD 1.1 API, Expansion Algorithm step 13.2).
+///
+/// Returns the expanded term (an IRI, a blank node identifier, a keyword,
+/// or an invalid identifier carrying the text as written), or `None` when
+/// `policy` is [`Action::Drop`] and only `@vocab` would expand it. Warnings
+/// are discarded; no loader is involved, since the active context is already
+/// processed.
+///
+/// # Errors
+///
+/// [`RejectVocab`] when `policy` is [`Action::Reject`] and only `@vocab` would
+/// expand it.
+pub fn expand_property_key<N: VocabularyMut>(
+    vocabulary: &mut N,
+    active_context: &Context<N::Iri, N::BlankId>,
+    term: &str,
+    policy: Action,
+) -> IriExpansionResult<N>
+where
+    N::Iri: Clone,
+    N::BlankId: Clone,
+{
+    expand_iri_simple::<MalformedIri, N, NoLoader, ()>(
+        &mut Environment {
+            vocabulary,
+            loader: &NoLoader,
+            warnings: &mut (),
+        },
+        active_context,
+        Nullable::Some(term.into()),
+        false,
+        Some(policy),
+    )
+}
+
+/// Expands `value` as the Expansion algorithm expands an `@type` value of a
+/// node object under `active_context`: `vocab` on, document-relative against
+/// the context's base IRI (Expansion Algorithm step 13.4.4.4).
+///
+/// Same results and errors as [`expand_property_key`].
+///
+/// # Errors
+///
+/// [`RejectVocab`] when `policy` is [`Action::Reject`] and only `@vocab` would
+/// expand it.
+pub fn expand_type_value<N: VocabularyMut>(
+    vocabulary: &mut N,
+    active_context: &Context<N::Iri, N::BlankId>,
+    value: &str,
+    policy: Action,
+) -> IriExpansionResult<N>
+where
+    N::Iri: Clone,
+    N::BlankId: Clone,
+{
+    expand_iri_simple::<MalformedIri, N, NoLoader, ()>(
+        &mut Environment {
+            vocabulary,
+            loader: &NoLoader,
+            warnings: &mut (),
+        },
+        active_context,
+        Nullable::Some(value.into()),
+        true,
+        Some(policy),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
@@ -523,7 +593,7 @@ mod tests {
         let expanded = expand_iri_simple::<Warning, _, _, _>(
             &mut env,
             context,
-            Nullable::Some(ExpandableRef::String(value)),
+            Nullable::Some(value.into()),
             false,
             vocab.then_some(Action::Keep),
         )

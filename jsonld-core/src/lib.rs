@@ -56,7 +56,7 @@ pub use indexed::*;
 pub use lang_string::*;
 pub use loader::*;
 pub use mode::*;
-pub use object::{IndexedNode, IndexedObject, Node, Nodes, Object, Objects, TryFromJson, Value};
+pub use object::{IndexedNode, IndexedObject, Node, NodeParts, Nodes, Object, Objects, TryFromJson, Value};
 pub use print::Print;
 pub use quad::LdQuads;
 pub use rdf::RdfQuads;

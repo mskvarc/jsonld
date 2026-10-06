@@ -1,5 +1,5 @@
 use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
-use jsonld_syntax::{IntoJson, IntoJsonWithContext};
+use jsonld_syntax::{IntoJson, IntoJsonWithContext, native_stack::on_sufficient_stack};
 use rdfx::vocabulary::VocabularyMut;
 use std::{
     convert::{TryFrom, TryInto},
@@ -110,18 +110,25 @@ impl<T, B, O: TryFromJsonObject<T, B>> TryFromJson<T, B> for Indexed<O> {
     }
 }
 
+/// Every nesting level of an expanded document is read through this
+/// implementation (objects, nodes, lists, graphs, included and reverse
+/// nodes alike), so it is the one recursion point of [`TryFromJson`]: each
+/// level runs on sufficient native stack, and a document of any depth is read
+/// on any thread.
 impl<T, B, O: TryFromJsonObject<T, B>> TryFromJsonObject<T, B> for Indexed<O> {
     fn try_from_json_object_in(vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>, mut object: jstrict::Object) -> Result<Self, InvalidExpandedJson> {
-        let index = match object.remove_unique("@index").map_err(InvalidExpandedJson::duplicate_key)? {
-            Some(index_entry) => match index_entry.value {
-                jstrict::Value::String(index) => Some(index.to_string()),
-                _ => return Err(InvalidExpandedJson::InvalidIndex),
-            },
-            None => None,
-        };
+        on_sufficient_stack(move || {
+            let index = match object.remove_unique("@index").map_err(InvalidExpandedJson::duplicate_key)? {
+                Some(index_entry) => match index_entry.value {
+                    jstrict::Value::String(index) => Some(index.to_string()),
+                    _ => return Err(InvalidExpandedJson::InvalidIndex),
+                },
+                None => None,
+            };
 
-        let value = O::try_from_json_object_in(vocabulary, object)?;
-        Ok(Self::new(value, index))
+            let value = O::try_from_json_object_in(vocabulary, object)?;
+            Ok(Self::new(value, index))
+        })
     }
 }
 
@@ -162,16 +169,20 @@ impl<T> AsMut<T> for Indexed<T> {
     }
 }
 
+/// Every nesting level of an expanded document is written through this
+/// implementation, so each level runs on sufficient native stack.
 impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Indexed<T> {
     fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
-        let mut result = self.value.into_json_with(vocabulary);
+        on_sufficient_stack(move || {
+            let mut result = self.value.into_json_with(vocabulary);
 
-        if let Some(obj) = result.as_object_mut()
-            && let Some(index) = self.index
-        {
-            obj.insert("@index".into(), index.into_json());
-        }
+            if let Some(obj) = result.as_object_mut()
+                && let Some(index) = self.index
+            {
+                obj.insert("@index".into(), index.into_json());
+            }
 
-        result
+            result
+        })
     }
 }

@@ -43,6 +43,7 @@ mod expanded;
 mod literal;
 mod node;
 mod options;
+mod slice;
 mod value;
 mod warning;
 
@@ -50,6 +51,7 @@ pub use error::*;
 pub use expanded::*;
 pub use literal::{LiteralExpansionError, NotALiteral};
 pub use options::*;
+pub use slice::{SliceExpansionError, expand_slice};
 pub use value::InvalidValue;
 pub use warning::*;
 

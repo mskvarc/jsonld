@@ -1,5 +1,5 @@
 use super::Environment;
-use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object, hash::IndexMap, object};
+use crate::{ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, NodeParts, Object, hash::IndexMap, object};
 use derive_where::derive_where;
 use rdfx::{
     LocalGenerator,
@@ -283,8 +283,16 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
         B: Clone,
     {
         let (node, index) = node.into_parts();
+        let NodeParts {
+            id,
+            types,
+            graph,
+            included,
+            properties,
+            reverse_properties,
+        } = node.into_parts();
 
-        if let Some(id) = &node.id {
+        if let Some(id) = &id {
             let flat_node = match self.nodes.entry(id.clone()) {
                 indexmap::map::Entry::Occupied(occupied) => {
                     let entry = occupied.into_mut();
@@ -296,15 +304,15 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
                 indexmap::map::Entry::Vacant(vacant) => vacant.insert(Indexed::new(Node::with_id(id.clone()), index)),
             };
 
-            if let Some(types) = node.types {
+            if let Some(types) = types {
                 flat_node.types_mut_or_default().extend(types);
             }
 
-            flat_node.set_graph_entry(node.graph);
-            flat_node.set_included(node.included);
-            flat_node.properties_mut().extend_unique(node.properties);
+            flat_node.set_graph_entry(graph);
+            flat_node.set_included(included);
+            flat_node.properties_mut().extend_unique(properties);
 
-            if let Some(props) = node.reverse_properties {
+            if let Some(props) = reverse_properties {
                 flat_node.reverse_properties_or_default().extend_unique(props);
             }
         }

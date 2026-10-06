@@ -103,7 +103,32 @@ impl expand::Test {
         match self.desc {
             expand::Description::Positive { expect } => {
                 let json_ld = loader.dereference(&mut vocabulary, input).await.unwrap();
+                // `expand_slice` is the Expansion algorithm itself over the
+                // document's text; it agrees with the processor whenever the
+                // processor adds no initial context of its own.
+                let slice_input = (options.expand_context.is_none() && json_ld.context_url().is_none()).then(|| {
+                    (
+                        json_ld.document().compact_print().to_string(),
+                        options.base.or_else(|| json_ld.url().copied()),
+                        options.expansion_options(),
+                    )
+                });
                 let expanded = json_ld.expand_full(&mut vocabulary, &loader, options, ()).await.unwrap();
+
+                if let Some((text, base, slice_options)) = slice_input {
+                    let from_slice = jsonld::expansion::expand_slice(
+                        text.as_bytes(),
+                        &mut vocabulary,
+                        jsonld::expansion::Context::new(base),
+                        base.as_ref(),
+                        &loader,
+                        slice_options,
+                        (),
+                    )
+                    .await
+                    .unwrap();
+                    assert!(from_slice == expanded, "expand_slice agrees with expand_full");
+                }
 
                 let expect_iri = vocabulary.insert(expect);
                 let expected = loader.dereference(&mut vocabulary, expect_iri).await.unwrap().into_document();

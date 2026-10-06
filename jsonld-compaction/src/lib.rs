@@ -438,13 +438,13 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
             // (duplicate key) case of `get_unique_mut` is treated as absent.
             match map.get_unique_mut(key).ok().flatten() {
                 Some(existing) if !existing.is_array() => {
-                    let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new()));
+                    let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new().into()));
                     if let jstrict::Value::Array(arr) = existing {
                         arr.push(prev);
                     }
                 }
                 None if as_array => {
-                    map.insert(key.into(), jstrict::Value::Array(Vec::new()));
+                    map.insert(key.into(), jstrict::Value::Array(Vec::new().into()));
                 }
                 _ => {}
             }
@@ -458,14 +458,14 @@ fn add_value(map: &mut jstrict::Object, key: &str, value: jstrict::Value, as_arr
             }
             Some(existing) => {
                 // Existing scalar — wrap into [prev, new] array.
-                let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new()));
+                let prev = std::mem::replace(existing, jstrict::Value::Array(Vec::new().into()));
                 if let jstrict::Value::Array(arr) = existing {
                     arr.push(prev);
                     arr.push(scalar);
                 }
             }
             None if as_array => {
-                map.insert(key.into(), jstrict::Value::Array(vec![scalar]));
+                map.insert(key.into(), jstrict::Value::Array(vec![scalar].into()));
             }
             None => {
                 map.insert(key.into(), scalar);

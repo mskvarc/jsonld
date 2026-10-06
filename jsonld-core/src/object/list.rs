@@ -26,6 +26,11 @@ impl<T, B> List<T, B> {
         Self { entry: objects }
     }
 
+    /// Removes every object of the list and returns them, in order.
+    pub(crate) fn take_entries(&mut self) -> Vec<IndexedObject<T, B>> {
+        std::mem::take(&mut self.entry)
+    }
+
     /// Returns the number of objects in the list.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -64,8 +69,8 @@ impl<T, B> List<T, B> {
 
     /// Consumes the list, returning the objects of its `@list` entry.
     #[must_use]
-    pub fn into_entry(self) -> Vec<IndexedObject<T, B>> {
-        self.entry
+    pub fn into_entry(mut self) -> Vec<IndexedObject<T, B>> {
+        self.take_entries()
     }
 
     /// Appends an object to the end of the list.
@@ -113,13 +118,13 @@ impl<T, B> List<T, B> {
         self.map_ids_with(&mut map_iri, &mut map_id)
     }
 
-    pub(crate) fn map_ids_with<U, C>(self, map_iri: &mut impl FnMut(T) -> U, map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>) -> List<U, C>
+    pub(crate) fn map_ids_with<U, C>(mut self, map_iri: &mut impl FnMut(T) -> U, map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>) -> List<U, C>
     where
         U: Eq + Hash,
         C: Eq + Hash,
     {
         List::new(
-            self.entry
+            self.take_entries()
                 .into_iter()
                 .map(|indexed_object| indexed_object.map_inner(|object| object.map_ids_with(map_iri, map_id)))
                 .collect(),
@@ -199,8 +204,8 @@ impl<T, B> IntoIterator for List<T, B> {
     type Item = IndexedObject<T, B>;
     type IntoIter = std::vec::IntoIter<IndexedObject<T, B>>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.entry.into_iter()
+    fn into_iter(mut self) -> Self::IntoIter {
+        self.take_entries().into_iter()
     }
 }
 
@@ -232,10 +237,10 @@ impl<'a, T, B> Iterator for SubFragments<'a, T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for List<T, B> {
-    fn into_json_with(self, vocabulary: &N) -> jstrict::Value {
+    fn into_json_with(mut self, vocabulary: &N) -> jstrict::Value {
         let mut obj = jstrict::Object::new();
 
-        obj.insert("@list".into(), self.entry.into_with(vocabulary).into_json());
+        obj.insert("@list".into(), self.take_entries().into_with(vocabulary).into_json());
 
         obj.into()
     }

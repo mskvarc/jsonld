@@ -16,7 +16,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.23.6"
+version = "0.24.0"
 edition = "2024"
 rust-version = "1.96.0"
 authors = [
@@ -54,17 +54,17 @@ format_push_string = "allow"
 unused_async_trait_impl = "allow"
 
 [workspace.dependencies]
-jsonld = { path = "jsonld", version = "0.23.6" }
-jsonld-compaction = { path = "jsonld-compaction", version = "0.23.6" }
-jsonld-context-processing = { path = "jsonld-context-processing", version = "0.23.6" }
-jsonld-core = { path = "jsonld-core", version = "0.23.6" }
-jsonld-expandable = { path = "jsonld-expandable", version = "0.23.6" }
-jsonld-expandable-core = { path = "jsonld-expandable-core", version = "0.23.6" }
-jsonld-expansion = { path = "jsonld-expansion", version = "0.23.6" }
-jsonld-serialization = { path = "jsonld-serialization", version = "0.23.6" }
-jsonld-syntax = { path = "jsonld-syntax", version = "0.23.6" }
-jsonld-testing = { path = "jsonld-testing", version = "0.23.6" }
-jsonld-vocab = { path = "jsonld-vocab", version = "0.23.6" }
+jsonld = { path = "jsonld", version = "0.24.0" }
+jsonld-compaction = { path = "jsonld-compaction", version = "0.24.0" }
+jsonld-context-processing = { path = "jsonld-context-processing", version = "0.24.0" }
+jsonld-core = { path = "jsonld-core", version = "0.24.0" }
+jsonld-expandable = { path = "jsonld-expandable", version = "0.24.0" }
+jsonld-expandable-core = { path = "jsonld-expandable-core", version = "0.24.0" }
+jsonld-expansion = { path = "jsonld-expansion", version = "0.24.0" }
+jsonld-serialization = { path = "jsonld-serialization", version = "0.24.0" }
+jsonld-syntax = { path = "jsonld-syntax", version = "0.24.0" }
+jsonld-testing = { path = "jsonld-testing", version = "0.24.0" }
+jsonld-vocab = { path = "jsonld-vocab", version = "0.24.0" }
 
 [profile.release]
 lto = "thin"
