@@ -2,12 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.24.0] - 2026-10-06
+
+### 🚀 Features
+- stack-safe objects, byte expansion and single-term iri expansion
+
 ## [v0.23.6] - 2026-10-05
 
 ### 🐛 Bug Fixes
 - dereference every document on sufficient native stack
 
 ### 🧹 Chores
+- update changelog
 - bump version
 
 ## [v0.23.5] - 2026-10-03
