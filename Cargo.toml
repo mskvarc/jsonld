@@ -16,7 +16,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.24.0"
+version = "0.25.0"
 edition = "2024"
 rust-version = "1.96.0"
 authors = [
@@ -57,17 +57,17 @@ unused_async_trait_impl = "allow"
 # Default features are off so that each crate's own `default`, and nothing
 # else, decides whether a dependant gets `bytewise-iri`: a crate that forwards
 # a feature to a sibling does so in its own `[features]` table.
-jsonld = { path = "jsonld", version = "0.24.0", default-features = false }
-jsonld-compaction = { path = "jsonld-compaction", version = "0.24.0", default-features = false }
-jsonld-context-processing = { path = "jsonld-context-processing", version = "0.24.0", default-features = false }
-jsonld-core = { path = "jsonld-core", version = "0.24.0", default-features = false }
-jsonld-expandable = { path = "jsonld-expandable", version = "0.24.0", default-features = false }
-jsonld-expandable-core = { path = "jsonld-expandable-core", version = "0.24.0", default-features = false }
-jsonld-expansion = { path = "jsonld-expansion", version = "0.24.0", default-features = false }
-jsonld-serialization = { path = "jsonld-serialization", version = "0.24.0", default-features = false }
-jsonld-syntax = { path = "jsonld-syntax", version = "0.24.0", default-features = false }
-jsonld-testing = { path = "jsonld-testing", version = "0.24.0", default-features = false }
-jsonld-vocab = { path = "jsonld-vocab", version = "0.24.0", default-features = false }
+jsonld = { path = "jsonld", version = "0.25.0", default-features = false }
+jsonld-compaction = { path = "jsonld-compaction", version = "0.25.0", default-features = false }
+jsonld-context-processing = { path = "jsonld-context-processing", version = "0.25.0", default-features = false }
+jsonld-core = { path = "jsonld-core", version = "0.25.0", default-features = false }
+jsonld-expandable = { path = "jsonld-expandable", version = "0.25.0", default-features = false }
+jsonld-expandable-core = { path = "jsonld-expandable-core", version = "0.25.0", default-features = false }
+jsonld-expansion = { path = "jsonld-expansion", version = "0.25.0", default-features = false }
+jsonld-serialization = { path = "jsonld-serialization", version = "0.25.0", default-features = false }
+jsonld-syntax = { path = "jsonld-syntax", version = "0.25.0", default-features = false }
+jsonld-testing = { path = "jsonld-testing", version = "0.25.0", default-features = false }
+jsonld-vocab = { path = "jsonld-vocab", version = "0.25.0", default-features = false }
 
 [profile.release]
 lto = "thin"
