@@ -19,7 +19,8 @@ all-features = true
 rustc-args = ["-C", "target-cpu=native"]
 
 [features]
-default = []
+default = ["bytewise-iri"]
+bytewise-iri = ["jsonld/bytewise-iri"]
 ahash = ["jsonld/ahash"]
 gxhash = ["jsonld/gxhash"]
 

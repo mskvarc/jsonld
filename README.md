@@ -192,7 +192,7 @@ cargo add jsonld
 | `expandable-chrono` | | `chrono` temporal types in `Expandable` types |
 | `vocab` | | the `vocab!` macro |
 
-`bytewise-iri` forwards to `iri-rs`, where it makes IRIs compare, hash and order byte-wise rather than by RFC 3987 normalization. That matches what the spec produces, since [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, and it is considerably cheaper. Turning it off buys normalization-aware equality instead, where two spellings of the same IRI compare equal. The W3C suites pass either way.
+`bytewise-iri` forwards to `iri-rs`, where it makes IRIs compare, hash and order byte-wise rather than by RFC 3987 normalization. That matches what the spec produces, since [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, and it is considerably cheaper. Turning it off buys normalization-aware equality instead, where two spellings of the same IRI compare equal. The W3C suites pass either way. Each crate forwards the feature to its siblings itself, so depending on any of them with `default-features = false` turns it off across the whole stack. Cargo unifies features over a build, though, so it comes back on as soon as any other crate in the build depends on one of these crates with default features.
 
 ## Conformance
 

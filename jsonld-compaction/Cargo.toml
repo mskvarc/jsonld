@@ -21,6 +21,7 @@ bytewise-iri = [
     "jsonld-core/bytewise-iri",
     "jsonld-syntax/bytewise-iri",
     "jsonld-context-processing/bytewise-iri",
+    "jsonld-expansion/bytewise-iri",
 ]
 
 [dependencies]
