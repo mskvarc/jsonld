@@ -60,14 +60,14 @@ reqwest = { version = "0.13.5", optional = true }
 reqwest-middleware = { version = "0.5.2", optional = true }
 ryu-js = "1.0.3"
 serde = { version = "1.0.229", optional = true }
-serde_json = { version = "1.0.151", optional = true }
-smallvec = "1.16.2"
+serde_json = { version = "1.0.154", optional = true }
+smallvec = "1.16.3"
 sonic-rs = { version = "0.5.10", optional = true }
 thiserror = "2.0.21"
 utf8-decode = { version = "2.0.0", optional = true }
 
 [dev-dependencies]
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 
 [lints]
 workspace = true

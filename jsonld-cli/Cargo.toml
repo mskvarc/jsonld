@@ -35,7 +35,7 @@ mediatype = "0.23.0"
 rdfx = "0.24.0"
 stderrlog = "0.6.0"
 thiserror = "2.0.21"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "macros"] }
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "net", "macros"] }
 
 [lints]
 workspace = true

@@ -35,7 +35,7 @@ jsonld-syntax.workspace = true
 jstrict = "0.16.0"
 langtag = "1.1.0"
 rdfx = "0.24.0"
-smallvec = "1.16.2"
+smallvec = "1.16.3"
 thiserror = "2.0.21"
 
 [dev-dependencies]
@@ -45,7 +45,7 @@ iri-rs = { version = "3.4.1", features = ["static"] }
 # `jsonld` on crates.io before this crate can be published — a deadlock. Used
 # only by the crate-level doc example.
 jsonld = { path = "../jsonld" }
-tokio = { version = "1.53.1", features = ["macros", "rt"] }
+tokio = { version = "1.54.0", features = ["macros", "rt"] }
 
 [lints]
 workspace = true
