@@ -2,10 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.25.0] - 2026-10-20
+
+### ⚡ Performance
+- replace the process-wide key interner with shared keys
+
+### 🏗️ Build
+- let disabling default features turn off bytewise-iri
+
+### 🚀 Features
+- make loader futures send
+- route compaction warnings through a handler
+
+### 🧹 Chores
+- bump version
+- update dependencies
+
 ## [v0.24.0] - 2026-10-06
 
 ### 🚀 Features
 - stack-safe objects, byte expansion and single-term iri expansion
+
+### 🧹 Chores
+- update changelog
 
 ## [v0.23.6] - 2026-10-05
 
