@@ -12,8 +12,8 @@
 //! [`Dereference::dereference`] is therefore the one way an algorithm invokes a
 //! loader: every poll of the loader runs as a recursion point does, so it
 //! always starts with at least [`RED_ZONE`] of native stack. The workspace
-//! `clippy.toml` disallows calling [`Loader::load`] and [`Loader::load_with`]
-//! anywhere else.
+//! `clippy.toml` disallows calling [`Loader::load`] anywhere else. It is also
+//! where a loaded document's IRIs enter the caller's vocabulary.
 //!
 //! [`RED_ZONE`]: jsonld_syntax::native_stack::RED_ZONE
 
@@ -35,6 +35,11 @@ pub trait Dereference: Loader {
     ///
     /// Returns the loader's error when the document cannot be fetched or
     /// parsed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `url` does not resolve in `vocabulary`, i.e. if it was
+    /// obtained from a different vocabulary.
     fn dereference<V>(&self, vocabulary: &mut V, url: V::Iri) -> impl Future<Output = LoadingResult<V::Iri, Self::Error>>
     where
         V: IriVocabularyMut,
@@ -47,8 +52,12 @@ impl<L: Loader + ?Sized> Dereference for L {
         V: IriVocabularyMut,
         V::Iri: Clone + Eq + Hash,
     {
-        #[expect(clippy::disallowed_methods, reason = "the one guarded invocation of a loader every algorithm goes through")]
-        let loading = self.load_with(vocabulary, url);
-        Recursion::new(loading)
+        Recursion::new(async move {
+            #[allow(clippy::expect_used)]
+            let lexical_url = vocabulary.iri(&url).expect("`url` does not resolve in the given vocabulary");
+            #[expect(clippy::disallowed_methods, reason = "the one guarded invocation of a loader every algorithm goes through")]
+            let document = self.load(lexical_url).await?;
+            Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
+        })
     }
 }

@@ -3,5 +3,4 @@
 # polls it on sufficient stack (jsonld-core/src/loader/dereference.rs).
 disallowed-methods = [
     { path = "jsonld_core::loader::Loader::load", reason = "invoke a loader through `Dereference::dereference`" },
-    { path = "jsonld_core::loader::Loader::load_with", reason = "invoke a loader through `Dereference::dereference`" },
 ]

@@ -525,49 +525,25 @@ impl<E> LoadError<E> {
 ///   - `ReqwestLoader` actually downloading the remote documents using the
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
-pub trait Loader {
+///
+/// A loader is `Sync` and its [`Loader::load`] future is `Send`, so that the
+/// algorithms, which hold the loader by reference across `.await`s, can run
+/// on a multi-threaded executor.
+pub trait Loader: Sync {
     /// Loader-specific error type.
     type Error: std::error::Error + Send + Sync + 'static;
 
-    /// Loads the document behind the given IRI, using the given vocabulary.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `url` does not resolve in `vocabulary`, i.e. if it was
-    /// obtained from a different vocabulary.
-    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
-    where
-        V: IriVocabularyMut,
-        V::Iri: Clone + Eq + Hash,
-    {
-        #[allow(clippy::expect_used)]
-        let lexical_url = vocabulary.iri(&url).expect("`url` does not resolve in the given vocabulary");
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "the provided `load_with` delegates to the loader's own `load` inside its caller's guarded poll"
-        )]
-        let document = self.load(lexical_url).await?;
-        Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
-    }
-
     /// Loads the document behind the given IRI.
-    async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>>;
+    ///
+    /// The future is `Send`, so that an `async fn` generic over its loader,
+    /// and the algorithms that invoke it, are `Send` whenever their other
+    /// inputs are. An implementation written as an `async fn` meets this when
+    /// what it holds across an `.await` is `Send`.
+    fn load(&self, url: Iri<&str>) -> impl Future<Output = Result<RemoteDocument<IriBuf>, LoadError<Self::Error>>> + Send;
 }
 
 impl<L: Loader> Loader for &L {
     type Error = L::Error;
-
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
-    )]
-    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
-    where
-        V: IriVocabularyMut,
-        V::Iri: Clone + Eq + Hash,
-    {
-        L::load_with(self, vocabulary, url).await
-    }
 
     #[expect(
         clippy::disallowed_methods,
@@ -580,18 +556,6 @@ impl<L: Loader> Loader for &L {
 
 impl<L: Loader> Loader for &mut L {
     type Error = L::Error;
-
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a loader delegating to the loader it wraps already runs inside its caller's guarded poll"
-    )]
-    async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
-    where
-        V: IriVocabularyMut,
-        V::Iri: Clone + Eq + Hash,
-    {
-        L::load_with(self, vocabulary, url).await
-    }
 
     #[expect(
         clippy::disallowed_methods,

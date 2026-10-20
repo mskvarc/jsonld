@@ -29,7 +29,7 @@ use std::{
 };
 
 /// The native stack the loader's own entry takes between the guard and the
-/// body of `load`: the provided `load_with` and the forwarding through `&L`.
+/// body of `load`: the dereferencing future and the forwarding through `&L`.
 /// An unguarded loader falls short of the red zone by up to the 64 KiB the
 /// sweep reaches below it.
 const LOADER_ENTRY: usize = 16 * 1024;
