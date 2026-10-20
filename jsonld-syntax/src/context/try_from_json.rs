@@ -341,7 +341,7 @@ fn context_entry_try_from_json(value: &jstrict::Value, depth: usize) -> Result<C
                             other => Nullable::Some(term_definition_try_from_json(other, depth)?),
                         };
 
-                        if def.bindings.insert_with(key.as_str().to_owned().into(), term_def).is_some() {
+                        if def.bindings.insert_with(definition::Key::from(key.as_str()), term_def).is_some() {
                             return Err(InvalidContext::DuplicateKey);
                         }
                     }

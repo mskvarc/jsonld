@@ -7,10 +7,6 @@
 //! Cargo unifies features across a dependency graph, so two unrelated
 //! dependants asking for different hashers must not break the build: when
 //! both features end up enabled, `gxhash` wins.
-//!
-//! Enabling `ahash` also adds no new dependency: `lasso`, which backs the
-//! [string interner](crate::intern), enables its `ahasher` feature
-//! unconditionally, so `ahash` is compiled either way.
 
 /// Hasher used by the collections of this crate.
 #[cfg(feature = "gxhash")]

@@ -36,9 +36,9 @@
 //!
 //! The performance work behind this fork was aimed at that broker workload, and
 //! a changed performance profile is not the same as a faster one. Memoizing
-//! processed contexts and interning term keys spend memory and bookkeeping that
-//! only pay off when the same contexts and terms recur, so a workload that
-//! looks nothing like NGSI-LD can come out behind. Measure your own corpus
+//! processed contexts spends memory and bookkeeping that only pays off when the
+//! same contexts and terms recur, so a workload that looks nothing like NGSI-LD
+//! can come out behind. Measure your own corpus
 //! rather than assuming this fork is the faster choice for it.
 //!
 //! Two operational notes for untrusted input: the default hasher is fast but

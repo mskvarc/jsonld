@@ -25,7 +25,6 @@ mod direction;
 mod error;
 mod expandable;
 pub mod hash;
-pub mod intern;
 mod into_json;
 mod keyword;
 mod lang;

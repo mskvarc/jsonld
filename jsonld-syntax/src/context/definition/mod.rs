@@ -1,6 +1,7 @@
 use super::{TermDefinition, term_definition};
 use crate::{Direction, Keyword, LenientLangTagBuf, Nullable, hash::IndexMap};
 use iri_rs::IriRefBuf;
+use std::{borrow::Borrow, hash::Hash};
 
 mod import;
 mod key;
@@ -108,7 +109,11 @@ impl Definition {
 
     /// Returns the term definition bound to the given term, if any.
     #[must_use]
-    pub fn get_binding(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
+    pub fn get_binding<Q>(&self, key: &Q) -> Option<Nullable<&TermDefinition>>
+    where
+        Q: ?Sized + Hash + Eq,
+        Key: Borrow<Q>,
+    {
         self.bindings.get(key)
     }
 }
@@ -172,8 +177,24 @@ impl Bindings {
     ///
     /// The result is `Some(Nullable::Null)` for a term the context explicitly
     /// unsets by binding it to `null`.
-    pub fn get(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
+    pub fn get<Q>(&self, key: &Q) -> Option<Nullable<&TermDefinition>>
+    where
+        Q: ?Sized + Hash + Eq,
+        Key: Borrow<Q>,
+    {
         self.0.get(key).map(Nullable::as_ref)
+    }
+
+    /// Returns the key a term is bound under, if it is bound.
+    ///
+    /// Cloning the result never allocates, where building a [`Key`] from `key`
+    /// allocates for a key too long to store inline.
+    pub fn get_key<Q>(&self, key: &Q) -> Option<&Key>
+    where
+        Q: ?Sized + Hash + Eq,
+        Key: Borrow<Q>,
+    {
+        self.0.get_key_value(key).map(|(key, _)| key)
     }
 
     /// Returns the `i`th binding in insertion order, if there is one.

@@ -157,7 +157,16 @@ where
     L: Loader,
     W: WarningHandler<N>,
 {
-    let term = term.to_owned();
+    // Create Term Definition only runs for a term the local context binds;
+    // IRI expansion reaches here with every string it expands, most of which
+    // are not terms. The empty term is the one unbound string that is an error.
+    let Some(term) = local_context.bound_key(term) else {
+        return if term.as_str().is_empty() {
+            Err(Error::InvalidTermDefinition)
+        } else {
+            Ok(())
+        };
+    };
     if defined.begin(&term)? {
         if term.is_empty() {
             return Err(Error::InvalidTermDefinition);
@@ -226,7 +235,7 @@ where
                     let key = unsafe { term.as_key().unwrap_unchecked() };
                     // Initialize `previous_definition` to any existing term definition for `term` in
                     // `active_context`, removing that term definition from active context.
-                    let previous_definition = active_context.set_normal(*key, None);
+                    let previous_definition = active_context.set_normal(key.clone(), None);
 
                     let simple_term = !d.map(jsonld_syntax::context::TermDefinition::is_expanded).unwrap_or(false);
                     let value = term_definition::ExpandedRef::from(d);
@@ -787,7 +796,7 @@ where
 
                     // Set the term definition of `term` in `active_context` to `definition` and
                     // set the value associated with `defined`'s entry term to true.
-                    active_context.set_normal(key.to_owned(), Some(definition));
+                    active_context.set_normal(key.clone(), Some(definition));
                 }
                 _ => {
                     // Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and

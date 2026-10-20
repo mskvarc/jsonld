@@ -1,6 +1,9 @@
 use iri_rs::IriRefBuf;
 use jsonld_syntax as syntax;
-use syntax::Nullable;
+use syntax::{
+    Nullable,
+    context::definition::{KeyOrKeyword, KeyOrKeywordRef},
+};
 
 /// A context definition viewed together with the definition it pulls in through
 /// `@import`.
@@ -108,6 +111,27 @@ impl<'a> Merged<'a> {
     pub fn get(&self, key: &syntax::context::definition::KeyOrKeyword) -> Option<syntax::context::definition::EntryValueRef<'_>> {
         self.base.get(key).or_else(|| self.imported().and_then(|i| i.get(key)))
     }
+
+    /// Returns `term` as an owned key, or `None` for a term neither definition
+    /// binds.
+    ///
+    /// A bound term is a clone of the key its definition holds, which allocates
+    /// nothing, where building a key from the string could. A keyword
+    /// is always returned: whether a context may set it is decided by the
+    /// caller.
+    #[must_use]
+    pub fn bound_key(&self, term: KeyOrKeywordRef<'_>) -> Option<KeyOrKeyword> {
+        match term {
+            KeyOrKeywordRef::Keyword(keyword) => Some(KeyOrKeyword::Keyword(keyword)),
+            KeyOrKeywordRef::Key(key) => self
+                .base
+                .bindings
+                .get_key(key.as_str())
+                .or_else(|| self.imported().and_then(|i| i.bindings.get_key(key.as_str())))
+                .cloned()
+                .map(KeyOrKeyword::Key),
+        }
+    }
 }
 
 impl<'a> From<&'a syntax::context::Definition> for Merged<'a> {
@@ -136,8 +160,7 @@ impl<'a> Iterator for MergedBindings<'a> {
         match &mut self.imported_bindings {
             Some(imported_bindings) => {
                 for (key_ref, def) in imported_bindings {
-                    let key = key_ref.to_owned();
-                    if self.base.get_binding(&key).is_none() {
+                    if self.base.get_binding(key_ref.as_str()).is_none() {
                         return Some((key_ref, def));
                     }
                 }

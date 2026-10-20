@@ -77,7 +77,7 @@ use jsonld_syntax::{
     LenientLangTag,
     Nullable,
     context::{
-        definition::{EntryValueRef, Key, KeyOrKeyword, KeyOrKeywordRef},
+        definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
         term_definition::{self, IdRef},
     },
     native_stack::on_sufficient_stack,
@@ -279,8 +279,7 @@ where
                     })?;
 
                     // The `prefix` flag is JSON-LD 1.1 only; see `iri.rs`.
-                    let prefix_key = Key::from(compact_iri.prefix());
-                    if let Some(term_definition) = active_context.get_normal(&prefix_key)
+                    if let Some(term_definition) = active_context.get_normal(compact_iri.prefix())
                         && (term_definition.prefix || active_context.processing_mode() == ProcessingMode::JsonLd1_0)
                         && let Some(mapping) = term_definition.value()
                     {
@@ -370,7 +369,16 @@ where
         return Err(Error::ContextOverflow);
     }
 
-    let term = term.to_owned();
+    // Create Term Definition only runs for a term the local context binds;
+    // IRI expansion reaches here with every string it expands, most of which
+    // are not terms. The empty term is the one unbound string that is an error.
+    let Some(term) = local_context.bound_key(term) else {
+        return if term.as_str().is_empty() {
+            Err(Error::InvalidTermDefinition)
+        } else {
+            Ok(())
+        };
+    };
     if defined.begin(&term)? {
         if term.is_empty() {
             return Err(Error::InvalidTermDefinition);
@@ -415,7 +423,7 @@ where
                     // SAFETY: at this point `term` is a `KeyOrKeyword::Key`,
                     // since the `Type` arm above returns early.
                     let key = unsafe { term.as_key().unwrap_unchecked() };
-                    let previous_definition = active_context.set_normal(*key, None);
+                    let previous_definition = active_context.set_normal(key.clone(), None);
 
                     let simple_term = !d.map(jsonld_syntax::context::TermDefinition::is_expanded).unwrap_or(false);
                     let value = term_definition::ExpandedRef::from(d);
@@ -800,7 +808,7 @@ where
                         definition.protected = true;
                     }
 
-                    active_context.set_normal(key.to_owned(), Some(definition));
+                    active_context.set_normal(key.clone(), Some(definition));
                 }
                 _ => {
                     return Err(Error::KeywordRedefinition);

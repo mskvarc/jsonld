@@ -5,7 +5,7 @@ use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iri_rs::{Iri, IriRef};
 use jsonld_core::{Context, Id, Loader, NoLoader, ProcessingMode, Term, warning};
-use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, context::definition::Key, native_stack::Recursion};
+use jsonld_syntax::{self as syntax, ExpandableRef, Nullable, native_stack::Recursion};
 use rdfx::{
     BlankId,
     vocabulary::{BlankIdVocabulary, IriVocabulary, Vocabulary, VocabularyMut},
@@ -159,8 +159,7 @@ where
                     // definition with an IRI mapping expands a compact IRI
                     // (`flatten#t0014`). Compaction keeps the 1.1 rule, which is why
                     // this is relaxed here and not on the flag itself (`compact#tp001`).
-                    let prefix_key = Key::from(compact_iri.prefix());
-                    if let Some(term_definition) = active_context.get_normal(&prefix_key)
+                    if let Some(term_definition) = active_context.get_normal(compact_iri.prefix())
                         && (term_definition.prefix || active_context.processing_mode() == ProcessingMode::JsonLd1_0)
                         && let Some(mapping) = term_definition.value()
                     {
@@ -397,8 +396,7 @@ where
                     // definition with an IRI mapping expands a compact IRI
                     // (`flatten#t0014`). Compaction keeps the 1.1 rule, which is why
                     // this is relaxed here and not on the flag itself (`compact#tp001`).
-                    let prefix_key = Key::from(compact_iri.prefix());
-                    if let Some(term_definition) = active_context.get_normal(&prefix_key)
+                    if let Some(term_definition) = active_context.get_normal(compact_iri.prefix())
                         && (term_definition.prefix || active_context.processing_mode() == ProcessingMode::JsonLd1_0)
                         && let Some(mapping) = term_definition.value()
                     {
@@ -590,15 +588,9 @@ mod tests {
             warnings: &mut warnings,
         };
 
-        let expanded = expand_iri_simple::<Warning, _, _, _>(
-            &mut env,
-            context,
-            Nullable::Some(value.into()),
-            false,
-            vocab.then_some(Action::Keep),
-        )
-        .unwrap()
-        .unwrap();
+        let expanded = expand_iri_simple::<Warning, _, _, _>(&mut env, context, Nullable::Some(value.into()), false, vocab.then_some(Action::Keep))
+            .unwrap()
+            .unwrap();
         Arc::unwrap_or_clone(expanded)
     }
 

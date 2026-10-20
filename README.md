@@ -121,13 +121,13 @@ The workspace is Rust 2024 with MSRV 1.96, uses `mediatype` for content negotiat
 
 ### Performance
 
-The performance work concentrates on context processing and compaction, the parts of JSON-LD that dominate a broker-shaped workload. It is a re-tuning for that shape of traffic, not a general speedup, and some of it is a trade rather than a win. Memoization and interning spend memory and add bookkeeping that only pays off when the same contexts and terms recur, which is the defining feature of broker traffic and not of a batch job converting a large corpus of one-off documents. Expect regressions on workloads that look unlike NGSI-LD, and measure before assuming this fork is the faster choice for yours.
+The performance work concentrates on context processing and compaction, the parts of JSON-LD that dominate a broker-shaped workload. It is a re-tuning for that shape of traffic, not a general speedup, and some of it is a trade rather than a win. Memoization spends memory and adds bookkeeping that only pays off when the same contexts and terms recur, which is the defining feature of broker traffic and not of a batch job converting a large corpus of one-off documents. Expect regressions on workloads that look unlike NGSI-LD, and measure before assuming this fork is the faster choice for yours.
 
 What was done:
 
 - **Context memoization.** Processed contexts are cached rather than reprocessed per document, and a synchronous fast path skips the async machinery entirely when a context needs no remote loads.
 - **Inverse contexts.** The inverse context is rebuilt lazily instead of on every mutation, and its construction is cheaper.
-- **Interning.** Term keys and strings are interned, so comparison and hashing work on handles instead of string data.
+- **Inline term keys.** A term key of up to 23 bytes, nearly every term of a real context, is stored inline, so creating, cloning and dropping one allocates nothing and touches no shared counter; a longer key is reference-counted. There is no process-wide interner: a key is freed with the context that holds it, so contexts from untrusted input do not grow memory for the life of the process.
 - **Compaction.** Compact IRI results are memoized per compaction call, the prefix list is cached instead of rebuilt each iteration, and sort comparators no longer materialise strings through the vocabulary.
 - **Hashing.** SipHash gave way to hashbrown's default hasher, with `ahash` and `gxhash` as opt-in alternatives.
 - **Allocation.** Contexts are borrowed rather than cloned on hot paths, and clones were stripped out of expansion and compaction.

@@ -496,7 +496,7 @@ impl<T, B> Context<T, B> {
             self.definitions
                 .iter()
                 .filter_map(|binding| match binding {
-                    BindingRef::Normal(key, def) if def.prefix => def.value_arc().map(|value| (*key, value.clone())),
+                    BindingRef::Normal(key, def) if def.prefix => def.value_arc().map(|value| (key.clone(), value.clone())),
                     _ => None,
                 })
                 .collect()

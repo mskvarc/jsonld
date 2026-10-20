@@ -1,45 +1,48 @@
-use crate::{CompactIri, Keyword, intern::intern_static};
+use crate::{CompactIri, Keyword};
 use iri_rs::Iri;
 use rdfx::BlankId;
-use std::{borrow::Borrow, cmp::Ordering, fmt, hash::Hash};
+use smol_str::SmolStr;
+use std::{borrow::Borrow, fmt, hash::Hash};
 
 /// Context key.
 ///
-/// Stores the canonical `&'static str` returned by the process-wide interner
-/// directly, so [`Key::as_str`] is a single load and equality on equal logical
-/// strings short-circuits via pointer equality (the interner guarantees a
-/// unique allocation per interned string).
+/// A key of up to 23 bytes is stored inline, so creating, cloning and dropping
+/// it allocates nothing and touches no shared counter; nearly every term of a
+/// real context is that short. A longer key is shared behind a reference
+/// count.
 ///
-/// Interned strings are never freed: memory usage grows with the number of
-/// distinct keys the process parses. See the [`crate::intern`] module
-/// documentation for the implications when parsing untrusted input.
-#[derive(Clone, Copy, Debug)]
-pub struct Key(&'static str);
+/// A key owns its string and frees it when dropped, so the memory a process
+/// spends on keys is bounded by the contexts it keeps.
+///
+/// Equality, ordering and hashing are those of the string, so a map keyed by
+/// `Key` can be searched with a `&str`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Key(SmolStr);
 
 impl Key {
     /// Parses this key as an IRI, returning `None` if it is not one.
     #[must_use]
     pub fn as_iri(&self) -> Option<Iri<&str>> {
-        Iri::parse(self.0).ok()
+        Iri::parse(self.0.as_str()).ok()
     }
 
     /// Parses this key as a compact IRI, returning `None` if it is not one.
     #[must_use]
     pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-        CompactIri::new(self.0).ok()
+        CompactIri::new(self.0.as_str()).ok()
     }
 
     /// Parses this key as a blank node identifier, returning `None` if it is
     /// not one.
     #[must_use]
     pub fn as_blank_id(&self) -> Option<&BlankId> {
-        BlankId::new(self.0).ok()
+        BlankId::new(self.0.as_str()).ok()
     }
 
-    /// Returns the interned string of this key.
+    /// Returns the string of this key.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
-        self.0
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 
     /// Returns the length of this key, in bytes.
@@ -57,36 +60,14 @@ impl Key {
     /// Copies this key into a newly allocated `String`.
     #[must_use]
     pub fn into_string(self) -> String {
-        self.0.to_owned()
+        String::from(self.0)
     }
 
     /// Checks whether this key is keyword-like: an `@` followed by ASCII
     /// letters. See [`crate::is_keyword_like`].
     #[must_use]
     pub fn is_keyword_like(&self) -> bool {
-        crate::is_keyword_like(self.0)
-    }
-}
-
-impl PartialEq for Key {
-    fn eq(&self, other: &Self) -> bool {
-        // Interned strings are pointer-unique, so a pointer/length match is
-        // sufficient and faster than byte comparison.
-        std::ptr::eq(self.0.as_ptr(), other.0.as_ptr()) && self.0.len() == other.0.len()
-    }
-}
-
-impl Eq for Key {}
-
-impl PartialOrd for Key {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Key {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self == other { Ordering::Equal } else { self.0.cmp(other.0) }
+        crate::is_keyword_like(self.0.as_str())
     }
 }
 
@@ -96,24 +77,15 @@ impl From<jstrict::object::Key> for Key {
     }
 }
 
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl Hash for Key {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // Hash via the underlying string so that `Borrow<str>` lookups
-        // (e.g. `HashMap::get(&"foo")`) stay equivalent.
-        self.0.hash(state);
-    }
-}
-
 impl From<String> for Key {
     fn from(k: String) -> Self {
-        Self(intern_static(&k))
+        Self(SmolStr::from(k))
     }
 }
 
 impl<'a> From<&'a str> for Key {
     fn from(value: &'a str) -> Self {
-        Self(intern_static(value))
+        Self(SmolStr::new(value))
     }
 }
 
@@ -155,7 +127,7 @@ impl<'de> serde::Deserialize<'de> for Key {
             }
 
             // `visit_borrowed_str` and `visit_string` forward here by
-            // default; the interner only needs `&str`, so one method covers
+            // default; a key copies its string either way, so one method covers
             // borrowing formats, owned buffers (`from_reader`, escaped
             // keys) and serde's internal `Content` buffering
             // (`#[serde(flatten)]`) alike.
@@ -192,7 +164,7 @@ impl<'a> KeyRef<'a> {
         self.0
     }
 
-    /// Interns this key and returns the owned [`Key`].
+    /// Copies this key into an owned [`Key`].
     #[must_use]
     pub fn to_owned(self) -> Key {
         Key::from(self.0)
@@ -308,7 +280,7 @@ pub enum KeyOrKeywordRef<'a> {
 }
 
 impl<'a> KeyOrKeywordRef<'a> {
-    /// Interns the term key, if any, and returns the owned [`KeyOrKeyword`].
+    /// Copies the term key, if any, into an owned [`KeyOrKeyword`].
     #[must_use]
     pub fn to_owned(self) -> KeyOrKeyword {
         match self {
@@ -382,16 +354,63 @@ impl fmt::Display for KeyOrType {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
+    use crate::{TryFromJson, context::Context};
     use jstrict::Parse;
+    use std::{
+        collections::HashMap,
+        hash::{BuildHasher, RandomState},
+    };
+
+    /// Parses `text` as a context holding a single context definition.
+    fn parse_definition(text: &str) -> crate::context::Definition {
+        let (value, _) = jstrict::Value::parse_str(text).unwrap();
+        match Context::try_from_json(&value).unwrap() {
+            Context::One(crate::ContextEntry::Definition(definition)) => Some(definition),
+            Context::One(_) | Context::Many(_) => None,
+        }
+        .unwrap()
+    }
+
+    /// A key built from a borrowed string and one built from an owned string
+    /// are equal and hash the same, and a map keyed by `Key` is searchable by
+    /// `&str`, which is what the `Borrow<str>` contract requires.
+    #[test]
+    fn keys_from_borrowed_and_owned_strings_agree() {
+        let borrowed = Key::from("speed");
+        let owned = Key::from(String::from("speed"));
+        assert_eq!(borrowed, owned);
+
+        let hasher = RandomState::new();
+        assert_eq!(hasher.hash_one(&borrowed), hasher.hash_one(&owned));
+        assert_eq!(hasher.hash_one(&borrowed), hasher.hash_one("speed"));
+
+        let map = HashMap::from([(borrowed, 7_u8)]);
+        assert_eq!(map.get("speed"), Some(&7));
+    }
+
+    /// Keys from two separately parsed contexts are equal and order equal, and
+    /// a key as short as a typical term is stored without an allocation.
+    #[test]
+    fn keys_of_separately_parsed_contexts_are_equal() {
+        let first = parse_definition(r#"{"speed": "https://example.org/speed"}"#);
+        let second = parse_definition(r#"{"speed": "https://example.org/velocity"}"#);
+        let first_key = first.bindings.get_key("speed").unwrap();
+        let second_key = second.bindings.get_key("speed").unwrap();
+        assert_eq!(first_key, second_key);
+        assert_eq!(first_key.cmp(second_key), std::cmp::Ordering::Equal);
+        assert!(!first_key.0.is_heap_allocated());
+        assert_eq!(*first_key, first_key.clone());
+    }
 
     /// `#[serde(flatten)]` on `Definition::bindings` buffers entries into
     /// serde's internal `Content` representation and replays keys through
     /// `visit_str` (transient, not borrowed). The former
     /// `<&str>::deserialize`-based impl failed on that path.
+    #[cfg(feature = "serde")]
     #[test]
     fn key_deserializes_through_serde_content_buffer() {
         let (value, _) = jstrict::Value::parse_str(r#"{"@vocab": "http://example.com/", "term": "http://example.com/term"}"#).unwrap();
@@ -401,6 +420,7 @@ mod tests {
 
     /// Owned-string input (`visit_string` → `visit_str`), as produced by
     /// escaped keys and reader-based formats.
+    #[cfg(feature = "serde")]
     #[test]
     fn key_deserializes_from_owned_string() {
         let (value, _) = jstrict::Value::parse_str(r#""api""#).unwrap();

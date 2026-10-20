@@ -18,8 +18,8 @@ fn term_lt(a: &Key, b: &Key) -> bool {
 #[inline]
 fn keep_smaller_opt(slot: &mut Option<Key>, candidate: &Key) {
     match slot {
-        None => *slot = Some(*candidate),
-        Some(existing) if term_lt(candidate, existing) => *slot = Some(*candidate),
+        None => *slot = Some(candidate.clone()),
+        Some(existing) if term_lt(candidate, existing) => *slot = Some(candidate.clone()),
         _ => {}
     }
 }
@@ -27,7 +27,7 @@ fn keep_smaller_opt(slot: &mut Option<Key>, candidate: &Key) {
 #[inline]
 fn keep_smaller(slot: &mut Key, candidate: &Key) {
     if term_lt(candidate, slot) {
-        *slot = *candidate;
+        *slot = candidate.clone();
     }
 }
 
@@ -87,10 +87,10 @@ impl<T> InverseType<T> {
     {
         match self.map.entry(ty.clone()) {
             Entry::Vacant(v) => {
-                v.insert(*term);
+                v.insert(term.clone());
             }
             Entry::Occupied(mut o) if term_lt(term, o.get()) => {
-                o.insert(*term);
+                o.insert(term.clone());
             }
             Entry::Occupied(_) => {}
         }
@@ -166,10 +166,10 @@ impl InverseLang {
         let lang_dir = lang_dir.map(|(l, d)| (l.map(std::borrow::ToOwned::to_owned), d));
         match self.map.entry(lang_dir) {
             Entry::Vacant(v) => {
-                v.insert(*term);
+                v.insert(term.clone());
             }
             Entry::Occupied(mut o) if term_lt(term, o.get()) => {
-                o.insert(*term);
+                o.insert(term.clone());
             }
             Entry::Occupied(_) => {}
         }
@@ -198,7 +198,7 @@ impl<T> InverseContainer<T> {
                 any: None,
                 map: HashMap::default(),
             },
-            any: Any { none: *term },
+            any: Any { none: term.clone() },
         }
     }
 }
