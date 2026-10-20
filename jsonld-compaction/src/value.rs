@@ -1,5 +1,5 @@
 use crate::{Error, IriConfusedWithPrefix, Options, compact_iri, iri::keyword_alias};
-use jsonld_context_processing::{Options as ProcessingOptions, Process};
+use jsonld_context_processing::{Options as ProcessingOptions, Process, WarningHandler};
 use jsonld_core::{Container, ContainerKind, Context, ContextRef, Id, Loader, Term, Type, Value, object};
 use jsonld_syntax::Keyword;
 use rdfx::vocabulary::{Vocabulary, VocabularyMut};
@@ -20,7 +20,7 @@ use std::hash::Hash;
 /// everything after that is [`compact_value`].
 ///
 /// [1]: https://www.w3.org/TR/json-ld-api/#value-compaction
-pub async fn compact_indexed_value_with<N, L>(
+pub async fn compact_indexed_value_with<N, L, W>(
     vocabulary: &mut N,
     value: &Value<N::Iri>,
     index: Option<&str>,
@@ -28,12 +28,14 @@ pub async fn compact_indexed_value_with<N, L>(
     active_property: Option<&str>,
     loader: &L,
     options: Options,
+    warnings: &mut W,
 ) -> Result<jstrict::Value, Error<L::Error>>
 where
     N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
+    W: WarningHandler<N>,
 {
     // If the term definition for active property in active context has a local context:
     let mut active_context = ContextRef::Borrowed(active_context);
@@ -43,12 +45,13 @@ where
     {
         active_context = ContextRef::owned(
             local_context
-                .process_with(
+                .process_full(
                     vocabulary,
                     active_context.as_ref(),
                     loader,
                     active_property_definition.base_url().cloned(),
                     ProcessingOptions::from(options).with_override(),
+                    &mut *warnings,
                 )
                 .await?
                 .into_processed(),

@@ -12,6 +12,7 @@ use crate::{
     value_value,
 };
 
+use jsonld_context_processing::WarningHandler;
 use jsonld_core::{
     Container,
     ContainerKind,
@@ -36,7 +37,7 @@ use std::hash::Hash;
 /// array assigned directly to the key. Otherwise it is wrapped back into a list
 /// object — a map holding whatever `@list` compacts to, plus `@index` when the
 /// list carried one — and added with [`add_value`].
-async fn compact_property_list<N, L>(
+async fn compact_property_list<N, L, W>(
     vocabulary: &mut N,
     list: &List<N::Iri, N::BlankId>,
     expanded_index: Option<&str>,
@@ -47,12 +48,14 @@ async fn compact_property_list<N, L>(
     active_context: &Context<N::Iri, N::BlankId>,
     loader: &L,
     options: Options,
+    warnings: &mut W,
 ) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
+    W: WarningHandler<N>,
 {
     // If expanded item is a list object:
     let mut compacted_item = Recursion::new(compact_collection_with(
@@ -63,6 +66,7 @@ where
         Some(item_active_property),
         loader,
         options,
+        warnings,
     ))
     .await?;
 
@@ -118,7 +122,7 @@ where
 /// Returns [`Error::CollidingEntry`] when a map-shaped container has to be
 /// written where an earlier item of the same property already stored a non-map
 /// value — a mix the specification defines no output for.
-async fn compact_property_graph<N, L>(
+async fn compact_property_graph<N, L, W>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
     expanded_index: Option<&str>,
@@ -129,19 +133,29 @@ async fn compact_property_graph<N, L>(
     active_context: &Context<N::Iri, N::BlankId>,
     loader: &L,
     options: Options,
+    warnings: &mut W,
 ) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
+    W: WarningHandler<N>,
 {
     // If expanded item is a graph object.
     // `compact_property_graph` is only invoked when `node.is_graph()`, so
     // this never actually returns early.
     let Some(graph) = node.graph() else { return Ok(()) };
-    let mut compacted_item =
-        Recursion::new(graph.compact_fragment_full(vocabulary, active_context, active_context, Some(item_active_property), loader, options)).await?;
+    let mut compacted_item = Recursion::new(graph.compact_fragment_full(
+        vocabulary,
+        active_context,
+        active_context,
+        Some(item_active_property),
+        loader,
+        options,
+        warnings,
+    ))
+    .await?;
 
     // If `container` includes @graph and @id:
     if container.contains(ContainerKind::Graph) && container.contains(ContainerKind::Id) {
@@ -396,7 +410,7 @@ pub fn values_as_array(container: Container, item_active_property: &str, compact
 ///
 /// An empty value array still produces an entry: the property is compacted
 /// against an empty node object and assigned an empty array.
-pub async fn compact_property<'a, N, L, O, T>(
+pub async fn compact_property<'a, N, L, O, T, W>(
     vocabulary: &mut N,
     result: &mut jstrict::Object,
     expanded_property: Term<N::Iri, N::BlankId>,
@@ -405,6 +419,7 @@ pub async fn compact_property<'a, N, L, O, T>(
     loader: &L,
     inside_reverse: bool,
     options: Options,
+    warnings: &mut W,
 ) -> Result<(), Error<L::Error>>
 where
     N: VocabularyMut,
@@ -413,6 +428,7 @@ where
     O: IntoIterator<Item = &'a Indexed<T>>,
     T: 'a + object::Any<N::Iri, N::BlankId>,
     L: Loader,
+    W: WarningHandler<N>,
 {
     let mut is_empty = true;
 
@@ -464,6 +480,7 @@ where
                         active_context,
                         loader,
                         options,
+                        warnings,
                     )
                     .await?;
                 }
@@ -479,6 +496,7 @@ where
                         active_context,
                         loader,
                         options,
+                        warnings,
                     )
                     .await?;
                 }
@@ -490,6 +508,7 @@ where
                         Some(&item_active_property),
                         loader,
                         options,
+                        warnings,
                     ))
                     .await?;
 
@@ -682,6 +701,7 @@ where
                                     Some(&item_active_property),
                                     loader,
                                     options,
+                                    warnings,
                                 ))
                                 .await?;
                             }

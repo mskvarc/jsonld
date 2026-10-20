@@ -1,6 +1,6 @@
 use crate::{Error, IriConfusedWithPrefix, Options, add_value, compact_iri, compact_property, iri::keyword_alias};
 use contextual::WithContext;
-use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
+use jsonld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode, WarningHandler};
 use jsonld_core::{Container, ContainerKind, Context, ContextRef, Id, Loader, Node, Term, Type};
 use jsonld_syntax::Keyword;
 use rdfx::vocabulary::{Vocabulary, VocabularyMut};
@@ -28,7 +28,7 @@ fn optional_string(s: Option<&str>) -> jstrict::Value {
 /// scoped context is in force.
 ///
 /// [1]: https://www.w3.org/TR/json-ld-api/#compaction-algorithm
-pub async fn compact_indexed_node_with<N, L>(
+pub async fn compact_indexed_node_with<N, L, W>(
     vocabulary: &mut N,
     node: &Node<N::Iri, N::BlankId>,
     index: Option<&str>,
@@ -37,12 +37,14 @@ pub async fn compact_indexed_node_with<N, L>(
     active_property: Option<&str>,
     loader: &L,
     options: Options,
+    warnings: &mut W,
 ) -> Result<jstrict::Value, Error<L::Error>>
 where
     N: VocabularyMut,
     N::Iri: Clone + Hash + Eq,
     N::BlankId: Clone + Hash + Eq,
     L: Loader,
+    W: WarningHandler<N>,
 {
     // If active context has a previous context, the active context is not propagated.
     // If element does not contain an @value entry, and element does not consist of
@@ -69,12 +71,13 @@ where
     {
         active_context = ContextRef::owned(
             local_context
-                .process_with(
+                .process_full(
                     vocabulary,
                     active_context.as_ref(),
                     loader,
                     active_property_definition.base_url().cloned(),
                     ProcessingOptions::from(options).with_override(),
+                    &mut *warnings,
                 )
                 .await?
                 .into_processed(),
@@ -116,12 +119,13 @@ where
                 let processing_options = ProcessingOptions::from(options).without_propagation();
                 active_context = ContextRef::owned(
                     local_context
-                        .process_with(
+                        .process_full(
                             vocabulary,
                             active_context.as_ref(),
                             loader,
                             term_definition.base_url().cloned(),
                             processing_options,
+                            &mut *warnings,
                         )
                         .await?
                         .into_processed(),
@@ -173,12 +177,13 @@ where
         {
             active_context = ContextRef::owned(
                 local_context
-                    .process_with(
+                    .process_full(
                         vocabulary,
                         active_context.as_ref(),
                         loader,
                         active_property_definition.base_url().cloned(),
                         ProcessingOptions::from(options).with_override(),
+                        &mut *warnings,
                     )
                     .await?
                     .into_processed(),
@@ -207,6 +212,7 @@ where
                 loader,
                 true,
                 options,
+                warnings,
             )
             .await?;
         }
@@ -255,6 +261,7 @@ where
             loader,
             false,
             options,
+            warnings,
         )
         .await?;
     }
@@ -269,6 +276,7 @@ where
             loader,
             false,
             options,
+            warnings,
         )
         .await?;
     }
@@ -283,6 +291,7 @@ where
             loader,
             false,
             options,
+            warnings,
         )
         .await?;
     }
@@ -602,7 +611,7 @@ mod tests {
             assert_eq!(types_as_array(&context, alias, Options::default()), as_array, "{source}");
 
             let compacted = node
-                .compact_fragment_full(no_vocabulary_mut(), &context, &context, None, &NoLoader, Options::default())
+                .compact_fragment_full(no_vocabulary_mut(), &context, &context, None, &NoLoader, Options::default(), &mut ())
                 .await
                 .unwrap();
             assert_eq!(compacted, json(expected), "{source}");

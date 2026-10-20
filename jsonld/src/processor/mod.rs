@@ -1905,7 +1905,7 @@ async fn compact_expanded_full<'a, T, N, L>(
     context: RemoteContextReference<N::Iri>,
     loader: &'a L,
     options: Options<N::Iri>,
-    warnings: impl context_processing::WarningHandler<N>,
+    mut warnings: impl context_processing::WarningHandler<N>,
 ) -> Result<jstrict::Value, CompactError<L::Error>>
 where
     N: VocabularyMut,
@@ -1929,7 +1929,7 @@ where
             loader,
             context_base.cloned(),
             options.context_processing_options(),
-            warnings,
+            &mut warnings,
         )
         .await
         .map_err(CompactError::ContextProcessing)?;
@@ -1944,7 +1944,7 @@ where
     }
 
     expanded_input
-        .compact_full(vocabulary, active_context.as_ref(), loader, options.compaction_options())
+        .compact_full(vocabulary, active_context.as_ref(), loader, options.compaction_options(), warnings)
         .await
         .map_err(CompactError::Compaction)
 }

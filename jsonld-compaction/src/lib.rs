@@ -17,7 +17,7 @@
 //! flattening and RDF serialization.
 //!
 //! [1]: https://www.w3.org/TR/json-ld-api/#compaction-algorithms
-use jsonld_context_processing::{Options as ProcessingOptions, Process};
+use jsonld_context_processing::{Options as ProcessingOptions, Process, WarningHandler};
 use jsonld_core::{
     Context,
     ContextRef,
@@ -29,6 +29,7 @@ use jsonld_core::{
     Value,
     context::inverse::{LangSelection, TypeSelection},
     object::Any,
+    warning,
 };
 use jsonld_syntax::{ContainerKind, ErrorCode, Keyword, native_stack::Recursion};
 use rdfx::vocabulary::{self, VocabularyMut};
@@ -184,8 +185,9 @@ pub trait CompactFragment<I, B> {
     /// `active_property` and for `@type` values are looked up there, as the
     /// specification requires. `active_property` is the term this fragment was
     /// reached through, and drives container, language and index handling.
-    /// `loader` resolves any remote context referenced by a scoped `@context`.
-    async fn compact_fragment_full<'a, N, L>(
+    /// `loader` resolves any remote context referenced by a scoped `@context`,
+    /// and `warnings` receives every warning raised while processing one.
+    async fn compact_fragment_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         active_context: &'a Context<I, B>,
@@ -193,17 +195,21 @@ pub trait CompactFragment<I, B> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
-        L: Loader;
+        L: Loader,
+        W: WarningHandler<N>;
 
     #[inline(always)]
     /// Compacts this fragment at the top level of a document, with the default
     /// [`Options`], using `vocabulary` to resolve IRI and blank node
     /// identifiers.
+    ///
+    /// Warnings are printed to standard error.
     async fn compact_fragment_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -216,14 +222,24 @@ pub trait CompactFragment<I, B> {
         B: Clone + Hash + Eq,
         L: Loader,
     {
-        self.compact_fragment_full(vocabulary, active_context, active_context, None, loader, Options::default())
-            .await
+        self.compact_fragment_full(
+            vocabulary,
+            active_context,
+            active_context,
+            None,
+            loader,
+            Options::default(),
+            &mut warning::Print,
+        )
+        .await
     }
 
     #[inline(always)]
     /// Compacts this fragment at the top level of a document, with the default
     /// [`Options`], for documents that store IRIs and blank node identifiers
     /// inline instead of indexing them through a vocabulary.
+    ///
+    /// Warnings are printed to standard error.
     async fn compact_fragment<'a, L>(&'a self, active_context: &'a Context<I, B>, loader: &'a mut L) -> CompactFragmentResult<L::Error>
     where
         (): VocabularyMut<Iri = I, BlankId = B>,
@@ -238,6 +254,7 @@ pub trait CompactFragment<I, B> {
             None,
             loader,
             Options::default(),
+            &mut warning::Print,
         )
         .await
     }
@@ -264,7 +281,7 @@ pub trait CompactIndexedFragment<I, B> {
     /// The index is emitted as an `@index` entry unless the active property's
     /// container mapping includes `@index`, in which case it has already become
     /// the enclosing map's key and is dropped.
-    async fn compact_indexed_fragment<'a, N, L>(
+    async fn compact_indexed_fragment<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         index: Option<&'a str>,
@@ -273,16 +290,18 @@ pub trait CompactIndexedFragment<I, B> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
-        L: Loader;
+        L: Loader,
+        W: WarningHandler<N>;
 }
 
 impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T> {
-    async fn compact_fragment_full<'a, N, L>(
+    async fn compact_fragment_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         active_context: &'a Context<I, B>,
@@ -290,21 +309,32 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
         self.inner()
-            .compact_indexed_fragment(vocabulary, self.index(), active_context, type_scoped_context, active_property, loader, options)
+            .compact_indexed_fragment(
+                vocabulary,
+                self.index(),
+                active_context,
+                type_scoped_context,
+                active_property,
+                loader,
+                options,
+                warnings,
+            )
             .await
     }
 }
 
 impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
-    async fn compact_indexed_fragment<'a, N, L>(
+    async fn compact_indexed_fragment<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         index: Option<&'a str>,
@@ -313,17 +343,32 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
         use jsonld_core::object::Ref;
         match self.as_ref() {
-            Ref::Value(value) => compact_indexed_value_with(vocabulary, value, index, active_context, active_property, loader, options).await,
-            Ref::Node(node) => compact_indexed_node_with(vocabulary, node, index, active_context, type_scoped_context, active_property, loader, options).await,
+            Ref::Value(value) => compact_indexed_value_with(vocabulary, value, index, active_context, active_property, loader, options, warnings).await,
+            Ref::Node(node) => {
+                compact_indexed_node_with(
+                    vocabulary,
+                    node,
+                    index,
+                    active_context,
+                    type_scoped_context,
+                    active_property,
+                    loader,
+                    options,
+                    warnings,
+                )
+                .await
+            }
             Ref::List(list) => {
                 let mut active_context = active_context;
                 // If active context has a previous context, the active context is not propagated.
@@ -349,12 +394,13 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                     if let Some(local_context) = active_property_definition.context() {
                         active_context = ContextRef::owned(
                             local_context
-                                .process_with(
+                                .process_full(
                                     vocabulary,
                                     active_context.as_ref(),
                                     loader,
                                     active_property_definition.base_url().cloned(),
                                     ProcessingOptions::from(options).with_override(),
+                                    &mut *warnings,
                                 )
                                 .await?
                                 .into_processed(),
@@ -373,6 +419,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                         active_property,
                         loader,
                         options,
+                        warnings,
                     )
                     .await
                 } else {
@@ -386,6 +433,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
                         loader,
                         false,
                         options,
+                        warnings,
                     )
                     .await?;
 
@@ -497,7 +545,7 @@ fn value_value<I>(value: &Value<I>) -> jstrict::Value {
 /// array when `options.compact_arrays` is `false`, when `active_property` is
 /// `@graph` or `@set`, or when its container mapping includes `@list` or
 /// `@set`.
-async fn compact_collection_with<'a, N, L, O, T>(
+async fn compact_collection_with<'a, N, L, O, T, W>(
     vocabulary: &'a mut N,
     items: O,
     active_context: &'a Context<N::Iri, N::BlankId>,
@@ -505,6 +553,7 @@ async fn compact_collection_with<'a, N, L, O, T>(
     active_property: Option<&'a str>,
     loader: &'a L,
     options: Options,
+    warnings: &mut W,
 ) -> CompactFragmentResult<L::Error>
 where
     N: VocabularyMut,
@@ -513,12 +562,13 @@ where
     T: 'a + CompactFragment<N::Iri, N::BlankId>,
     O: 'a + Iterator<Item = &'a T>,
     L: Loader,
+    W: WarningHandler<N>,
 {
     let mut result = Vec::new();
 
     for item in items {
         let compacted_item =
-            Recursion::new(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options)).await?;
+            Recursion::new(item.compact_fragment_full(vocabulary, active_context, type_scoped_context, active_property, loader, options, warnings)).await?;
 
         if !compacted_item.is_null() {
             result.push(compacted_item);
@@ -543,7 +593,7 @@ where
 }
 
 impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
-    async fn compact_fragment_full<'a, N, L>(
+    async fn compact_fragment_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         active_context: &'a Context<I, B>,
@@ -551,19 +601,31 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
-        compact_collection_with(vocabulary, self.iter(), active_context, type_scoped_context, active_property, loader, options).await
+        compact_collection_with(
+            vocabulary,
+            self.iter(),
+            active_context,
+            type_scoped_context,
+            active_property,
+            loader,
+            options,
+            warnings,
+        )
+        .await
     }
 }
 
 impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
-    async fn compact_fragment_full<'a, N, L>(
+    async fn compact_fragment_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         active_context: &'a Context<I, B>,
@@ -571,19 +633,31 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
-        compact_collection_with(vocabulary, self.iter(), active_context, type_scoped_context, active_property, loader, options).await
+        compact_collection_with(
+            vocabulary,
+            self.iter(),
+            active_context,
+            type_scoped_context,
+            active_property,
+            loader,
+            options,
+            warnings,
+        )
+        .await
     }
 }
 
 impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for [T] {
-    async fn compact_fragment_full<'a, N, L>(
+    async fn compact_fragment_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         active_context: &'a Context<I, B>,
@@ -591,13 +665,25 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for [T] {
         active_property: Option<&'a str>,
         loader: &'a L,
         options: Options,
+        warnings: &mut W,
     ) -> CompactFragmentResult<L::Error>
     where
         N: VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
-        compact_collection_with(vocabulary, self.iter(), active_context, type_scoped_context, active_property, loader, options).await
+        compact_collection_with(
+            vocabulary,
+            self.iter(),
+            active_context,
+            type_scoped_context,
+            active_property,
+            loader,
+            options,
+            warnings,
+        )
+        .await
     }
 }

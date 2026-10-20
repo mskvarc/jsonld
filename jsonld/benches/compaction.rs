@@ -41,6 +41,7 @@ fn run_compaction(c: &mut Criterion) {
                             processed.as_ref(),
                             &loader,
                             jsonld::compaction::Options::default(),
+                            (),
                         )
                         .await
                         .expect("compact");

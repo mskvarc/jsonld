@@ -1,4 +1,5 @@
-use jsonld_core::{ExpandedDocument, FlattenedDocument, Loader};
+use jsonld_context_processing::WarningHandler;
+use jsonld_core::{ExpandedDocument, FlattenedDocument, Loader, warning};
 use jsonld_syntax::{IntoJson, Keyword};
 use rdfx::vocabulary::{self, Vocabulary};
 use std::hash::Hash;
@@ -46,22 +47,29 @@ pub trait EmbedContext {
 /// is embedded into the output as its `@context`.
 pub trait Compact<I, B> {
     /// Compacts this document with the given [`Options`][crate::Options].
-    async fn compact_full<'a, N, L>(
+    ///
+    /// `warnings` receives every warning raised while processing the scoped
+    /// contexts compaction meets.
+    async fn compact_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
         options: crate::Options,
+        warnings: W,
     ) -> CompactDocumentResult<L::Error>
     where
         N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
-        L: Loader;
+        L: Loader,
+        W: WarningHandler<N>;
 
     /// Compacts this document with the default
     /// [`Options`][crate::Options], using `vocabulary` to resolve IRI and blank
     /// node identifiers.
+    ///
+    /// Warnings are printed to standard error.
     async fn compact_with<'a, N, L>(
         &'a self,
         vocabulary: &'a mut N,
@@ -74,12 +82,14 @@ pub trait Compact<I, B> {
         B: Clone + Hash + Eq,
         L: Loader,
     {
-        self.compact_full(vocabulary, context, loader, crate::Options::default()).await
+        self.compact_full(vocabulary, context, loader, crate::Options::default(), warning::Print).await
     }
 
     /// Compacts this document with the default [`Options`][crate::Options], for
     /// documents that store IRIs and blank node identifiers inline instead of
     /// indexing them through a vocabulary.
+    ///
+    /// Warnings are printed to standard error.
     async fn compact<'a, L>(&'a self, context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>, loader: &'a L) -> CompactDocumentResult<L::Error>
     where
         (): rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
@@ -92,22 +102,24 @@ pub trait Compact<I, B> {
 }
 
 impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
-    async fn compact_full<'a, N, L>(
+    async fn compact_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
         options: crate::Options,
+        mut warnings: W,
     ) -> CompactDocumentResult<L::Error>
     where
         N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
         let mut compacted_output = self
             .objects()
-            .compact_fragment_full(vocabulary, context.processed(), context.processed(), None, loader, options)
+            .compact_fragment_full(vocabulary, context.processed(), context.processed(), None, loader, options, &mut warnings)
             .await?;
 
         compacted_output.embed_context(vocabulary, context, options)?;
@@ -117,21 +129,23 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
 }
 
 impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
-    async fn compact_full<'a, N, L>(
+    async fn compact_full<'a, N, L, W>(
         &'a self,
         vocabulary: &'a mut N,
         context: jsonld_context_processing::ProcessedRef<'a, 'a, I, B>,
         loader: &'a L,
         options: crate::Options,
+        mut warnings: W,
     ) -> CompactDocumentResult<L::Error>
     where
         N: rdfx::vocabulary::VocabularyMut<Iri = I, BlankId = B>,
         I: Clone + Hash + Eq,
         B: Clone + Hash + Eq,
         L: Loader,
+        W: WarningHandler<N>,
     {
         let mut compacted_output = self
-            .compact_fragment_full(vocabulary, context.processed(), context.processed(), None, loader, options)
+            .compact_fragment_full(vocabulary, context.processed(), context.processed(), None, loader, options, &mut warnings)
             .await?;
 
         compacted_output.embed_context(vocabulary, context, options)?;
@@ -181,5 +195,62 @@ impl EmbedContext for jstrict::Value {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use crate::{Compact, Options, test_fixtures::json};
+    use jsonld_context_processing::{Process, ProcessedRef, Warning};
+    use jsonld_core::{ExpandedDocument, NoLoader, TryFromJson, warning::WarningBuf};
+    use jsonld_syntax::{TryFromJson as _, context::Context as SyntaxContext};
+    use rdfx::{BlankIdBuf, IriBuf, vocabulary::no_vocabulary_mut};
+
+    /// A property-scoped context is processed again when compaction reaches a
+    /// node written under that property, and what that processing reports
+    /// reaches the handler given to `compact_full`.
+    #[tokio::test]
+    async fn scoped_context_warnings_reach_the_compaction_handler() {
+        let context = SyntaxContext::try_from_json(&json(
+            r#"{
+                "p": { "@id": "https://example.com/p", "@context": { "bad": { "@id": "@foo" } } },
+                "q": "https://example.com/q"
+            }"#,
+        ))
+        .unwrap();
+        let mut processing_warnings = WarningBuf::<Warning>::new();
+        let processed = context
+            .process_full(
+                no_vocabulary_mut(),
+                &jsonld_core::Context::new(None),
+                &NoLoader,
+                None,
+                jsonld_context_processing::Options::default(),
+                &mut processing_warnings,
+            )
+            .await
+            .unwrap()
+            .into_processed();
+        let document = ExpandedDocument::<IriBuf, BlankIdBuf>::try_from_json_in(
+            no_vocabulary_mut(),
+            json(r#"[{ "https://example.com/p": [{ "https://example.com/q": [{ "@value": 1 }] }] }]"#),
+        )
+        .unwrap();
+
+        let mut warnings = WarningBuf::<Warning>::new();
+        document
+            .compact_full(
+                no_vocabulary_mut(),
+                ProcessedRef::new(&context, &processed),
+                &NoLoader,
+                Options::default(),
+                &mut warnings,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(warnings.0, vec![Warning::KeywordLikeValue(String::from("@foo"))]);
     }
 }

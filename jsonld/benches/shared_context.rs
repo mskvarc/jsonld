@@ -125,6 +125,7 @@ fn compact_once(runtime: &Runtime, shared: &Shared) {
                 shared.processed.as_ref(),
                 &NoLoader,
                 jsonld::compaction::Options::default(),
+                (),
             )
             .await
             .expect("compact");
@@ -239,6 +240,7 @@ fn run_cold_memo_compact(c: &mut Criterion) {
                         processed.as_ref(),
                         &NoLoader,
                         jsonld::compaction::Options::default(),
+                        (),
                     )
                     .await
                     .expect("compact");

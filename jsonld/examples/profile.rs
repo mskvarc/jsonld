@@ -89,6 +89,7 @@ async fn run_compact(p: &Prepared, iters: usize) {
                 p.processed.as_ref(),
                 &loader,
                 jsonld::compaction::Options::default(),
+                (),
             )
             .await
             .expect("compact");

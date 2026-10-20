@@ -70,7 +70,7 @@ pub(crate) fn iri_term(source: &str) -> Term<IriBuf, BlankIdBuf> {
 pub(crate) async fn compact_one_value_document(context: &TestContext, property: &str, value: &str) -> (String, jstrict::Value) {
     let document = expanded_object(&format!(r#"{{ "{property}": [{value}] }}"#));
     let compacted = document
-        .compact_fragment_full(no_vocabulary_mut(), context, context, None, &NoLoader, Options::default())
+        .compact_fragment_full(no_vocabulary_mut(), context, context, None, &NoLoader, Options::default(), &mut ())
         .await
         .unwrap();
 
