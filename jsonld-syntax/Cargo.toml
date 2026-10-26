@@ -46,7 +46,7 @@ jstrict = "0.16.0"
 langtag = "1.1.0"
 rdfx = "0.24.0"
 serde = { version = "1.0.229", features = ["derive"], optional = true }
-smallvec = "1.16.3"
+smallvec = "1.16.4"
 smol_str = { version = "0.3.7", default-features = false }
 thiserror = "2.0.21"
 

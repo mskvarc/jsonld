@@ -33,11 +33,11 @@ jsonld-expansion.workspace = true
 jsonld-syntax.workspace = true
 jstrict = "0.16.0"
 rdfx = "0.24.0"
-smallvec = "1.16.3"
+smallvec = "1.16.4"
 thiserror = "2.0.21"
 
 [dev-dependencies]
-tokio = { version = "1.54.0", features = ["macros", "rt"] }
+tokio = { version = "1.54.1", features = ["macros", "rt"] }
 
 [lints]
 workspace = true

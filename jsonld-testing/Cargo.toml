@@ -29,4 +29,4 @@ proc-macro2 = "1.0.107"
 quote = "1.0.47"
 rdfx = { version = "0.24.0", features = ["contextual"] }
 syn = { version = "3.0.9", features = ["full"] }
-tokio = { version = "1.54.0", features = ["rt"] }
+tokio = { version = "1.54.1", features = ["rt"] }
