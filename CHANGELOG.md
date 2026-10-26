@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.26.0] - 2026-10-26
+
+### ⚡ Performance
+- cap the processed-context memo at 4096 entries
+
+### 🧹 Chores
+- update dependencies
+
 ## [v0.25.0] - 2026-10-20
 
 ### ⚡ Performance
@@ -15,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - route compaction warnings through a handler
 
 ### 🧹 Chores
+- update changelog
 - bump version
 - update dependencies
 
