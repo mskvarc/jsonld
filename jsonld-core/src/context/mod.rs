@@ -19,7 +19,7 @@ pub use jsonld_syntax::context::{
 
 pub use definition::*;
 pub use inverse::InverseContext;
-pub use memo::ShardedMemo;
+pub use memo::{MAX_ENTRIES, ShardedMemo};
 
 /// Either a borrowed context or an owned one held behind a box.
 ///
@@ -508,7 +508,7 @@ impl<T, B> Context<T, B> {
     /// The cache stores results keyed on `(var, vocab, reverse, mode)`. It is
     /// invalidated whenever the context's term definitions, base IRI,
     /// vocabulary, language, or direction change, since those affect
-    /// compaction output.
+    /// compaction output. The memo holds at most [`MAX_ENTRIES`] entries.
     pub fn compact_iri_cache(&self) -> &CompactIriCache<T, B> {
         self.compact_iri_cache.get_or_init(ShardedMemo::default)
     }
@@ -519,7 +519,8 @@ impl<T, B> Context<T, B> {
     /// the dominant key-expansion call shape (`vocab=Some(Keep)`,
     /// `document_relative=false`); other shapes bypass this cache. Invalidated
     /// alongside the compact-IRI / inverse caches whenever the context's term
-    /// definitions, base IRI, vocabulary, language, or direction change.
+    /// definitions, base IRI, vocabulary, language, or direction change. The
+    /// memo holds at most [`MAX_ENTRIES`] entries.
     pub fn term_resolution_cache(&self) -> &TermResolutionCache<T, B> {
         self.term_resolution_cache.get_or_init(ShardedMemo::default)
     }

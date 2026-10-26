@@ -15,11 +15,25 @@
 //!   afresh for every node object, so every document creates and fills new
 //!   memos.
 //!
+//! - `memo_churn_unique_names` — single-threaded expansion of documents whose
+//!   attribute names are never repeated, the way tenants writing free-form
+//!   attribute names feed a long-lived shared context. Every name misses the
+//!   term memo and falls through to `@vocab`.
+//! - `memo_churn_hot_under_attack` — hot entities expanded by several threads
+//!   while one extra thread churns unique names through the same shared
+//!   context. Compares hot throughput with the churner off and on.
+//!
+//! The churn scenarios use only public API present before the memo was capped,
+//! so the same file runs against either side of an A/B comparison.
+//!
 //! The shared context is the published NGSI-LD core context, v1.9.
 use std::{
     collections::BTreeMap,
     hint::black_box,
-    sync::Barrier,
+    sync::{
+        Barrier,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -251,5 +265,95 @@ fn run_cold_memo_compact(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, run_warm_compact, run_contended_compact, run_contended_expand, run_cold_memo_compact);
+/// Attribute names per churn document.
+const CHURN_NAMES_PER_DOCUMENT: u64 = 50;
+
+/// Source of attribute-name numbers no document has used before, process-wide
+/// so that no name repeats across iterations, samples or threads.
+static NEXT_NAME: AtomicU64 = AtomicU64::new(0);
+
+/// A document of [`CHURN_NAMES_PER_DOCUMENT`] Properties with never-seen names.
+fn churn_entity() -> Value {
+    let first = NEXT_NAME.fetch_add(CHURN_NAMES_PER_DOCUMENT, Ordering::Relaxed);
+    let members: String = (first..first + CHURN_NAMES_PER_DOCUMENT)
+        .map(|n| format!(r#","attribute{n}":{{"type":"Property","value":{n}}}"#))
+        .collect();
+    Value::parse_str(&format!(r#"{{"id":"urn:ngsi-ld:Churn:C{first}","type":"Churn"{members}}}"#))
+        .expect("churn entity parse")
+        .0
+}
+
+fn expand_churn(runtime: &Runtime, shared: &Shared) {
+    let entity = churn_entity();
+    runtime.block_on(async {
+        let out = entity
+            .expand_full(
+                jsonld::rdfx::vocabulary::no_vocabulary_mut(),
+                shared.processed.processed().clone(),
+                None,
+                &NoLoader,
+                jsonld::expansion::Options::default(),
+                (),
+            )
+            .await
+            .expect("expand churn");
+        black_box(out);
+    });
+}
+
+fn run_memo_churn_unique_names(c: &mut Criterion) {
+    let runtime = bench_runtime();
+    let shared = prepare_shared(&runtime);
+
+    let mut group = c.benchmark_group("memo_churn_unique_names");
+    group.throughput(Throughput::Elements(CHURN_NAMES_PER_DOCUMENT));
+    group.bench_function("expand", |b| b.iter(|| expand_churn(&runtime, &shared)));
+    group.finish();
+}
+
+/// Hot throughput while a churner thread runs unique names through the same
+/// shared context for the whole measurement.
+fn run_hot_under_attack(c: &mut Criterion) {
+    let shared = prepare_shared(&bench_runtime());
+
+    let mut group = c.benchmark_group("memo_churn_hot_under_attack");
+    group.sample_size(30);
+    let hot_threads = thread_counts().into_iter().filter(|&n| n >= 2).min().unwrap_or(2);
+    group.throughput(Throughput::Elements(hot_threads as u64));
+    for churner in [false, true] {
+        let label = if churner { "churner_on" } else { "churner_off" };
+        group.bench_function(BenchmarkId::new(label, hot_threads), |b| {
+            b.iter_custom(|iters| {
+                let stop = AtomicBool::new(false);
+                thread::scope(|scope| {
+                    let churn = churner.then(|| {
+                        scope.spawn(|| {
+                            let runtime = bench_runtime();
+                            while !stop.load(Ordering::Relaxed) {
+                                expand_churn(&runtime, &shared);
+                            }
+                        })
+                    });
+                    let elapsed = run_concurrently(&shared, hot_threads, iters, expand_once);
+                    stop.store(true, Ordering::Relaxed);
+                    if let Some(handle) = churn {
+                        handle.join().expect("churner");
+                    }
+                    elapsed
+                })
+            });
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    run_warm_compact,
+    run_contended_compact,
+    run_contended_expand,
+    run_cold_memo_compact,
+    run_memo_churn_unique_names,
+    run_hot_under_attack
+);
 criterion_main!(benches);

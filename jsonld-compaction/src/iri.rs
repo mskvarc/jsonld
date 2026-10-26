@@ -715,7 +715,7 @@ fn disambiguate_keyword(s: String) -> String {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-    use jsonld_core::{Id, ValidId, context::NormalTermDefinition};
+    use jsonld_core::{Id, ValidId, context::{MAX_ENTRIES, NormalTermDefinition}};
     use rdfx::{BlankIdBuf, IriBuf, vocabulary::no_vocabulary};
 
     /// One processed context compacted under 1.1 and then 1.0: the
@@ -751,6 +751,24 @@ mod tests {
 
         assert_eq!(compacted_1_1.as_deref(), Some("t"));
         assert_eq!(compacted_1_0.as_deref(), Some("http://example.com/t"));
+    }
+
+    #[test]
+    fn compacting_more_distinct_terms_than_the_cap_leaves_the_memo_at_the_cap() {
+        let context: Context<IriBuf, BlankIdBuf> = Context::new(None);
+        let term_for = |i: usize| {
+            let iri = IriBuf::new(format!("http://example.com/t/{i}")).unwrap();
+            Term::<IriBuf, BlankIdBuf>::Id(Id::Valid(ValidId::Iri(iri)))
+        };
+
+        for i in 0..2 * MAX_ENTRIES {
+            compact_iri(no_vocabulary(), &context, &term_for(i), true, false, Options::default()).unwrap();
+        }
+
+        let cached = context.compact_iri_cache().len();
+        assert!(cached > 0 && cached <= MAX_ENTRIES, "memo holds {cached} entries");
+        let recompacted = compact_iri(no_vocabulary(), &context, &term_for(0), true, false, Options::default()).unwrap();
+        assert_eq!(recompacted.as_deref(), Some("http://example.com/t/0"));
     }
 
     /// Relativizing an IRI equal to a base ending in `/` must not produce
