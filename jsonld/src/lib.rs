@@ -442,7 +442,7 @@
 //! The constants are `iri-rs` types built by that crate's `iri!` macro, which
 //! resolves `iri-rs` against your crate's manifest as it expands. So `vocab!`
 //! needs `iri-rs` among your own dependencies, and a re-exported path cannot
-//! stand in for it. A plain `iri-rs = "3"` is enough: the `vocab` feature turns
+//! stand in for it. A plain `iri-rs = "4"` is enough: the `vocab` feature turns
 //! on the `static` feature that `iri!` lives behind.
 //!
 //! # Feature flags
@@ -451,22 +451,23 @@
 //!
 //! ## IRI comparison
 //!
-//! `Iri`/`IriRef` compare, hash and order as `iri-rs` does by default: by their
-//! RFC 3987 normalized form, so two spellings of the same IRI compare equal.
-//! This crate does not enable the `bytewise` feature of `iri-rs`, and offers no
-//! flag that does.
+//! IRIs are compared as strings. The [IRI Expansion algorithm][1] resolves
+//! against the base IRI using only the basic algorithm of RFC 3986 §5.2, and
+//! states that "neither Syntax-Based Normalization nor Scheme-Based
+//! Normalization are performed". The [Node Map Generation algorithm][2] keys
+//! nodes by their `@id` string, and [RDF 1.1 Concepts §3.2][3] says "Further
+//! normalization MUST NOT be performed when comparing IRIs for equality".
 //!
-//! The [IRI Expansion algorithm][1] resolves against the base IRI using only
-//! the basic algorithm of RFC 3986 §5.2, and states that "neither Syntax-Based
-//! Normalization nor Scheme-Based Normalization are performed", so IRIs reach
-//! the algorithms in whatever form the document wrote them. The W3C test suites
-//! pass under either comparison.
-//!
-//! An application that wants the cheaper byte-wise comparison can depend on
-//! `iri-rs` with `bytewise` itself. Cargo unifies features over a build, so
-//! that changes IRI equality for every crate in it, this one included.
+//! `==`, `Hash` and `Ord` on `iri-rs` types are exactly that, RFC 3987 §5.3.1
+//! Simple String Comparison, so `http://example.org/~a` and
+//! `http://example.org/%7Ea` are two nodes, each keeping the spelling the
+//! document gave it. No flag changes this. A caller whose own protocol asks
+//! for normalized comparison, such as NGSI-LD, uses `iri-rs`'s `equivalent()`
+//! or `normalized()` at its own boundary.
 //!
 //! [1]: https://www.w3.org/TR/json-ld11-api/#iri-expansion
+//! [2]: https://www.w3.org/TR/json-ld11-api/#node-map-generation
+//! [3]: https://www.w3.org/TR/rdf11-concepts/#section-IRIs
 //!
 //! ## Hashing
 //!

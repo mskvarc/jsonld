@@ -33,7 +33,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! iri-rs = { version = "3", features = ["static"] }
+//! iri-rs = { version = "4", features = ["static"] }
 //! ```
 //!
 //! This cannot be routed through another crate's re-export of `iri-rs`. The
@@ -43,7 +43,7 @@
 //! this macro looks the name up rather than assuming `iri_rs`.
 //!
 //! Depending on the umbrella `jsonld` crate with its `vocab` feature covers the
-//! `static` part, since features unify, so a plain `iri-rs = "3"` alongside it
+//! `static` part, since features unify, so a plain `iri-rs = "4"` alongside it
 //! is enough.
 //!
 //! [`iri-rs`]: https://docs.rs/iri-rs
@@ -80,7 +80,7 @@ fn iri_path(span: Span) -> syn::Result<proc_macro2::TokenStream> {
         Err(_) => Err(syn::Error::new(
             span,
             "the generated constants are `iri-rs` types, so the calling crate needs \
-             `iri-rs = { version = \"3\", features = [\"static\"] }` as a dependency",
+             `iri-rs = { version = \"4\", features = [\"static\"] }` as a dependency",
         )),
     }
 }

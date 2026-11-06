@@ -13,7 +13,7 @@ impl<S: std::hash::BuildHasher + Send + Sync> Loader for HashMap<IriBuf, RemoteD
     type Error = EntryNotFound;
 
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
-        match self.get(&IriBuf::from(url)) {
+        match self.get(url.as_str()) {
             Some(document) => Ok(document.clone()),
             None => Err(LoadError::new(url.into(), EntryNotFound)),
         }
@@ -24,7 +24,7 @@ impl Loader for BTreeMap<IriBuf, RemoteDocument> {
     type Error = EntryNotFound;
 
     async fn load(&self, url: Iri<&str>) -> Result<RemoteDocument<IriBuf>, LoadError<Self::Error>> {
-        match self.get(&IriBuf::from(url)) {
+        match self.get(url.as_str()) {
             Some(document) => Ok(document.clone()),
             None => Err(LoadError::new(url.into(), EntryNotFound)),
         }

@@ -101,7 +101,7 @@ That partition is a naming convention, not a rule from the JSON-LD specification
 
 Casing is more than cosmetic in one place. A constant name is the term in SHOUTY_SNAKE_CASE, so two terms that differ only in how they mark word boundaries collapse onto the same name and the macro refuses to generate: `createdAt` and `created_at` both want to be `CREATED_AT`, which fails with `property term naming collision: createdAt and created_at both map to CREATED_AT`. Splitting classes from properties keeps `Property` and `property` apart, but it cannot separate two terms from the same side of the split. A context that mixes camelCase and snake_case for the same concept therefore cannot be used with `vocab!`, and one that is internally consistent about either style is fine.
 
-The constants are `iri-rs` types built by that crate's `iri!` macro, which resolves `iri-rs` against your crate's manifest as it expands, so `vocab!` needs `iri-rs = "3"` among your own dependencies. The `vocab` feature turns on the `static` feature that `iri!` lives behind.
+The constants are `iri-rs` types built by that crate's `iri!` macro, which resolves `iri-rs` against your crate's manifest as it expands, so `vocab!` needs `iri-rs = "4"` among your own dependencies. The `vocab` feature turns on the `static` feature that `iri!` lives behind.
 
 ### A different dependency stack
 
@@ -191,7 +191,7 @@ cargo add jsonld
 | `expandable-chrono` | | `chrono` temporal types in `Expandable` types |
 | `vocab` | | the `vocab!` macro |
 
-IRIs compare, hash and order as `iri-rs` does by default: by their RFC 3987 normalized form, so two spellings of the same IRI compare equal. No crate in this workspace enables the `bytewise` feature of `iri-rs`, and none offers a flag that does. [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, so IRIs reach the algorithms as the document wrote them, and the W3C suites pass under either comparison. An application that wants the cheaper byte-wise comparison can depend on `iri-rs` with `bytewise` itself. Cargo unifies features over a build, so that changes IRI equality for every crate in it, these included.
+IRIs are compared as strings, as JSON-LD and RDF require: [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs "neither Syntax-Based Normalization nor Scheme-Based Normalization", the node map is keyed by the `@id` string, and RDF 1.1 Concepts §3.2 says "Further normalization MUST NOT be performed when comparing IRIs for equality". That is what `==`, `Hash` and `Ord` on `iri-rs` 4 types do (RFC 3987 §5.3.1 simple string comparison), so `http://example.org/~a` and `http://example.org/%7Ea` are two nodes, each keeping its spelling. There is no flag that changes this. A caller whose own protocol asks for normalized comparison, such as NGSI-LD, uses `iri-rs`'s `equivalent()` or `normalized()` at its own boundary.
 
 ## Conformance
 

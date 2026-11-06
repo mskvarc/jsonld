@@ -18,11 +18,11 @@ all-features = true
 [dependencies]
 contextual = "0.1.6"
 foldhash = "0.2.0"
-iri-rs = "3.5.0"
+iri-rs = "4.0.0"
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
 parking_lot = "0.13.0"
-rdfx = "0.24.0"
+rdfx = "0.25.0"
 thiserror = "2.0.21"
 
 [lints]
