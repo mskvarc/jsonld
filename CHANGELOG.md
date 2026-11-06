@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.27.0] - 2026-11-06
+
+### 🚀 Features
+- compare iris as strings on iri-rs 4 ⚠️ **BREAKING**
+- drop the bytewise-iri feature and require iri-rs 3.5.0 ⚠️ **BREAKING**
+
+### 🧹 Chores
+- bump version
+- update dependencies
+
 ## [v0.26.0] - 2026-10-26
 
 ### ⚡ Performance
