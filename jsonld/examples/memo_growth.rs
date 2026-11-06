@@ -54,7 +54,10 @@ fn main() {
     let document = Value::parse_str(r#"{"@context":{"@vocab":"https://uri.etsi.org/ngsi-ld/default-context/","id":"@id","type":"@type"}}"#)
         .expect("context parse")
         .0;
-    let context = document.as_object().and_then(|object| object.get_unique("@context").ok().flatten()).expect("@context");
+    let context = document
+        .as_object()
+        .and_then(|object| object.get_unique("@context").ok().flatten())
+        .expect("@context");
     let context = SyntaxContext::try_from_json(context).expect("context");
     let processed = runtime
         .block_on(async {
@@ -67,11 +70,15 @@ fn main() {
     let mut checkpoint = 1_000;
     println!("names live_bytes");
     println!("0 {}", LIVE.load(Ordering::Relaxed));
-    for first in (0..total).step_by(NAMES_PER_DOCUMENT as usize) {
-        let members: String = (first..first + NAMES_PER_DOCUMENT)
-            .map(|n| format!(r#","attribute{n}":{{"type":"Property","value":{n}}}"#))
-            .collect();
-        let document = Value::parse_str(&format!(r#"{{"id":"urn:x:C{first}","type":"Churn"{members}}}"#)).expect("parse").0;
+    let step = usize::try_from(NAMES_PER_DOCUMENT).expect("names per document fit in usize");
+    for first in (0..total).step_by(step) {
+        let members = (first..first + NAMES_PER_DOCUMENT).fold(String::new(), |mut members, n| {
+            members.push_str(&format!(r#","attribute{n}":{{"type":"Property","value":{n}}}"#));
+            members
+        });
+        let document = Value::parse_str(&format!(r#"{{"id":"urn:x:C{first}","type":"Churn"{members}}}"#))
+            .expect("parse")
+            .0;
         let expanded = runtime.block_on(async {
             document
                 .expand_full(

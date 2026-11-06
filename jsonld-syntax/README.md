@@ -17,7 +17,6 @@ Part of [`jsonld`](https://crates.io/crates/jsonld), a [JSON-LD 1.1](https://www
 
 | Flag | Default | Enables |
 | --- | :---: | --- |
-| `bytewise-iri` | yes | byte-wise IRI comparison, hashing and ordering in `iri-rs` |
 | `ahash`, `gxhash` | | a different hasher for the internal collections |
 | `serde` | | `Serialize` and `Deserialize` for the syntax types |
 | `serde-json`, `sonic-rs` | | those crates as the JSON value backend |

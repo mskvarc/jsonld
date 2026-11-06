@@ -15,12 +15,8 @@ readme = "README.md"
 [package.metadata.docs.rs]
 all-features = true
 
-[features]
-default = ["bytewise-iri"]
-bytewise-iri = ["iri-rs/bytewise", "jsonld-core/bytewise-iri"]
-
 [dependencies]
-iri-rs = "3.4.1"
+iri-rs = "3.5.0"
 jsonld-core.workspace = true
 jstrict = "0.16.0"
 ld-core = "0.6.0"

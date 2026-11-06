@@ -19,15 +19,13 @@ all-features = true
 rustc-args = ["-C", "target-cpu=native"]
 
 [features]
-default = ["bytewise-iri"]
-bytewise-iri = ["jsonld/bytewise-iri"]
 ahash = ["jsonld/ahash"]
 gxhash = ["jsonld/gxhash"]
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
 contextual = "0.1.6"
-iri-rs = { version = "3.4.1", features = ["static"] }
+iri-rs = { version = "3.5.0", features = ["static"] }
 jsonld = { workspace = true, features = ["reqwest"] }
 jstrict = "0.16.0"
 log = "0.4.34"

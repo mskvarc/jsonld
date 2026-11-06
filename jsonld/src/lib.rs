@@ -447,24 +447,24 @@
 //!
 //! # Feature flags
 //!
-//! No feature other than `bytewise-iri` is enabled by default.
+//! No feature is enabled by default.
 //!
 //! ## IRI comparison
 //!
-//! | Feature | Effect |
-//! |---|---|
-//! | `bytewise-iri` *(default)* | Forwarded to `iri-rs`, where it makes `Iri`/`IriRef` compare, hash and order **byte-wise** rather than by RFC 3987 normalization. |
+//! `Iri`/`IriRef` compare, hash and order as `iri-rs` does by default: by their
+//! RFC 3987 normalized form, so two spellings of the same IRI compare equal.
+//! This crate does not enable the `bytewise` feature of `iri-rs`, and offers no
+//! flag that does.
 //!
-//! This matches how JSON-LD produces IRIs. The [IRI Expansion algorithm][1]
-//! resolves against the base IRI using only the basic algorithm of RFC 3986
-//! §5.2, and states that "neither Syntax-Based Normalization nor Scheme-Based
-//! Normalization are performed", so IRIs reach the algorithms in whatever form
-//! the document wrote them, and comparing them bytewise compares exactly what
-//! the specification produced. Byte comparison is also considerably cheaper.
+//! The [IRI Expansion algorithm][1] resolves against the base IRI using only
+//! the basic algorithm of RFC 3986 §5.2, and states that "neither Syntax-Based
+//! Normalization nor Scheme-Based Normalization are performed", so IRIs reach
+//! the algorithms in whatever form the document wrote them. The W3C test suites
+//! pass under either comparison.
 //!
-//! Turning the feature off buys normalization-aware equality, where two
-//! spellings of the same IRI compare equal, at the cost of normalizing on every
-//! comparison. The W3C test suites pass either way.
+//! An application that wants the cheaper byte-wise comparison can depend on
+//! `iri-rs` with `bytewise` itself. Cargo unifies features over a build, so
+//! that changes IRI equality for every crate in it, this one included.
 //!
 //! [1]: https://www.w3.org/TR/json-ld11-api/#iri-expansion
 //!

@@ -715,7 +715,11 @@ fn disambiguate_keyword(s: String) -> String {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-    use jsonld_core::{Id, ValidId, context::{MAX_ENTRIES, NormalTermDefinition}};
+    use jsonld_core::{
+        Id,
+        ValidId,
+        context::{MAX_ENTRIES, NormalTermDefinition},
+    };
     use rdfx::{BlankIdBuf, IriBuf, vocabulary::no_vocabulary};
 
     /// One processed context compacted under 1.1 and then 1.0: the

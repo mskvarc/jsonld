@@ -13,12 +13,6 @@ Part of [`jsonld`](https://crates.io/crates/jsonld), a [JSON-LD 1.1](https://www
 
 > **Status: experimental.** Version numbers move fast and there is no compatibility promise before 1.0. The [workspace README](https://github.com/mskvarc/jsonld#readme) says what that means in practice.
 
-## Feature flags
-
-| Flag | Default | Enables |
-| --- | :---: | --- |
-| `bytewise-iri` | yes | byte-wise IRI comparison, hashing and ordering in `iri-rs` |
-
 ## License
 
 Dual-licensed, same as upstream. Pick whichever fits:

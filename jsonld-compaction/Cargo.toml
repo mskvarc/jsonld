@@ -15,15 +15,6 @@ readme = "README.md"
 [package.metadata.docs.rs]
 all-features = true
 
-[features]
-default = ["bytewise-iri"]
-bytewise-iri = [
-    "jsonld-core/bytewise-iri",
-    "jsonld-syntax/bytewise-iri",
-    "jsonld-context-processing/bytewise-iri",
-    "jsonld-expansion/bytewise-iri",
-]
-
 [dependencies]
 contextual = "0.1.6"
 derive-where = "1.7.0"

@@ -54,9 +54,6 @@ format_push_string = "allow"
 unused_async_trait_impl = "allow"
 
 [workspace.dependencies]
-# Default features are off so that each crate's own `default`, and nothing
-# else, decides whether a dependant gets `bytewise-iri`: a crate that forwards
-# a feature to a sibling does so in its own `[features]` table.
 jsonld = { path = "jsonld", version = "0.26.0", default-features = false }
 jsonld-compaction = { path = "jsonld-compaction", version = "0.26.0", default-features = false }
 jsonld-context-processing = { path = "jsonld-context-processing", version = "0.26.0", default-features = false }

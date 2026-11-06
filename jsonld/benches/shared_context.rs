@@ -275,9 +275,10 @@ static NEXT_NAME: AtomicU64 = AtomicU64::new(0);
 /// A document of [`CHURN_NAMES_PER_DOCUMENT`] Properties with never-seen names.
 fn churn_entity() -> Value {
     let first = NEXT_NAME.fetch_add(CHURN_NAMES_PER_DOCUMENT, Ordering::Relaxed);
-    let members: String = (first..first + CHURN_NAMES_PER_DOCUMENT)
-        .map(|n| format!(r#","attribute{n}":{{"type":"Property","value":{n}}}"#))
-        .collect();
+    let members = (first..first + CHURN_NAMES_PER_DOCUMENT).fold(String::new(), |mut members, n| {
+        members.push_str(&format!(r#","attribute{n}":{{"type":"Property","value":{n}}}"#));
+        members
+    });
     Value::parse_str(&format!(r#"{{"id":"urn:ngsi-ld:Churn:C{first}","type":"Churn"{members}}}"#))
         .expect("churn entity parse")
         .0

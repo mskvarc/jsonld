@@ -180,7 +180,6 @@ cargo add jsonld
 
 | Flag | Default | Enables |
 | --- | :---: | --- |
-| `bytewise-iri` | yes | byte-wise IRI comparison, hashing and ordering in `iri-rs` |
 | `ahash` | | `ahash` instead of the default hasher |
 | `gxhash` | | `gxhash` instead of the default hasher; needs AES intrinsics and fails to build without them |
 | `serde` | | `Serialize` / `Deserialize` for syntax and core types |
@@ -192,7 +191,7 @@ cargo add jsonld
 | `expandable-chrono` | | `chrono` temporal types in `Expandable` types |
 | `vocab` | | the `vocab!` macro |
 
-`bytewise-iri` forwards to `iri-rs`, where it makes IRIs compare, hash and order byte-wise rather than by RFC 3987 normalization. That matches what the spec produces, since [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, and it is considerably cheaper. Turning it off buys normalization-aware equality instead, where two spellings of the same IRI compare equal. The W3C suites pass either way. Each crate forwards the feature to its siblings itself, so depending on any of them with `default-features = false` turns it off across the whole stack. Cargo unifies features over a build, though, so it comes back on as soon as any other crate in the build depends on one of these crates with default features.
+IRIs compare, hash and order as `iri-rs` does by default: by their RFC 3987 normalized form, so two spellings of the same IRI compare equal. No crate in this workspace enables the `bytewise` feature of `iri-rs`, and none offers a flag that does. [IRI Expansion](https://www.w3.org/TR/json-ld11-api/#iri-expansion) performs neither syntax-based nor scheme-based normalization, so IRIs reach the algorithms as the document wrote them, and the W3C suites pass under either comparison. An application that wants the cheaper byte-wise comparison can depend on `iri-rs` with `bytewise` itself. Cargo unifies features over a build, so that changes IRI equality for every crate in it, these included.
 
 ## Conformance
 

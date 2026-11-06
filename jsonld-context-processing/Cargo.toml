@@ -15,18 +15,10 @@ readme = "README.md"
 [package.metadata.docs.rs]
 all-features = true
 
-[features]
-default = ["bytewise-iri"]
-bytewise-iri = [
-    "iri-rs/bytewise",
-    "jsonld-core/bytewise-iri",
-    "jsonld-syntax/bytewise-iri",
-]
-
 [dependencies]
 contextual = "0.1.6"
 foldhash = "0.2.0"
-iri-rs = "3.4.1"
+iri-rs = "3.5.0"
 jsonld-core.workspace = true
 jsonld-syntax.workspace = true
 parking_lot = "0.13.0"
