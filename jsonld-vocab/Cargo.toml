@@ -26,10 +26,10 @@ proc-macro2 = "1.0.107"
 proc-macro-crate = "3.5.0"
 quote = "1.0.47"
 serde_json = "1.0.154"
-syn = { version = "3.0.9", features = ["full", "extra-traits"] }
+syn = { version = "3.0.10", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
-iri-rs = { version = "4.0.0", features = ["static"] }
+iri-rs = { version = "4.1.1", features = ["static"] }
 trybuild = { version = "1.0.122", features = ["diff"] }
 
 [lints]
