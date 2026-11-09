@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.27.1] - 2026-11-09
+
+### 📚 Documentation
+- link the andromeda jsonld page and correct the readme
+
+### 🧹 Chores
+- update dependencies
+- update dependencies
+
 ## [v0.27.0] - 2026-11-06
 
 ### 🚀 Features
@@ -9,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - drop the bytewise-iri feature and require iri-rs 3.5.0 ⚠️ **BREAKING**
 
 ### 🧹 Chores
+- bump version
 - bump version
 - update dependencies
 
