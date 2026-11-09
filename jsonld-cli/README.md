@@ -18,6 +18,8 @@ cat document.jsonld | jsonld-cli expand --base-url https://example.org/
 
 Documents are read from a path, an IRI or standard input. Expansion can relabel blank nodes, put the result in canonical form, and report terms it had to guess at through `@vocab` or leave undefined. Remote contexts are fetched as needed, so a document that references one needs network access.
 
+[`jsonld` and JSON-LD on every request](https://andromeda.skvarc.com/docs/libraries/jsonld/), on the Andromeda documentation site, explains what the processor is tuned for, how it is tested and when the upstream `json-ld` is the better choice.
+
 > **Status: experimental.** Version numbers move fast and there is no compatibility promise before 1.0. The [workspace README](https://github.com/mskvarc/jsonld#readme) says what that means in practice.
 
 ## Feature flags

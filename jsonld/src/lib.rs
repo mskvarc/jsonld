@@ -27,8 +27,9 @@
 //!
 //! The W3C JSON-LD API test suite covers the four algorithms implemented here,
 //! namely expansion, compaction, flattening and RDF serialization, and 1,152 of
-//! its 1,156 tests pass. The other four are skipped against open upstream
-//! issues; the repository README breaks the numbers down per manifest.
+//! its 1,156 tests pass. The other four are skipped, each linked to the
+//! upstream discussion behind it; the repository README breaks the numbers
+//! down per manifest.
 //! `fromRdf`, HTML script extraction and HTTP content negotiation are *not*
 //! implemented. What is not settled is the API: names, error types and trait
 //! shapes are still moving, and no compatibility promise is made before 1.0.
@@ -43,8 +44,9 @@
 //!
 //! Two operational notes for untrusted input: the default hasher is fast but
 //! not hash-flooding resistant (see [Hashing](#hashing) for alternatives), and
-//! processed-context caches are unbounded, so a stream of distinct contexts
-//! grows memory without bound.
+//! a [`ProcessingCache`](jsonld_context_processing::ProcessingCache) never
+//! evicts, so a stream of distinct contexts through one grows memory until it
+//! is cleared.
 //!
 //! # Usage
 //!

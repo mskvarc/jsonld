@@ -9,6 +9,8 @@ The [JSON-LD 1.1 expansion algorithm](https://www.w3.org/TR/json-ld11-api/#expan
 
 Part of [`jsonld`](https://crates.io/crates/jsonld), a [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) implementation for Rust. Reach for the umbrella crate unless you specifically want expansion on its own.
 
+[`jsonld` and JSON-LD on every request](https://andromeda.skvarc.com/docs/libraries/jsonld/), on the Andromeda documentation site, explains what the processor is tuned for, how it is tested and when the upstream `json-ld` is the better choice.
+
 > **Status: experimental.** Version numbers move fast and there is no compatibility promise before 1.0. The [workspace README](https://github.com/mskvarc/jsonld#readme) says what that means in practice.
 
 ## License

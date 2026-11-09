@@ -7,7 +7,7 @@
 
 A [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) implementation for Rust: context processing, expansion, compaction, flattening and RDF serialization, plus a derive macro that expands your own types straight into JSON-LD.
 
-> **Status: experimental.** The W3C JSON-LD API test suite passes for the four algorithms implemented here: 1,152 of its 1,156 tests, with the other four skipped against open upstream issues (see [Conformance](#conformance)). `unwrap`, `expect`, `panic`, `todo` and friends are denied workspace-wide. Even so, this is a young fork, published mainly so a downstream project can depend on it. The API surface still moves, the additions (`Expandable`, `vocab!`) have no upstream track record, and there is no compatibility promise before 1.0. Treat it as usable and tested, but not settled. See [Stability](#stability).
+> **Status: experimental.** The W3C JSON-LD API test suite passes for the four algorithms implemented here: 1,152 of its 1,156 tests, with the other four skipped, each linked to the upstream discussion behind it (see [Conformance](#conformance)). `unwrap`, `expect`, `panic`, `todo` and friends are denied workspace-wide. Even so, this is a young fork, published mainly so a downstream project can depend on it. The API surface still moves, the additions (`Expandable`, `vocab!`) have no upstream track record, and there is no compatibility promise before 1.0. Treat it as usable and tested, but not settled. See [Stability](#stability).
 
 ```rust
 use iri_rs::{iri, IriBuf};
@@ -28,6 +28,8 @@ let expanded = input.expand(&jsonld::NoLoader).await?;
 
 The entry point is the `JsonLdProcessor` trait, which carries every transformation algorithm. Documents arrive as `RemoteDocument` (JSON already in hand) or `RemoteDocumentReference` (a URL for a loader to dereference). The [crate documentation](https://docs.rs/jsonld) is the full guide, with worked examples for expansion, compaction, flattening, JSON interop, the derive macro and the feature flags. This README covers what the fork is and why it exists.
 
+[`jsonld` and JSON-LD on every request](https://andromeda.skvarc.com/docs/libraries/jsonld/), on the Andromeda documentation site, explains what the processor is tuned for, how it is tested and when the upstream `json-ld` is the better choice.
+
 ---
 
 ## Why this fork
@@ -43,7 +45,7 @@ This fork was cut while building an [NGSI-LD](https://ngsi-ld.org/) context brok
 - **The data is Rust structs, not JSON.** The broker models the NGSI-LD information model as typed Rust values throughout its core. Serving one of them through the normal path means turning a struct into compact JSON, running the expansion algorithm over it, and arriving at expanded JSON, which builds and tears down a whole JSON document the broker never wanted. [`Expandable`](#expandable) removes both intermediate steps: a type renders directly into its expanded form.
 - **The same handful of `@context`s, on every single request.** NGSI-LD traffic overwhelmingly references the core context plus a few domain contexts. Reprocessing them per request is the dominant cost, hence the [context memoization and the synchronous fast path](#performance).
 - **Term IRIs are needed as constants.** Broker internals compare and construct terms from the core context constantly. [`vocab!`](#vocab) turns those context files into compile-time constants, so a mistyped term is a compile error rather than an entity that silently fails to match a query.
-- **The HTTP layer speaks `serde_json` or `sonic-rs`; the algorithms need neither.** JSON-LD depends on entry order and duplicate-key tolerance, which `serde_json::Map` and `sonic_rs::Object` do not provide, and yet a web server is built on them. So the [conversions live at the boundary](#json-interop), explicit and documented where they lose information, rather than one value type being imposed everywhere.
+- **The HTTP layer speaks `serde_json` or `sonic-rs`; the algorithms need neither.** The algorithms run over a JSON value that keeps every entry as written, a repeated key included, so the processor sees exactly what the document holds. `serde_json::Map` keeps one value per key, and yet a web server is built on it. So the [conversions live at the boundary](#json-interop), explicit and documented where they lose information, rather than one value type being imposed everywhere.
 
 The NGSI-LD information model left fingerprints on the derive vocabulary too: `flatten_map` for attribute maps keyed by term, `fragment` and `nested` for the Property/Relationship value objects, `container = "language"` for LanguageProperty, `coerce = "@vocab"` for VocabProperty, and CURIE prefixes that tolerate hyphenated names (`prefix(ngsi-ld = "...")`).
 
@@ -125,10 +127,10 @@ The performance work concentrates on context processing and compaction, the part
 
 What was done:
 
-- **Context memoization.** Processed contexts are cached rather than reprocessed per document, and a synchronous fast path skips the async machinery entirely when a context needs no remote loads.
+- **Context memoization.** Expanding a document processes each distinct `@context` in it once, however many nodes repeat it, and a `ProcessingCache` passed to `process_with_cache` carries processed contexts from one document to the next. A synchronous fast path skips the async machinery entirely when a context needs no remote loads.
 - **Inverse contexts.** The inverse context is rebuilt lazily instead of on every mutation, and its construction is cheaper.
 - **Inline term keys.** A term key of up to 23 bytes, nearly every term of a real context, is stored inline, so creating, cloning and dropping one allocates nothing and touches no shared counter; a longer key is reference-counted. There is no process-wide interner: a key is freed with the context that holds it, so contexts from untrusted input do not grow memory for the life of the process.
-- **Compaction.** Compact IRI results are memoized per compaction call, the prefix list is cached instead of rebuilt each iteration, and sort comparators no longer materialise strings through the vocabulary.
+- **Compaction.** Compact IRI results are memoized on the active context, up to a fixed number of entries, the prefix list is built once per context instead of on each iteration, and sort comparators no longer materialise strings through the vocabulary.
 - **Hashing.** SipHash gave way to hashbrown's default hasher, with `ahash` and `gxhash` as opt-in alternatives.
 - **Allocation.** Contexts are borrowed rather than cloned on hot paths, and clones were stripped out of expansion and compaction.
 
@@ -144,14 +146,14 @@ Credit and history are preserved; see [Attribution](#attribution).
 
 ## JSON interop
 
-Documents are represented as `jstrict::Value`, whose object type preserves entry order and tolerates duplicate keys. The JSON-LD algorithms depend on both. Two features bridge to the common alternatives without manual unpacking:
+Documents are represented as `jstrict::Value`, whose objects keep their entries in the order they were written, a repeated key included. JSON-LD 1.1 requires the keys of an object to be unique (section 9), and keeping a repeated key is what lets the processor see one: a context that defines a term twice is refused with `duplicate key`, and a node object that names a property twice keeps the values of both. Two features bridge to the common alternatives without manual unpacking:
 
 | Feature | In | Out |
 | --- | --- | --- |
 | `serde-json` | `RemoteDocument::from_serde_json` | `into_serde_json` on the compacted/flattened `Value` and on `ExpandedDocument` |
 | `sonic-rs` | `RemoteDocument::from_sonic_rs` | `into_sonic_rs`, same places |
 
-A round trip through either is lossy in one respect: neither `serde_json::Map` nor `sonic_rs::Object` keeps duplicate keys, and `sonic_rs::Object` does not preserve entry order.
+`sonic_rs::Object` keeps entry order and repeated keys, so reading from `sonic-rs` loses nothing, and writing to it keeps the order but leaves a repeated key once, with its last value. `serde_json::Map` holds one value per key, the last one read, and sorts its keys unless `serde_json`'s `preserve_order` feature is on, so a conversion in either direction drops repeated keys and, by default, the entry order.
 
 ## Install
 
@@ -204,7 +206,7 @@ cargo test -p jsonld
 
 The submodule is pinned to [`92f0770`](https://github.com/w3c/json-ld-api/commit/92f07705a0c0ac27aa9bc6fe1322dcc9fad0114d) (2026-07-01), so a fresh clone reproduces the same corpus.
 
-Four of the seven manifests are in scope. Every test that runs passes; four are skipped, each against an open upstream issue:
+Four of the seven manifests are in scope. Every test that runs passes; four are skipped, three against open upstream issues and `#t0038` because the working group replaced the rule it tests (its JSON-LD 1.1 twin `#ta038` runs and passes):
 
 | Manifest | In manifest | Run | Ignored |
 | --- | --: | --: | --- |
@@ -217,6 +219,8 @@ Ignored tests are declared with `#[ignore_test(..., see = ...)]` in `jsonld/test
 
 Tests carrying `specVersion: json-ld-1.0` run in `ProcessingMode::JsonLd1_0` rather than being skipped, so the 1.0 code path is covered too.
 
+A negative test, one that expects an error, checks that processing fails, but not yet that it fails with the error code the manifest names. That covers 233 of the tests above.
+
 The remaining three manifests have no suite here, because the algorithms they exercise are not implemented: `fromRdf` (54 tests, RDF-to-JSON-LD deserialization), `remote-doc` (18 tests, HTTP content negotiation), and `html` (50 tests, HTML `script` extraction).
 
 ## Stability
@@ -227,7 +231,7 @@ What conformance does *not* cover, and what "experimental" means in practice:
 - **The additions are new.** `Expandable` and `vocab!` are covered by their own unit and UI tests, not by any external suite, and their attribute vocabularies will grow.
 - **Three algorithms are absent.** `fromRdf`, HTML script extraction and HTTP content negotiation. If you need RDF-to-JSON-LD deserialization, this is not the crate.
 - **Performance is tuned, not uniformly better.** The work targeted a context-broker workload, so expect regressions on traffic that looks unlike it, and measure your own corpus before assuming this fork is the faster choice. See [Performance](#performance).
-- **Untrusted input deserves care.** The default hasher is fast but not resistant to hash flooding, so reach for `ahash` if that matters, and processed-context caches are unbounded, so a hostile stream of distinct contexts grows memory.
+- **Untrusted input deserves care.** The default hasher is fast but not resistant to hash flooding, so reach for `ahash` if that matters, and a `ProcessingCache` never evicts, so a hostile stream of distinct contexts through one grows memory until it is cleared.
 
 ## MSRV
 

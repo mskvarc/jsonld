@@ -11,6 +11,8 @@ Blank nodes are resolved through the interpretation the dataset was built agains
 
 Part of [`jsonld`](https://crates.io/crates/jsonld), a [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) implementation for Rust, which is what you usually want.
 
+[`jsonld` and JSON-LD on every request](https://andromeda.skvarc.com/docs/libraries/jsonld/), on the Andromeda documentation site, explains what the processor is tuned for, how it is tested and when the upstream `json-ld` is the better choice.
+
 > **Status: experimental.** Version numbers move fast and there is no compatibility promise before 1.0. The [workspace README](https://github.com/mskvarc/jsonld#readme) says what that means in practice.
 
 ## License

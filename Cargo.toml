@@ -26,6 +26,7 @@ authors = [
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/mskvarc/jsonld/"
+homepage = "https://andromeda.skvarc.com/docs/libraries/jsonld/"
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 categories = ["web-programming", "database", "data-structures"]
 

@@ -11,6 +11,8 @@ Identifiers are generic over the vocabulary that interns them, so a document can
 
 Part of [`jsonld`](https://crates.io/crates/jsonld), a [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) implementation for Rust. That crate re-exports everything here and is what you usually want; depend on this one directly when you need the model and the loaders without the algorithm crates.
 
+[`jsonld` and JSON-LD on every request](https://andromeda.skvarc.com/docs/libraries/jsonld/), on the Andromeda documentation site, explains what the processor is tuned for, how it is tested and when the upstream `json-ld` is the better choice.
+
 > **Status: experimental.** Version numbers move fast and there is no compatibility promise before 1.0. The [workspace README](https://github.com/mskvarc/jsonld#readme) says what that means in practice.
 
 ## Feature flags
