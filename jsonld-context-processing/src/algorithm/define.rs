@@ -238,6 +238,23 @@ where
                     // SAFETY: at this point `term` is a `KeyOrKeyword::Key`,
                     // since the `Type` arm above returns early.
                     let key = unsafe { term.as_key().unwrap_unchecked() };
+
+                    // Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
+                    // a keyword redefinition error has been detected and processing is aborted.
+                    // The syntax keeps a keyword-spelled key such as `@id` among the term
+                    // bindings, so it reaches here as a key.
+                    if Keyword::try_from(key.as_str()).is_ok() {
+                        return Err(Error::KeywordRedefinition);
+                    }
+
+                    // If term has the form of a keyword, return; processors SHOULD generate a
+                    // warning.
+                    if key.is_keyword_like() {
+                        env.warnings.handle(env.vocabulary, Warning::KeywordLikeTerm(key.to_string()));
+                        defined.end(&term);
+                        return Ok(());
+                    }
+
                     // Initialize `previous_definition` to any existing term definition for `term` in
                     // `active_context`, removing that term definition from active context.
                     let previous_definition = active_context.set_normal(key.clone(), None);

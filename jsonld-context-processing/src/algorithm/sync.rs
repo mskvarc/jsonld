@@ -434,6 +434,17 @@ where
                     // SAFETY: at this point `term` is a `KeyOrKeyword::Key`,
                     // since the `Type` arm above returns early.
                     let key = unsafe { term.as_key().unwrap_unchecked() };
+
+                    if Keyword::try_from(key.as_str()).is_ok() {
+                        return Err(Error::KeywordRedefinition);
+                    }
+
+                    if key.is_keyword_like() {
+                        env.warnings.handle(env.vocabulary, Warning::KeywordLikeTerm(key.to_string()));
+                        defined.end(&term);
+                        return Ok(());
+                    }
+
                     let previous_definition = active_context.set_normal(key.clone(), None);
 
                     let simple_term = !d.map(jsonld_syntax::context::TermDefinition::is_expanded).unwrap_or(false);

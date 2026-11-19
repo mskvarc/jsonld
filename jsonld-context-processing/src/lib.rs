@@ -44,11 +44,12 @@ pub use stack::{MAX_REMOTE_CONTEXTS, ProcessingStack};
 /// them and carry on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Warning {
-    /// A term being expanded is not a keyword but has the shape of one (it
-    /// starts with `@` and is otherwise alphabetic), so it expands to null.
+    /// A term is not a keyword but has the shape of one (it starts with `@`
+    /// and is otherwise alphabetic).
     ///
-    /// The specification allows this to be reported at that point; this crate
-    /// currently drops such terms silently and does not raise it.
+    /// Raised when a context defines such a term, which is skipped. A term of
+    /// that shape being expanded also expands to null, but this crate drops it
+    /// silently there and does not raise this warning.
     KeywordLikeTerm(String),
     /// The `@id` or `@reverse` value of a term definition is not a keyword but
     /// has the shape of one, so the whole term definition is skipped.
