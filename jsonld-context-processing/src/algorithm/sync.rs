@@ -106,6 +106,7 @@ type ProcessContextResult<'l, N, L> =
 /// definitions' `@context` entries, references a remote `@context` by IRI or
 /// carries an `@import`. When it returns `false` the whole algorithm can run
 /// without the loader, and therefore synchronously.
+#[must_use]
 pub fn requires_loader(ctx: &syntax::context::Context) -> bool {
     for entry in ctx {
         if entry_requires_loader(entry) {
@@ -215,6 +216,7 @@ where
                 return Ok(Some(Arc::new(Term::Null)));
             }
 
+            let term = KeyOrKeywordRef::from(value);
             on_sufficient_stack(|| {
                 define_sync(
                     Environment {
@@ -224,7 +226,7 @@ where
                     },
                     active_context,
                     local_context,
-                    value.into(),
+                    term,
                     defined,
                     remote_contexts.clone(),
                     None,
@@ -232,7 +234,8 @@ where
                     options.with_no_override(),
                     depth + 1,
                 )
-            })?;
+            })
+            .map_err(|error| error.in_definition_of(term))?;
 
             if let Some(term_definition) = active_context.get(value) {
                 if let Some(arc) = term_definition.value_arc()
@@ -259,6 +262,7 @@ where
                 }
 
                 if let Ok(compact_iri) = CompactIri::new(value) {
+                    let prefix = KeyOrKeywordRef::Key(compact_iri.prefix().into());
                     on_sufficient_stack(|| {
                         define_sync(
                             Environment {
@@ -268,7 +272,7 @@ where
                             },
                             active_context,
                             local_context,
-                            KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                            prefix,
                             defined,
                             remote_contexts,
                             None,
@@ -276,7 +280,8 @@ where
                             options.with_no_override(),
                             depth + 1,
                         )
-                    })?;
+                    })
+                    .map_err(|error| error.in_definition_of(prefix))?;
 
                     // The `prefix` flag is JSON-LD 1.1 only; see `iri.rs`.
                     if let Some(term_definition) = active_context.get_normal(compact_iri.prefix())
@@ -345,6 +350,12 @@ where
 ///
 /// `depth` is the current recursion depth; exceeding [`MAX_SYNC_DEPTH`] returns
 /// [`Error::ContextOverflow`] rather than risking a stack overflow.
+///
+/// # Errors
+///
+/// As `define`: an error of a term `term` depends on is located in that term,
+/// and an error of `term`'s own definition is returned as raised, for the
+/// caller to locate.
 #[allow(clippy::needless_pass_by_value)]
 pub fn define_sync<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
@@ -601,6 +612,7 @@ where
                             _ => {
                                 if let KeyOrKeyword::Key(term) = &term {
                                     if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
+                                        let prefix = KeyOrKeywordRef::Key(compact_iri.prefix().into());
                                         on_sufficient_stack(|| {
                                             define_sync(
                                                 Environment {
@@ -610,7 +622,7 @@ where
                                                 },
                                                 active_context,
                                                 local_context,
-                                                KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                                                prefix,
                                                 defined,
                                                 remote_contexts.clone(),
                                                 None,
@@ -618,7 +630,8 @@ where
                                                 options.with_no_override(),
                                                 depth + 1,
                                             )
-                                        })?;
+                                        })
+                                        .map_err(|error| error.in_definition_of(prefix))?;
 
                                         if let Some(prefix_definition) = active_context.get(compact_iri.prefix()) {
                                             let mut result = String::new();
@@ -752,11 +765,14 @@ where
                                 depth + 1,
                             )
                         })
-                        .map_err(|e| match e {
+                        .map_err(|e| {
                             // A resource-limit abort is not a context
                             // error: let it surface instead of masking it.
-                            Error::ContextOverflow => Error::ContextOverflow,
-                            _ => Error::InvalidScopedContext,
+                            if matches!(e.cause(), Error::ContextOverflow) {
+                                e
+                            } else {
+                                Error::InvalidScopedContext
+                            }
                         })?;
 
                         definition.context = Some(Box::new(context.clone()));
@@ -998,10 +1014,12 @@ where
                             options,
                             depth + 1,
                         )
-                    })?;
+                    })
+                    .map_err(|error| error.in_definition_of(KeyOrKeywordRef::Keyword(syntax::Keyword::Type)))?;
                 }
 
                 for (key, _binding) in context.bindings() {
+                    let term = KeyOrKeywordRef::from(key);
                     on_sufficient_stack(|| {
                         define_sync(
                             Environment {
@@ -1011,7 +1029,7 @@ where
                             },
                             &mut result,
                             &context,
-                            key.into(),
+                            term,
                             &mut defined,
                             remote_contexts.clone(),
                             base_url.clone(),
@@ -1019,7 +1037,8 @@ where
                             options,
                             depth + 1,
                         )
-                    })?;
+                    })
+                    .map_err(|error| error.in_definition_of(term))?;
                 }
             }
         }

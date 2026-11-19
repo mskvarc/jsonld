@@ -18,9 +18,13 @@
 //!
 //! [1]: https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm
 use algorithm::{Action, RejectVocab};
+use iri_rs::IriBuf;
 pub use jsonld_core::{Context, ProcessingMode, warning};
-use jsonld_core::{ExtractContextError, LoadError, Loader};
-use jsonld_syntax::ErrorCode;
+use jsonld_core::{ContextLoadError, ExtractContextError, LoadError, Loader};
+use jsonld_syntax::{
+    ErrorCode,
+    context::definition::{KeyOrKeyword, KeyOrKeywordRef},
+};
 use rdfx::vocabulary::VocabularyMut;
 use std::{fmt, hash::Hash};
 
@@ -85,8 +89,29 @@ pub trait WarningHandler<N>: jsonld_core::warning::Handler<N, Warning> {}
 impl<N, H> WarningHandler<N> for H where H: jsonld_core::warning::Handler<N, Warning> {}
 
 /// Errors that can happen during context processing.
+///
+/// An error raised while the [create term definition algorithm][1] defines a
+/// term is located in that term by [`Self::TermDefinition`], so the error names
+/// the term or keyword whose definition failed.
+///
+/// [1]: https://www.w3.org/TR/json-ld11-api/#create-term-definition
 #[derive(Debug, thiserror::Error)]
 pub enum Error<E = std::convert::Infallible> {
+    // The message names the cause by its code: interpolating the boxed error
+    // would make its `Display` bound recursive.
+    #[error("Invalid definition of `{term}`: {}", .error.code())]
+    /// The definition of a term failed. Holds the term, or the keyword a
+    /// context tried to define, and the error its definition raised.
+    ///
+    /// Defining a term may define the terms it depends on first; the error
+    /// names the innermost term whose definition failed.
+    TermDefinition {
+        /// The term or keyword whose definition failed.
+        term: KeyOrKeyword,
+        /// Why the definition failed; never itself a [`Self::TermDefinition`].
+        error: Box<Error<E>>,
+    },
+
     #[error("Invalid context nullification")]
     /// A `null` context tried to clear an active context that holds protected
     /// term definitions, outside of a scope allowed to override them.
@@ -220,12 +245,17 @@ pub enum Error<E = std::convert::Infallible> {
     /// `@context` or by `@import`.
     ContextLoadingFailed(#[from] LoadError<E>),
 
-    #[error("Unable to extract JSON-LD context: {0}")]
+    #[error("Unable to extract JSON-LD context from `{target}`: {error}")]
     /// A fetched document could not be reduced to a `@context`.
     ///
-    /// Raised when the document is not JSON-LD, or has no top-level object with
-    /// a `@context` entry.
-    ContextExtractionFailed(ExtractContextError),
+    /// Raised when the document is not JSON-LD, has no top-level object with a
+    /// `@context` entry, or holds a `@context` that is no valid context.
+    ContextExtractionFailed {
+        /// URL of the document the context could not be extracted from.
+        target: IriBuf,
+        /// Why no context could be extracted.
+        error: ExtractContextError,
+    },
 
     #[error("Recursive context inclusion")]
     /// A remote context includes itself, directly or indirectly.
@@ -260,10 +290,43 @@ impl<E> From<RejectVocab> for Error<E> {
     }
 }
 
+impl<E> From<ContextLoadError<E>> for Error<E> {
+    fn from(error: ContextLoadError<E>) -> Self {
+        match error {
+            ContextLoadError::LoadingDocumentFailed(error) => Self::ContextLoadingFailed(error),
+            ContextLoadError::ContextExtractionFailed { target, error } => Self::ContextExtractionFailed { target, error },
+        }
+    }
+}
+
 impl<E> Error<E> {
-    /// Returns the JSON-LD error code this error is reported under.
+    /// Returns the error that stopped the algorithm, past the
+    /// [`Self::TermDefinition`] locating it, if any.
+    #[must_use]
+    pub fn cause(&self) -> &Self {
+        match self {
+            Self::TermDefinition { error, .. } => error,
+            other => other,
+        }
+    }
+
+    /// Locates this error in the definition of `term`, unless it is already
+    /// located in a term `term` depends on.
+    pub(crate) fn in_definition_of(self, term: KeyOrKeywordRef) -> Self {
+        match self {
+            located @ Self::TermDefinition { .. } => located,
+            error => Self::TermDefinition {
+                term: term.to_owned(),
+                error: Box::new(error),
+            },
+        }
+    }
+
+    /// Returns the JSON-LD error code this error is reported under: the code of
+    /// its [`Self::cause`].
     pub fn code(&self) -> ErrorCode {
         match self {
+            Self::TermDefinition { .. } => self.cause().code(),
             Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
             Self::LoadingDocumentFailed => ErrorCode::LoadingDocumentFailed,
             Self::ProcessingModeConflict => ErrorCode::ProcessingModeConflict,
@@ -284,7 +347,7 @@ impl<E> Error<E> {
             Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
             Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
             Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
-            Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
+            Self::ContextExtractionFailed { .. } => ErrorCode::LoadingRemoteContextFailed,
             Self::RecursiveContextInclusion => ErrorCode::RecursiveContextInclusion,
             Self::ContextOverflow => ErrorCode::ContextOverflow,
             Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,

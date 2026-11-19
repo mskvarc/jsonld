@@ -3,7 +3,7 @@ use super::{
     ContextEntry,
     Definition,
     TermDefinition,
-    definition,
+    definition::{self, KeyOrKeyword, KeyOrKeywordRef},
     term_definition::{self, InvalidNest},
 };
 use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson, native_stack::on_sufficient_stack};
@@ -11,7 +11,23 @@ use iri_rs::IriRefBuf;
 
 #[derive(Debug, Clone, thiserror::Error)]
 /// Error raised when a JSON value is not a valid context.
+///
+/// An error raised by the value of an entry of a context definition or of an
+/// expanded term definition is located in that entry by [`Self::Entry`], so
+/// the error names the term or keyword whose value is invalid.
 pub enum InvalidContext {
+    #[error("Invalid entry `{key}`: {error}")]
+    /// An entry of a context definition or of an expanded term definition is
+    /// invalid. Holds the entry's key, a term or a keyword, and the error its
+    /// value raised, itself located when the value is a term definition or a
+    /// scoped context.
+    Entry {
+        /// The key of the invalid entry.
+        key: KeyOrKeyword,
+        /// Why the entry is invalid.
+        error: Box<InvalidContext>,
+    },
+
     #[error("Invalid IRI reference: {0}")]
     /// A context entry was a string that is not a valid IRI reference. Holds
     /// the rejected string.
@@ -67,10 +83,12 @@ fn nested_context_try_from_json(value: &jstrict::Value, depth: usize) -> Result<
 }
 
 impl InvalidContext {
-    /// Returns the JSON-LD error code this error reports as.
+    /// Returns the JSON-LD error code this error reports as: the code of its
+    /// [`Self::cause`].
     #[must_use]
     pub fn code(&self) -> ErrorCode {
         match self {
+            Self::Entry { .. } => self.cause().code(),
             Self::InvalidIriRef(_) => ErrorCode::InvalidIriMapping,
             Self::Unexpected(_, _) => ErrorCode::InvalidContextEntry,
             Self::InvalidDirection => ErrorCode::InvalidBaseDirection,
@@ -78,6 +96,25 @@ impl InvalidContext {
             Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
             Self::InvalidNestValue(_) => ErrorCode::InvalidNestValue,
             Self::TooDeep => ErrorCode::ContextOverflow,
+        }
+    }
+
+    /// Returns the error that made the context invalid, past every
+    /// [`Self::Entry`] locating it.
+    #[must_use]
+    pub fn cause(&self) -> &InvalidContext {
+        let mut error = self;
+        while let Self::Entry { error: located, .. } = error {
+            error = located;
+        }
+        error
+    }
+
+    /// Locates this error in the entry `key`.
+    fn in_entry(self, key: &str) -> InvalidContext {
+        InvalidContext::Entry {
+            key: KeyOrKeywordRef::from(key).to_owned(),
+            error: Box::new(self),
         }
     }
 }
@@ -114,37 +151,41 @@ fn term_definition_try_from_json(value: &jstrict::Value, depth: usize) -> Result
             let mut def = term_definition::Expanded::new();
 
             for jstrict::object::Entry { key, value } in o {
-                match Keyword::try_from(key.as_str()) {
-                    Ok(Keyword::Id) => set_unique!(def.id, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Type) => set_unique!(def.type_, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Context) => set_unique!(def.context, Box::new(nested_context_try_from_json(value, depth + 1)?)),
-                    Ok(Keyword::Reverse) => set_unique!(def.reverse, definition::Key::try_from_json(value)?),
-                    Ok(Keyword::Index) => set_unique!(def.index, term_definition::Index::try_from_json(value)?),
-                    Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Direction) => set_unique!(def.direction, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Container) => {
-                        let container = match value {
-                            jstrict::Value::Null => Nullable::Null,
-                            other => {
-                                let container = Container::try_from_json(other)?;
-                                Nullable::Some(container)
-                            }
-                        };
-
-                        set_unique!(def.container, container);
-                    }
-                    Ok(Keyword::Nest) => set_unique!(def.nest, term_definition::Nest::try_from_json(value)?),
-                    Ok(Keyword::Prefix) => set_unique!(def.prefix, bool::try_from_json(value)?),
-                    Ok(Keyword::Propagate) => set_unique!(def.propagate, bool::try_from_json(value)?),
-                    Ok(Keyword::Protected) => set_unique!(def.protected, bool::try_from_json(value)?),
-                    _ => return Err(InvalidContext::InvalidTermDefinition),
-                }
+                expanded_entry_try_from_json(&mut def, key.as_str(), value, depth).map_err(|error| error.in_entry(key.as_str()))?;
             }
 
             Ok(TermDefinition::Expanded(Box::new(def)))
         }
         unexpected => Err(InvalidContext::Unexpected(unexpected.kind(), &[jstrict::Kind::String, jstrict::Kind::Object])),
     }
+}
+
+/// Reads the entry `key` of an expanded term definition into `def`.
+fn expanded_entry_try_from_json(def: &mut term_definition::Expanded, key: &str, value: &jstrict::Value, depth: usize) -> Result<(), InvalidContext> {
+    match Keyword::try_from(key) {
+        Ok(Keyword::Id) => set_unique!(def.id, Nullable::try_from_json(value)?),
+        Ok(Keyword::Type) => set_unique!(def.type_, Nullable::try_from_json(value)?),
+        Ok(Keyword::Context) => set_unique!(def.context, Box::new(nested_context_try_from_json(value, depth + 1)?)),
+        Ok(Keyword::Reverse) => set_unique!(def.reverse, definition::Key::try_from_json(value)?),
+        Ok(Keyword::Index) => set_unique!(def.index, term_definition::Index::try_from_json(value)?),
+        Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
+        Ok(Keyword::Direction) => set_unique!(def.direction, Nullable::try_from_json(value)?),
+        Ok(Keyword::Container) => {
+            let container = match value {
+                jstrict::Value::Null => Nullable::Null,
+                other => Nullable::Some(Container::try_from_json(other)?),
+            };
+
+            set_unique!(def.container, container);
+        }
+        Ok(Keyword::Nest) => set_unique!(def.nest, term_definition::Nest::try_from_json(value)?),
+        Ok(Keyword::Prefix) => set_unique!(def.prefix, bool::try_from_json(value)?),
+        Ok(Keyword::Propagate) => set_unique!(def.propagate, bool::try_from_json(value)?),
+        Ok(Keyword::Protected) => set_unique!(def.protected, bool::try_from_json(value)?),
+        _ => return Err(InvalidContext::InvalidTermDefinition),
+    }
+
+    Ok(())
 }
 
 impl TryFromJson for term_definition::Type {
@@ -325,27 +366,7 @@ fn context_entry_try_from_json(value: &jstrict::Value, depth: usize) -> Result<C
             let mut def = Definition::new();
 
             for jstrict::object::Entry { key, value } in o {
-                match Keyword::try_from(key.as_str()) {
-                    Ok(Keyword::Base) => set_unique!(def.base, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Import) => set_unique!(def.import, IriRefBuf::try_from_json(value)?),
-                    Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Direction) => set_unique!(def.direction, Nullable::try_from_json(value)?),
-                    Ok(Keyword::Propagate) => set_unique!(def.propagate, bool::try_from_json(value)?),
-                    Ok(Keyword::Protected) => set_unique!(def.protected, bool::try_from_json(value)?),
-                    Ok(Keyword::Type) => set_unique!(def.type_, definition::Type::try_from_json(value)?),
-                    Ok(Keyword::Version) => set_unique!(def.version, definition::Version::try_from_json(value)?),
-                    Ok(Keyword::Vocab) => set_unique!(def.vocab, Nullable::try_from_json(value)?),
-                    _ => {
-                        let term_def = match value {
-                            jstrict::Value::Null => Nullable::Null,
-                            other => Nullable::Some(term_definition_try_from_json(other, depth)?),
-                        };
-
-                        if def.bindings.insert_with(definition::Key::from(key.as_str()), term_def).is_some() {
-                            return Err(InvalidContext::DuplicateKey);
-                        }
-                    }
-                }
+                definition_entry_try_from_json(&mut def, key.as_str(), value, depth).map_err(|error| error.in_entry(key.as_str()))?;
             }
 
             Ok(ContextEntry::Definition(def))
@@ -355,6 +376,34 @@ fn context_entry_try_from_json(value: &jstrict::Value, depth: usize) -> Result<C
             &[jstrict::Kind::Null, jstrict::Kind::String, jstrict::Kind::Object],
         )),
     }
+}
+
+/// Reads the entry `key` of a context definition into `def`: a keyword entry,
+/// or the definition of the term `key`.
+fn definition_entry_try_from_json(def: &mut Definition, key: &str, value: &jstrict::Value, depth: usize) -> Result<(), InvalidContext> {
+    match Keyword::try_from(key) {
+        Ok(Keyword::Base) => set_unique!(def.base, Nullable::try_from_json(value)?),
+        Ok(Keyword::Import) => set_unique!(def.import, IriRefBuf::try_from_json(value)?),
+        Ok(Keyword::Language) => set_unique!(def.language, Nullable::try_from_json(value)?),
+        Ok(Keyword::Direction) => set_unique!(def.direction, Nullable::try_from_json(value)?),
+        Ok(Keyword::Propagate) => set_unique!(def.propagate, bool::try_from_json(value)?),
+        Ok(Keyword::Protected) => set_unique!(def.protected, bool::try_from_json(value)?),
+        Ok(Keyword::Type) => set_unique!(def.type_, definition::Type::try_from_json(value)?),
+        Ok(Keyword::Version) => set_unique!(def.version, definition::Version::try_from_json(value)?),
+        Ok(Keyword::Vocab) => set_unique!(def.vocab, Nullable::try_from_json(value)?),
+        _ => {
+            let term_def = match value {
+                jstrict::Value::Null => Nullable::Null,
+                other => Nullable::Some(term_definition_try_from_json(other, depth)?),
+            };
+
+            if def.bindings.insert_with(definition::Key::from(key), term_def).is_some() {
+                return Err(InvalidContext::DuplicateKey);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -376,12 +425,95 @@ mod tests {
         jstrict::Value::parse_str(&json).unwrap().0
     }
 
+    /// The conversion error of the context written as `json`.
+    fn refusal(json: &str) -> InvalidContext {
+        let value = jstrict::Value::parse_str(json).unwrap().0;
+        Context::try_from_json(&value).unwrap_err()
+    }
+
+    /// The keys an error is located in, outermost first.
+    fn location(error: &InvalidContext) -> Vec<&str> {
+        let mut keys = Vec::new();
+        let mut error = error;
+        while let InvalidContext::Entry { key, error: located } = error {
+            keys.push(key.as_str());
+            error = located;
+        }
+        keys
+    }
+
     /// A crafted deeply-nested `@context` must fail with an error instead of
     /// exhausting the native stack during conversion.
     #[test]
     fn deeply_nested_context_conversion_fails_gracefully() {
         let json = nested_json(MAX_CONTEXT_DEPTH + 1);
-        assert!(matches!(Context::try_from_json(&json), Err(InvalidContext::TooDeep)));
+        assert!(matches!(
+            Context::try_from_json(&json).map_err(|error| error.cause().clone()),
+            Err(InvalidContext::TooDeep)
+        ));
+    }
+
+    /// A term defined as a number names the term, and the cause keeps the
+    /// kinds a term definition may take.
+    #[test]
+    fn an_invalid_term_definition_is_located_in_its_term() {
+        let error = refusal(r#"{"speed": 5}"#);
+        assert_eq!(location(&error), ["speed"]);
+        assert!(matches!(
+            error.cause(),
+            InvalidContext::Unexpected(jstrict::Kind::Number, [jstrict::Kind::String, jstrict::Kind::Object])
+        ));
+        assert_eq!(error.code(), ErrorCode::InvalidContextEntry);
+    }
+
+    /// An invalid entry of an expanded term definition is located in the term
+    /// and then in the entry.
+    #[test]
+    fn an_invalid_entry_of_a_term_definition_is_located_in_the_term_and_the_entry() {
+        let error = refusal(r#"{"speed": {"@id": 5}}"#);
+        assert_eq!(location(&error), ["speed", "@id"]);
+        assert!(matches!(
+            error.cause(),
+            InvalidContext::Unexpected(jstrict::Kind::Number, [jstrict::Kind::String])
+        ));
+
+        let error = refusal(r#"{"speed": {"@id": "https://example.org/speed", "@container": "@bogus"}}"#);
+        assert_eq!(location(&error), ["speed", "@container"]);
+        assert!(matches!(error.cause(), InvalidContext::InvalidTermDefinition));
+    }
+
+    /// A keyword entry of a context definition is located in the keyword.
+    #[test]
+    fn an_invalid_keyword_entry_is_located_in_the_keyword() {
+        let error = refusal(r#"{"@type": "https://example.org/t"}"#);
+        assert_eq!(location(&error), ["@type"]);
+        assert!(matches!(
+            error,
+            InvalidContext::Entry {
+                key: KeyOrKeyword::Keyword(Keyword::Type),
+                ..
+            }
+        ));
+        assert!(matches!(
+            error.cause(),
+            InvalidContext::Unexpected(jstrict::Kind::String, [jstrict::Kind::Object])
+        ));
+    }
+
+    /// An error inside a scoped context is located through the term that
+    /// carries the scoped context.
+    #[test]
+    fn an_error_in_a_scoped_context_is_located_through_the_scoping_term() {
+        let error = refusal(r#"{"speed": {"@id": "https://example.org/speed", "@context": {"gear": true}}}"#);
+        assert_eq!(location(&error), ["speed", "@context", "gear"]);
+    }
+
+    /// An error of the context itself, not of one of its entries, is located
+    /// nowhere.
+    #[test]
+    fn an_invalid_context_reference_is_not_located() {
+        let error = refusal(r#""not a url""#);
+        assert!(matches!(error, InvalidContext::InvalidIriRef(_)));
     }
 
     #[test]
@@ -407,17 +539,24 @@ mod tests {
             .unwrap();
 
         assert!(converted);
-        assert!(matches!(refused, Err(InvalidContext::TooDeep)));
+        assert!(matches!(refused.map_err(|error| error.cause().clone()), Err(InvalidContext::TooDeep)));
     }
 
     /// Duplicate keyword entries fail like duplicate term bindings do,
-    /// instead of silently keeping the last value.
+    /// instead of silently keeping the last value, and name the duplicated key.
     #[test]
     fn duplicate_keyword_entries_are_rejected() {
-        let json = jstrict::Value::parse_str(r#"{"@vocab": "http://a/", "@vocab": "http://b/"}"#).unwrap().0;
-        assert!(matches!(Context::try_from_json(&json), Err(InvalidContext::DuplicateKey)));
+        let error = refusal(r#"{"@vocab": "http://a/", "@vocab": "http://b/"}"#);
+        assert_eq!(location(&error), ["@vocab"]);
+        assert!(matches!(error.cause(), InvalidContext::DuplicateKey));
+
+        let error = refusal(r#"{"speed": "http://a/speed", "speed": "http://b/speed"}"#);
+        assert_eq!(location(&error), ["speed"]);
+        assert!(matches!(error.cause(), InvalidContext::DuplicateKey));
 
         let json = jstrict::Value::parse_str(r#"{"@id": "http://a/x", "@id": "http://b/x"}"#).unwrap().0;
-        assert!(matches!(TermDefinition::try_from_json(&json), Err(InvalidContext::DuplicateKey)));
+        let error = TermDefinition::try_from_json(&json).unwrap_err();
+        assert_eq!(location(&error), ["@id"]);
+        assert!(matches!(error.cause(), InvalidContext::DuplicateKey));
     }
 }

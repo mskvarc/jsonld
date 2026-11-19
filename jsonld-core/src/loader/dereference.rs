@@ -17,7 +17,8 @@
 //!
 //! [`RED_ZONE`]: jsonld_syntax::native_stack::RED_ZONE
 
-use crate::loader::{Loader, LoadingResult};
+use crate::loader::{ContextLoadError, ExtractContext, Loader, LoadingResult, RemoteContext};
+use iri_rs::IriBuf;
 use jsonld_syntax::native_stack::Recursion;
 use rdfx::vocabulary::IriVocabularyMut;
 use std::{future::Future, hash::Hash};
@@ -44,6 +45,25 @@ pub trait Dereference: Loader {
     where
         V: IriVocabularyMut,
         V::Iri: Clone + Eq + Hash;
+
+    /// Loads the document behind `url` as [`Self::dereference`] does, and
+    /// extracts the `@context` it carries.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ContextLoadError::LoadingDocumentFailed`] when the document
+    /// cannot be fetched or parsed, and
+    /// [`ContextLoadError::ContextExtractionFailed`], naming `url`, when it
+    /// holds no valid `@context` entry.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `url` does not resolve in `vocabulary`, as
+    /// [`Self::dereference`] does.
+    fn dereference_context<V>(&self, vocabulary: &mut V, url: &V::Iri) -> impl Future<Output = Result<RemoteContext<V::Iri>, ContextLoadError<Self::Error>>>
+    where
+        V: IriVocabularyMut,
+        V::Iri: Clone + Eq + Hash;
 }
 
 impl<L: Loader + ?Sized> Dereference for L {
@@ -58,6 +78,22 @@ impl<L: Loader + ?Sized> Dereference for L {
             #[expect(clippy::disallowed_methods, reason = "the one guarded invocation of a loader every algorithm goes through")]
             let document = self.load(lexical_url).await?;
             Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
+        })
+    }
+
+    async fn dereference_context<V>(&self, vocabulary: &mut V, url: &V::Iri) -> Result<RemoteContext<V::Iri>, ContextLoadError<Self::Error>>
+    where
+        V: IriVocabularyMut,
+        V::Iri: Clone + Eq + Hash,
+    {
+        let document = self.dereference(vocabulary, url.clone()).await?;
+        document.try_map(ExtractContext::into_ld_context).map_err(|error| {
+            #[allow(clippy::expect_used)]
+            let target = vocabulary.iri(url).expect("`url` resolved when its document was loaded");
+            ContextLoadError::ContextExtractionFailed {
+                target: IriBuf::from(target),
+                error,
+            }
         })
     }
 }

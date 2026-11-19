@@ -35,7 +35,7 @@ use std::{hash::Hash, sync::Arc};
 
 use crate::{Error, Options, Process, Processed, ProcessingCache, ProcessingResult, ProcessingStack, WarningHandler, cache::cache_key};
 use iri_rs::{Iri, IriBuf};
-use jsonld_core::{Context, Dereference, Environment, ExtractContext, Loader, ProcessingMode, Term};
+use jsonld_core::{Context, Dereference, Environment, Loader, ProcessingMode, Term};
 use jsonld_syntax::{self as syntax, Nullable, native_stack::Recursion};
 use rdfx::vocabulary::VocabularyMut;
 
@@ -47,7 +47,8 @@ mod sync;
 pub use define::*;
 pub use iri::*;
 pub use merged::*;
-use sync::{process_context_sync, requires_loader};
+use sync::process_context_sync;
+pub use sync::requires_loader;
 use syntax::context::definition::KeyOrKeywordRef;
 
 /// Checks an `@vocab` value against the JSON-LD 1.0 rule.
@@ -332,14 +333,7 @@ where
                 let loaded_context = if let Some(previously) = remote_contexts.dereferenced(&context_iri) {
                     previously
                 } else {
-                    let loaded = Arc::new(
-                        env.loader
-                            .dereference(env.vocabulary, context_iri.clone())
-                            .await?
-                            .into_document()
-                            .into_ld_context()
-                            .map_err(Error::ContextExtractionFailed)?,
-                    );
+                    let loaded = Arc::new(env.loader.dereference_context(env.vocabulary, &context_iri).await?.into_document());
                     remote_contexts.remember_dereferenced(context_iri.clone(), Arc::clone(&loaded));
                     loaded
                 };
@@ -398,13 +392,7 @@ where
                         let import = resolve_iri(env.vocabulary, import_value.as_ref(), base_url.as_ref()).ok_or(Error::InvalidImportValue)?;
 
                         // 5.6.4) Dereference import.
-                        let import_context = env
-                            .loader
-                            .dereference(env.vocabulary, import.clone())
-                            .await?
-                            .into_document()
-                            .into_ld_context()
-                            .map_err(Error::ContextExtractionFailed)?;
+                        let import_context = env.loader.dereference_context(env.vocabulary, &import).await?.into_document();
 
                         // If the dereferenced document has no top-level map with an @context
                         // entry, or if the value of @context is not a context definition
@@ -553,10 +541,12 @@ where
                         protected,
                         options,
                     )
-                    .await?;
+                    .await
+                    .map_err(|error| error.in_definition_of(KeyOrKeywordRef::Keyword(syntax::Keyword::Type)))?;
                 }
 
                 for (key, _binding) in context.bindings() {
+                    let term = KeyOrKeywordRef::from(key);
                     define(
                         Environment {
                             vocabulary: env.vocabulary,
@@ -565,14 +555,15 @@ where
                         },
                         &mut result,
                         &context,
-                        key.into(),
+                        term,
                         &mut defined,
                         remote_contexts.clone(),
                         base_url.clone(),
                         protected,
                         options,
                     )
-                    .await?;
+                    .await
+                    .map_err(|error| error.in_definition_of(term))?;
                 }
             }
         }

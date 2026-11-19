@@ -189,7 +189,7 @@ impl fmt::Display for KeyRef<'_> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 /// Context definition key that may also be a JSON-LD keyword.
 pub enum KeyOrKeyword {
     /// A JSON-LD keyword.

@@ -139,6 +139,11 @@ pub struct DefinedTerm {
 /// # Errors
 ///
 /// Returns an error when a term definition is cyclic, protected and being redefined, or otherwise invalid, and propagates loader errors for remote contexts.
+/// An error of a term `term` depends on is located in that term by
+/// [`Error::TermDefinition`]; an error of `term`'s own definition is returned
+/// as raised, for the caller to locate in `term` with
+/// `Error::in_definition_of`. Locating at the call rather than in a wrapper
+/// keeps a second future layer off every call, most of which define nothing.
 pub async fn define<'a, N, L, W>(
     mut env: Environment<'a, N, L, W>,
     active_context: &'a mut Context<N::Iri, N::BlankId>,
@@ -493,6 +498,7 @@ where
                                         // context a dependency has been found.
                                         // Use this algorithm recursively passing `active_context`,
                                         // `local_context`, the prefix as term, and `defined`.
+                                        let prefix = KeyOrKeywordRef::Key(compact_iri.prefix().into());
                                         Recursion::new(define(
                                             Environment {
                                                 vocabulary: env.vocabulary,
@@ -501,14 +507,15 @@ where
                                             },
                                             active_context,
                                             local_context,
-                                            KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                                            prefix,
                                             defined,
                                             remote_contexts.clone(),
                                             None,
                                             false,
                                             options.with_no_override(),
                                         ))
-                                        .await?;
+                                        .await
+                                        .map_err(|error| error.in_definition_of(prefix))?;
 
                                         // If `term`'s prefix has a term definition in `active_context`, set the
                                         // IRI mapping of `definition` to the result of concatenating the value
@@ -701,11 +708,14 @@ where
                             false,
                         ))
                         .await
-                        .map_err(|e| match e {
+                        .map_err(|e| {
                             // A resource-limit abort is not a context error:
                             // let it surface instead of masking it.
-                            Error::ContextOverflow => Error::ContextOverflow,
-                            _ => Error::InvalidScopedContext,
+                            if matches!(e.cause(), Error::ContextOverflow) {
+                                e
+                            } else {
+                                Error::InvalidScopedContext
+                            }
                         })?;
 
                         // Set the local context of definition to context, and base URL to base URL.

@@ -115,9 +115,14 @@ pub enum ContextLoadError<E> {
     /// The document carrying the context could not be loaded.
     LoadingDocumentFailed(#[from] LoadError<E>),
 
-    #[error("context extraction failed")]
-    /// Context extraction failed.
-    ContextExtractionFailed(#[from] ExtractContextError),
+    #[error("context extraction from `{target}` failed: {error}")]
+    /// No context could be extracted from the loaded document.
+    ContextExtractionFailed {
+        /// URL of the document the context could not be extracted from.
+        target: IriBuf,
+        /// Why no context could be extracted.
+        error: ExtractContextError,
+    },
 }
 
 impl<I> RemoteContextReference<I> {
@@ -128,14 +133,14 @@ impl<I> RemoteContextReference<I> {
     ///
     /// # Errors
     ///
-    /// Returns an error when the document cannot be fetched, or when it holds no `@context` entry.
+    /// Returns an error when the document cannot be fetched, or when it holds no valid `@context` entry.
     pub async fn load_context_with<V, L: Loader>(self, vocabulary: &mut V, loader: &L) -> Result<RemoteContext<I>, ContextLoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(loader.dereference(vocabulary, r).await?.try_map(ExtractContext::into_ld_context)?),
+            Self::Iri(r) => loader.dereference_context(vocabulary, &r).await,
             Self::Loaded(doc) => Ok(doc),
         }
     }
@@ -149,16 +154,14 @@ impl<I> RemoteContextReference<I> {
     ///
     /// # Errors
     ///
-    /// Returns an error when the document cannot be fetched, or when it holds no `@context` entry.
+    /// Returns an error when the document cannot be fetched, or when it holds no valid `@context` entry.
     pub async fn loaded_context_with<V, L: Loader>(&self, vocabulary: &mut V, loader: &L) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError<L::Error>>
     where
         V: IriVocabularyMut<Iri = I>,
         I: Clone + Eq + Hash,
     {
         match self {
-            Self::Iri(r) => Ok(Cow::Owned(
-                loader.dereference(vocabulary, r.clone()).await?.try_map(ExtractContext::into_ld_context)?,
-            )),
+            Self::Iri(r) => Ok(Cow::Owned(loader.dereference_context(vocabulary, r).await?)),
             Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
         }
     }

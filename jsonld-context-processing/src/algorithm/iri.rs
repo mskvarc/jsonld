@@ -84,6 +84,7 @@ where
             // algorithm, passing active context, local context, value as term, and defined. This will
             // ensure that a term definition is created for value in active context during Context
             // Processing.
+            let term = KeyOrKeywordRef::from(value);
             Recursion::new(super::define(
                 Environment {
                     vocabulary: env.vocabulary,
@@ -92,14 +93,15 @@ where
                 },
                 active_context,
                 local_context,
-                value.into(),
+                term,
                 defined,
                 remote_contexts.clone(),
                 None,
                 false,
                 options.with_no_override(),
             ))
-            .await?;
+            .await
+            .map_err(|error| error.in_definition_of(term))?;
 
             if let Some(term_definition) = active_context.get(value) {
                 // If active context has a term definition for value, and the associated IRI mapping
@@ -135,6 +137,7 @@ where
                     // algorithm, passing active context, local context, prefix as term, and defined.
                     // This will ensure that a term definition is created for prefix in active context
                     // during Context Processing.
+                    let prefix = KeyOrKeywordRef::Key(compact_iri.prefix().into());
                     Recursion::new(super::define(
                         Environment {
                             vocabulary: env.vocabulary,
@@ -143,14 +146,15 @@ where
                         },
                         active_context,
                         local_context,
-                        KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+                        prefix,
                         defined,
                         remote_contexts,
                         None,
                         false,
                         options.with_no_override(),
                     ))
-                    .await?;
+                    .await
+                    .map_err(|error| error.in_definition_of(prefix))?;
 
                     // If active context contains a term definition for prefix having a non-null IRI
                     // mapping and the prefix flag of the term definition is true, return the result
