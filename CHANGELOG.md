@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.28.0] - 2026-11-19
+
+### 🐛 Bug Fixes
+- reject keyword terms and skip keyword-like terms in contexts
+
+### 🚀 Features
+- locate context errors in the term, key or url they fail on ⚠️ **BREAKING**
+
+### 🧹 Chores
+- bump version
+
 ## [v0.27.1] - 2026-11-09
 
 ### 📚 Documentation
